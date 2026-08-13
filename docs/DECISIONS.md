@@ -94,7 +94,8 @@ antes de activarla en firme en Sprint 3.**
 
 - **Sprint 0:** repo, TS, Dexie + Repository, Supabase (SQL+RLS), sync Outbox (esqueleto), PWA (navy + rename + íconos), CI/CD, este documento.
 - **Sprint 1a:** Dexie como backbone en vivo (useLiveQuery). Sembrado dev-only. Prod arranca vacío.
-- **Sprint 1b:** registrar cliente, registrar préstamo con auto-cálculo, ver activos.
+- **Sprint 1b:** alta de cliente + validación (TDD para validación de dominio).
+- **Sprint 1c:** registrar préstamo con auto-cálculo, ver activos.
 - **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día.
 - **Sprint 3:** interés por mora, clasificación automática, alerta mal pagador,
   historial de cliente, sync offline.

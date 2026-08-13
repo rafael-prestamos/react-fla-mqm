@@ -93,10 +93,10 @@ antes de activarla en firme en Sprint 3.**
 ## 10. Plan de sprints
 
 - **Sprint 0:** repo, TS, Dexie + Repository, Supabase (SQL+RLS), sync Outbox (esqueleto), PWA (navy + rename + íconos), CI/CD, este documento.
-- **Sprint 1a:** Dexie como backbone en vivo (useLiveQuery). Sembrado dev-only. Prod arranca vacío.
-- **Sprint 1b:** alta de cliente + validación (TDD para validación de dominio).
-- **Sprint 1c:** registrar préstamo con auto-cálculo, ver activos.
-- **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día.
+- **Sprint 1a:** Dexie como backbone en vivo (useLiveQuery). Sembrado dev-only. Prod arranca vacío. (Completado)
+- **Sprint 1b:** alta de cliente + validación (TDD para validación de dominio). (Completado)
+- **Sprint 1c:** registrar préstamo con auto-cálculo, ver activos. (Completado)
+- **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día. (Próximo)
 - **Sprint 3:** interés por mora, clasificación automática, alerta mal pagador,
   historial de cliente, sync offline.
 - **Sprint 4:** panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.

@@ -1,0 +1,45 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    name: Typecheck y build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    name: Deploy a Vercel (producción)
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar Vercel CLI
+        run: npm i -g vercel@latest
+      - name: Pull config de Vercel
+        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+      - name: Build (usa env de Vercel, incl. VITE_SUPABASE_*)
+        run: vercel build --prod --token=$VERCEL_TOKEN
+      - name: Deploy
+        run: vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

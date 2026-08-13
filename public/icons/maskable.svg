@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F406A"/>
+      <stop offset="1" stop-color="#122845"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"/>
+
+  <!-- floppy ears (behind head) -->
+  <path d="M168 168 C120 118 128 74 172 96 C206 112 222 158 214 202 C210 224 188 226 176 208 C162 188 158 178 168 168 Z" fill="#F3EAD7"/>
+  <path d="M344 168 C392 118 384 74 340 96 C306 112 290 158 298 202 C302 224 324 226 336 208 C350 188 354 178 344 168 Z" fill="#F3EAD7"/>
+  <!-- tan on right ear -->
+  <path d="M344 168 C392 118 384 74 340 96 C322 104 310 128 306 154 C318 176 336 182 348 172 C352 170 350 168 344 168 Z" fill="#CE9257"/>
+
+  <!-- head -->
+  <ellipse cx="256" cy="290" rx="158" ry="148" fill="#FBF5E9"/>
+
+  <!-- tan patch over left eye -->
+  <path d="M176 232 C150 258 152 306 196 320 C226 306 232 256 216 232 C204 214 190 216 176 232 Z" fill="#D49A5D"/>
+  <path d="M176 232 C158 252 160 292 190 306 C214 296 220 258 208 236 C198 222 188 222 176 232 Z" fill="#E0AC72"/>
+
+  <!-- eyes -->
+  <ellipse cx="200" cy="276" rx="29" ry="33" fill="#182740"/>
+  <ellipse cx="312" cy="276" rx="29" ry="33" fill="#182740"/>
+  <circle cx="210" cy="266" r="8.5" fill="#FFFFFF"/>
+  <circle cx="322" cy="266" r="8.5" fill="#FFFFFF"/>
+
+  <!-- muzzle -->
+  <ellipse cx="256" cy="360" rx="88" ry="66" fill="#FFFFFF"/>
+
+  <!-- nose -->
+  <path d="M256 322 C286 322 298 340 289 357 C283 369 268 377 256 377 C244 377 229 369 223 357 C214 340 226 322 256 322 Z" fill="#182740"/>
+  <ellipse cx="247" cy="338" rx="6" ry="4" fill="#3A4A66" opacity="0.7"/>
+
+  <!-- mouth -->
+  <path d="M256 377 L256 398" stroke="#182740" stroke-width="8" stroke-linecap="round"/>
+  <path d="M256 398 C239 417 212 412 206 393" stroke="#182740" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M256 398 C273 417 300 412 306 393" stroke="#182740" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>

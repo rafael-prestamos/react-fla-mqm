@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 1a completo. Dexie es el backbone en vivo (useLiveQuery). Sembrado solo en desarrollo. En producción arranca vacío. Sprint 1b es el siguiente.
+Estado actual: Sprint 1b completo. Alta de clientes integrada con TDD en lógica pura. Sprint 1c es el siguiente (alta de préstamos).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.

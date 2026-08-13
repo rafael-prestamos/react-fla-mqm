@@ -14,6 +14,16 @@ describe("Repositories", () => {
     await db.outbox.clear();
   });
 
+  it("clientsRepo.findByDni finds client by DNI and handles missing ones", async () => {
+    await clientsRepo.create({ dni: "12345678", name: "Ana", phone: "987654321" });
+    const found = await clientsRepo.findByDni("12345678");
+    expect(found).toBeDefined();
+    expect(found?.dni).toBe("12345678");
+
+    const notFound = await clientsRepo.findByDni("00000000");
+    expect(notFound).toBeUndefined();
+  });
+
   it("clientsRepo.create persists client and enqueues put operation", async () => {
     const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
     const c = await db.clients.get(client.id);

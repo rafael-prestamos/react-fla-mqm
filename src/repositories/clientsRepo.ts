@@ -19,14 +19,18 @@ export const clientsRepo = {
     return db.clients.get(id);
   },
 
+  findByDni(dni: string): Promise<Client | undefined> {
+    return db.clients.where("dni").equals(dni.trim()).first();
+  },
+
   /** Crea un cliente nuevo y lo encola para sync. */
   async create(input: Pick<Client, "dni" | "name" | "phone">): Promise<Client> {
     const timestamp = nowIso();
     const client: Client = {
       id: newId(),
-      dni: input.dni,
-      name: input.name,
-      phone: input.phone,
+      dni: input.dni.trim(),
+      name: input.name.trim(),
+      phone: input.phone.trim(),
       createdAt: timestamp,
       updatedAt: timestamp,
     };

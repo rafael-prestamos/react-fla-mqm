@@ -11,6 +11,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
 import { paymentsRepo } from "./repositories/paymentsRepo";
+import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -145,6 +146,7 @@ export default function App() {
   const [offline, setOffline] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
 
   const clientById = (id: string): Client =>
     clients.find((c) => c.id === id) ?? ({} as Client);
@@ -204,6 +206,14 @@ export default function App() {
     await loansRepo.create(input);
     setCreating(false);
     setTab("loans");
+  }
+
+  async function createClient(input: ClientInput): Promise<string | null> {
+    const existing = await clientsRepo.findByDni(input.dni);
+    if (existing) return "Ya existe un cliente con ese DNI";
+    await clientsRepo.create({ name: input.name, dni: input.dni, phone: input.phone });
+    setCreatingClient(false);
+    return null;
   }
 
   const payingRow = payingId ? rows.find((r) => r.loan.id === payingId) ?? null : null;
@@ -282,11 +292,17 @@ export default function App() {
 
           {tab === "clients" && (
             <>
-              <div style={{ fontSize: 18, fontWeight: 700, margin: "4px 2px 12px" }}>Clientes</div>
-              {clients.map((c) => {
-                const theirs = rows.filter((r) => r.loan.clientId === c.id);
-                const rating = ratingOf(c.id);
-                const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>Clientes</div>
+                <button className="btn btn-p" onClick={() => setCreatingClient(true)}><Plus size={16} /> Nuevo</button>
+              </div>
+              {clients.length === 0 ? (
+                <div className="empty">Aún no tienes clientes. Agrega el primero para empezar.</div>
+              ) : (
+                clients.map((c) => {
+                  const theirs = rows.filter((r) => r.loan.clientId === c.id);
+                  const rating = ratingOf(c.id);
+                  const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
                 return (
                   <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
@@ -318,12 +334,13 @@ export default function App() {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </>
           )}
         </div>
 
         {tab === "loans" && <button className="fab" onClick={() => setCreating(true)}><Plus size={24} /></button>}
+        {tab === "clients" && <button className="fab" onClick={() => setCreatingClient(true)}><Plus size={24} /></button>}
 
         <div className="nav">
           <NavBtn on={tab === "today"} onClick={() => setTab("today")} icon={<Home size={20} />} label="Hoy" />
@@ -339,6 +356,7 @@ export default function App() {
           />
         )}
         {creating && <NewLoanSheet clients={clients} ratingOf={ratingOf} onClose={() => setCreating(false)} onSubmit={createLoan} />}
+        {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
       </div>
     </div>
   );
@@ -563,6 +581,67 @@ function NewLoanSheet({ clients, ratingOf, onClose, onSubmit }: {
           onClick={() => onSubmit({ clientId, principalCents, rate, termDays })}
         >
           Registrar préstamo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NewClientSheet({ onClose, onSubmit }: {
+  onClose: () => void;
+  onSubmit: (input: ClientInput) => Promise<string | null>;
+}) {
+  const [name, setName] = useState("");
+  const [dni, setDni] = useState("");
+  const [phone, setPhone] = useState("");
+  const [errors, setErrors] = useState<ClientErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    const input = { name, dni, phone };
+    const validation = validateClientInput(input);
+    if (!validation.ok) {
+      setErrors(validation.errors);
+      return;
+    }
+    setSubmitting(true);
+    const err = await onSubmit(input);
+    setSubmitting(false);
+    if (err) {
+      setErrors({ dni: err });
+    }
+  }
+
+  return (
+    <div className="ovl" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <h3>Nuevo cliente <span className="x" onClick={onClose}><X size={17} /></span></h3>
+        
+        <div className="field">
+          <label>Nombre</label>
+          <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana Torres" />
+          {errors.name && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.name}</div>}
+        </div>
+
+        <div className="field">
+          <label>DNI</label>
+          <input className="inp num" inputMode="numeric" maxLength={8} value={dni} onChange={(e) => setDni(e.target.value)} placeholder="8 dígitos" />
+          {errors.dni && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.dni}</div>}
+        </div>
+
+        <div className="field">
+          <label>Celular</label>
+          <input className="inp num" inputMode="numeric" maxLength={9} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9 dígitos" />
+          {errors.phone && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.phone}</div>}
+        </div>
+
+        <button
+          className="btn btn-p btn-block"
+          style={{ marginTop: 18 }}
+          disabled={submitting}
+          onClick={handleSubmit}
+        >
+          {submitting ? "Guardando..." : "Guardar cliente"}
         </button>
       </div>
     </div>

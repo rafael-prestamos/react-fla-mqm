@@ -12,6 +12,7 @@ import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
 import { paymentsRepo } from "./repositories/paymentsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
+import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -203,6 +204,8 @@ export default function App() {
   }
 
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
+    const validation = validateLoanInput(input);
+    if (!validation.ok) return;
     await loansRepo.create(input);
     setCreating(false);
     setTab("loans");
@@ -282,11 +285,20 @@ export default function App() {
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Préstamos</div>
-                <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>
+                {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
               </div>
-              {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)}
-              {paidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-              {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} />)}
+              {loans.length === 0 ? (
+                <div className="empty" style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
+                  Aún no tienes préstamos activos.
+                  <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>
+                </div>
+              ) : (
+                <>
+                  {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)}
+                  {paidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
+                  {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} />)}
+                </>
+              )}
             </>
           )}
 
@@ -355,7 +367,15 @@ export default function App() {
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
           />
         )}
-        {creating && <NewLoanSheet clients={clients} ratingOf={ratingOf} onClose={() => setCreating(false)} onSubmit={createLoan} />}
+        {creating && (
+          <NewLoanSheet
+            clients={clients}
+            ratingOf={ratingOf}
+            onClose={() => setCreating(false)}
+            onOpenNewClient={() => { setCreating(false); setCreatingClient(true); }}
+            onSubmit={createLoan}
+          />
+        )}
         {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
       </div>
     </div>
@@ -512,76 +532,104 @@ function PaymentSheet({ row, onClose, onSubmit }: {
   );
 }
 
-function NewLoanSheet({ clients, ratingOf, onClose, onSubmit }: {
+function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }: {
   clients: Client[];
   ratingOf: (clientId: string) => ClientRating;
   onClose: () => void;
+  onOpenNewClient: () => void;
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
 }) {
   const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
   const [principal, setPrincipal] = useState("");
   const [ratePct, setRatePct] = useState("20");
   const [termDays, setTermDays] = useState<LoanTerm>(30);
+  const [errors, setErrors] = useState<LoanErrors>({});
+  
   const principalCents = toCents(parseFloat(principal) || 0);
   const rate = (parseFloat(ratePct) || 0) / 100;
   const interestCents = Math.round(principalCents * rate);
   const totalCents = principalCents + interestCents;
   const isBad = ratingOf(clientId) === "bad";
   const terms: LoanTerm[] = [25, 28, 30];
+
+  function handleSubmit() {
+    const input = { clientId, principalCents, rate, termDays };
+    const validation = validateLoanInput(input);
+    if (!validation.ok) {
+      setErrors(validation.errors);
+      return;
+    }
+    onSubmit(input);
+  }
+
   return (
     <div className="ovl" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Nuevo préstamo <span className="x" onClick={onClose}><X size={17} /></span></h3>
 
-        <div className="field">
-          <label>Cliente</label>
-          <select className="inp" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name} — DNI {c.dni}</option>)}
-          </select>
-        </div>
-
-        {isBad && (
-          <div className="warn">
-            <AlertTriangle size={18} style={{ flexShrink: 0 }} />
-            <span><b>Este cliente quedó como mal pagador.</b> Puedes prestarle igual — tú decides — pero revisa su historial antes.</span>
+        {clients.length === 0 ? (
+          <div className="warn" style={{ flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12 }}>
+            <div>Primero registra un cliente para poder prestar.</div>
+            <button className="btn btn-p" onClick={onOpenNewClient}>Registrar cliente</button>
           </div>
-        )}
-
-        <div className="field">
-          <label>Capital a prestar (S/)</label>
-          <input className="inp num" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="1000.00" />
-        </div>
-
-        <div style={{ display: "flex", gap: 11 }}>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Interés (%)</label>
-            <input className="inp num" inputMode="decimal" value={ratePct} onChange={(e) => setRatePct(e.target.value)} />
-          </div>
-          <div className="field" style={{ flex: 2 }}>
-            <label>Plazo</label>
-            <div className="seg">
-              {terms.map((day) => (
-                <button key={day} className={termDays === day ? "on" : ""} onClick={() => setTermDays(day)}>{day} días</button>
-              ))}
+        ) : (
+          <>
+            <div className="field">
+              <label>Cliente</label>
+              <select className="inp" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                {clientId === "" && <option value="" disabled>Selecciona un cliente</option>}
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name} — DNI {c.dni}</option>)}
+              </select>
+              {errors.clientId && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.clientId}</div>}
             </div>
-          </div>
-        </div>
 
-        <div className="preview">
-          <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
-          <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
-          <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
-          <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
-        </div>
+            {isBad && (
+              <div className="warn">
+                <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+                <span><b>Este cliente quedó como mal pagador.</b> Puedes prestarle igual — tú decides — pero revisa su historial antes.</span>
+              </div>
+            )}
 
-        <button
-          className="btn btn-p btn-block"
-          style={{ marginTop: 18 }}
-          disabled={principalCents <= 0}
-          onClick={() => onSubmit({ clientId, principalCents, rate, termDays })}
-        >
-          Registrar préstamo
-        </button>
+            <div className="field">
+              <label>Capital a prestar (S/)</label>
+              <input className="inp num" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="1000.00" />
+              {errors.principal && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.principal}</div>}
+            </div>
+
+            <div style={{ display: "flex", gap: 11 }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label>Interés (%)</label>
+                <input className="inp num" inputMode="decimal" value={ratePct} onChange={(e) => setRatePct(e.target.value)} />
+                {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
+              </div>
+              <div className="field" style={{ flex: 2 }}>
+                <label>Plazo</label>
+                <div className="seg">
+                  {terms.map((day) => (
+                    <button key={day} className={termDays === day ? "on" : ""} onClick={() => setTermDays(day)}>{day} días</button>
+                  ))}
+                </div>
+                {errors.termDays && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.termDays}</div>}
+              </div>
+            </div>
+
+            <div className="preview">
+              <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
+              <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
+              <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
+              <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
+            </div>
+
+            <button
+              className="btn btn-p btn-block"
+              style={{ marginTop: 18 }}
+              disabled={principalCents <= 0 || !Number.isInteger(principalCents)}
+              onClick={handleSubmit}
+            >
+              Registrar préstamo
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

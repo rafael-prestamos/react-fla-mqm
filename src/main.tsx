@@ -5,6 +5,7 @@ import { SessionProvider, useSession } from "./auth/SessionContext";
 import { LoginScreen, LoadingScreen } from "./auth/LoginScreen";
 import { seedIfEmpty } from "./db/seedDatabase";
 import { OnlineProvider } from "./sync/OnlineContext";
+import { SyncProvider } from "./sync/SyncEngine";
 import "./styles/theme.css";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -25,9 +26,11 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <OnlineProvider>
       <SessionProvider>
-        <AuthGate>
-          <App />
-        </AuthGate>
+        <SyncProvider>
+          <AuthGate>
+            <App />
+          </AuthGate>
+        </SyncProvider>
       </SessionProvider>
     </OnlineProvider>
   </StrictMode>

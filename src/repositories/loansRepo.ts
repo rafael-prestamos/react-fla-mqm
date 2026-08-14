@@ -12,14 +12,7 @@ import type { Loan, LoanTerm } from "../types/domain";
 import { applyPayment, type ApplyPaymentInput, type ApplyPaymentResult } from "../domain/loanPayment";
 import { paymentsRepo } from "./paymentsRepo";
 
-/** Aplica un cambio a un préstamo, actualiza updatedAt y lo encola para sync. */
-async function mutateLoan(loanId: string, fn: (loan: Loan) => Loan): Promise<void> {
-  const current = await db.loans.get(loanId);
-  if (!current) return;
-  const updated: Loan = { ...fn(current), updatedAt: nowIso() };
-  await db.loans.put(updated);
-  await enqueue("loans", loanId, "put", updated);
-}
+
 
 export const loansRepo = {
   all(): Promise<Loan[]> {
@@ -60,42 +53,7 @@ export const loansRepo = {
     return loan;
   },
 
-  /**
-   * @deprecated será retirado en 2b tras el cableado
-   * Registra un abono parcial que reduce el saldo.
-   */
-  addPartial(loanId: string, amountCents: number): Promise<void> {
-    return mutateLoan(loanId, (loan) => ({
-      ...loan,
-      paidOffCents: loan.paidOffCents + amountCents,
-    }));
-  },
 
-  /**
-   * @deprecated será retirado en 2b tras el cableado
-   * Renovación por "solo interés": inicia un nuevo ciclo desde la fecha de
-   * vencimiento (corre la entrega un plazo hacia adelante) y limpia los abonos.
-   */
-  renew(loanId: string): Promise<void> {
-    return mutateLoan(loanId, (loan) => {
-      const disbursed = new Date(loan.disbursedAt);
-      disbursed.setDate(disbursed.getDate() + loan.termDays);
-      return {
-        ...loan,
-        disbursedAt: toIsoDate(disbursed),
-        paidOffCents: 0,
-        renewalCount: loan.renewalCount + 1,
-      };
-    });
-  },
-
-  /**
-   * @deprecated será retirado en 2b tras el cableado
-   * Marca el préstamo como pagado por completo.
-   */
-  markPaid(loanId: string): Promise<void> {
-    return mutateLoan(loanId, (loan) => ({ ...loan, isPaid: true }));
-  },
 
   async applyPayment(input: ApplyPaymentInput): Promise<ApplyPaymentResult> {
     const current = await db.loans.get(input.loan.id);

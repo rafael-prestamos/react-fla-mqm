@@ -178,29 +178,30 @@ export default function App() {
 
   const activeRows = rows.filter((r) => !r.loan.isPaid);
   const paidRows = rows.filter((r) => r.loan.isPaid);
-  const dueToday = activeRows.filter((r) => r.d.daysLate === 0);
-  const overdue = activeRows.filter((r) => r.d.daysLate > 0);
+  const dueToday = activeRows.filter((r) => r.d.daysLate === 0).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
+  const overdue = activeRows.filter((r) => r.d.daysLate > 0).sort((a, b) => b.d.daysLate !== a.d.daysLate ? b.d.daysLate - a.d.daysLate : b.d.balanceCents - a.d.balanceCents);
+  const dueSoon = activeRows.filter((r) => r.d.daysLate < 0 && r.d.daysLate >= -3).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const capitalOut = activeRows.reduce((s, r) => s + r.loan.principalCents, 0);
   const interestOut = activeRows.reduce((s, r) => s + r.d.interestCents + r.d.lateInterestCents, 0);
   const badCount = activeRows.filter((r) => r.d.daysLate > 7).length;
 
   /* acciones */
-  async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }) {
+  async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }): Promise<string | null> {
     const target = loans.find((l) => l.id === loanId);
-    if (!target) return;
-    const d = deriveLoan(target);
+    if (!target) return "Préstamo no encontrado";
 
-    if (input.type === "full") {
-      await paymentsRepo.create({ loanId, type: "full", amountCents: d.balanceCents, method: input.method, daysLate: d.daysLate });
-      await loansRepo.markPaid(loanId);
-    } else if (input.type === "interest") {
-      await paymentsRepo.create({ loanId, type: "interest", amountCents: d.interestCents, method: input.method, daysLate: d.daysLate });
-      await loansRepo.renew(loanId);
-    } else {
-      await paymentsRepo.create({ loanId, type: "partial", amountCents: input.amountCents, method: input.method, daysLate: d.daysLate });
-      await loansRepo.addPartial(loanId, input.amountCents);
+    try {
+      await loansRepo.applyPayment({
+        loan: target,
+        type: input.type,
+        amountCents: input.amountCents,
+        method: input.method,
+      });
+      setPayingId(null);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
     }
-    setPayingId(null);
   }
 
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
@@ -263,6 +264,13 @@ export default function App() {
                 <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} />
               </div>
 
+              {dueSoon.length > 0 && (
+                <>
+                  <div className="pf-sect"><CalendarClock size={14} /> Por vencer (próximos 3 días) <span className="cnt">{dueSoon.length}</span></div>
+                  {dueSoon.map((r) => <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)}
+                </>
+              )}
+
               <div className="pf-sect"><CalendarClock size={14} /> Vence hoy <span className="cnt">{dueToday.length}</span></div>
               {dueToday.length ? (
                 dueToday.map((r) => <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)
@@ -272,9 +280,7 @@ export default function App() {
 
               <div className="pf-sect"><AlertTriangle size={14} /> Atrasados <span className="cnt">{overdue.length}</span></div>
               {overdue.length ? (
-                [...overdue].sort((a, b) => b.d.daysLate - a.d.daysLate).map((r) => (
-                  <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />
-                ))
+                overdue.map((r) => <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)
               ) : (
                 <div className="empty">Sin atrasados. 🎉</div>
               )}
@@ -471,13 +477,30 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
 function PaymentSheet({ row, onClose, onSubmit }: {
   row: LoanRow;
   onClose: () => void;
-  onSubmit: (input: { type: PaymentType; amountCents: number; method: PaymentMethod }) => void;
+  onSubmit: (input: { type: PaymentType; amountCents: number; method: PaymentMethod }) => Promise<string | null>;
 }) {
   const { d, client } = row;
   const [type, setType] = useState<PaymentType>("full");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const amountCents = toCents(parseFloat(amount) || 0);
+
+  const handleTypeChange = (newType: PaymentType) => {
+    setType(newType);
+    setSubmitError(null);
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAmount(e.target.value);
+    setSubmitError(null);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitError(null);
+    const err = await onSubmit({ type, amountCents, method });
+    if (err) setSubmitError(err);
+  };
   return (
     <div className="ovl" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -487,9 +510,9 @@ function PaymentSheet({ row, onClose, onSubmit }: {
         <div className="field">
           <label>¿Qué pagó?</label>
           <div className="seg">
-            <button className={type === "full" ? "on" : ""} onClick={() => setType("full")}>Todo</button>
-            <button className={type === "interest" ? "on" : ""} onClick={() => setType("interest")}>Solo interés</button>
-            <button className={type === "partial" ? "on" : ""} onClick={() => setType("partial")}>Una parte</button>
+            <button className={type === "full" ? "on" : ""} onClick={() => handleTypeChange("full")}>Todo</button>
+            <button className={type === "interest" ? "on" : ""} onClick={() => handleTypeChange("interest")}>Solo interés</button>
+            <button className={type === "partial" ? "on" : ""} onClick={() => handleTypeChange("partial")}>Una parte</button>
           </div>
         </div>
 
@@ -503,7 +526,7 @@ function PaymentSheet({ row, onClose, onSubmit }: {
         {type === "partial" && (
           <div className="field">
             <label>¿Cuánto abonó? (S/)</label>
-            <input className="inp num" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <input className="inp num" inputMode="decimal" value={amount} onChange={handleAmountChange} placeholder="0.00" />
           </div>
         )}
 
@@ -519,7 +542,7 @@ function PaymentSheet({ row, onClose, onSubmit }: {
           className="btn btn-p btn-block"
           style={{ marginTop: 18 }}
           disabled={type === "partial" && amountCents <= 0}
-          onClick={() => onSubmit({ type, amountCents, method })}
+          onClick={handleSubmit}
         >
           {type === "full"
             ? `Cobrar ${formatSoles(d.balanceCents)}`
@@ -527,6 +550,11 @@ function PaymentSheet({ row, onClose, onSubmit }: {
               ? "Cobrar interés y renovar"
               : `Registrar abono ${amount ? formatSoles(amountCents) : ""}`}
         </button>
+        {submitError && (
+          <div style={{ color: "var(--bad)", fontSize: 13, marginTop: 12, textAlign: "center", fontWeight: 500 }}>
+            {submitError}
+          </div>
+        )}
       </div>
     </div>
   );

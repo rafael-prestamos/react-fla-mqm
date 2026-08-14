@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 1 completo (a+b+c). Alta de clientes y préstamos integrada con TDD en lógica pura, UI y persistencia. Sprint 2 es el siguiente (pago total/parcial).
+Estado actual: Sprint 2a completo. Lógica pura de pagos modelada (orden interés→capital, semántica de renovación, transacción única). Sprint 2b es el siguiente (cableado UI).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -35,7 +35,7 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 - **Plazos**: 25, 28 o 30 días.
 - **Tolerancia**: 7 días de gracia (atraso) sin penalidad.
 - **Renovación**: Opción por "solo interés" (inicia un nuevo ciclo).
-- **Abonos**: Abonos parciales reducen el saldo principal.
+- **Abonos**: Abonos parciales reducen el saldo principal, cubriendo primero el interés pendiente. La renovación arranca un nuevo ciclo desde la fecha de vencimiento. Aplicar un pago es una transacción única (loan+payment+outbox).
 - **Clasificación del cliente**:
   - *Bueno*: al día.
   - *Se demora*: > 7 días de atraso.

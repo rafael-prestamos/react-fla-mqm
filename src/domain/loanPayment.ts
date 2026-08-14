@@ -1,84 +1,50 @@
-import type { Loan, PaymentType, PaymentMethod } from "../types/domain";
-import { deriveLoan } from "./loanRules";
-
-// ⚠️ La regla de interés por mora aún está pendiente de confirmación verbal con la clienta (ver DECISIONS §5).
+import type { Installment, Payment, PaymentMethod } from "../types/domain";
+import { deriveInstallment } from "./loanRules";
 
 export interface ApplyPaymentInput {
-  loan: Loan;
-  type: PaymentType;
+  installment: Installment;
   amountCents: number;
   method: PaymentMethod;
   reference?: Date;
 }
 
-export interface PaymentRecord {
-  type: PaymentType;
-  amountCents: number;
-  interestPaidCents: number;
-  principalPaidCents: number;
-  method: PaymentMethod;
-  daysLate: number;
-}
-
 export interface ApplyPaymentResult {
-  updatedLoan: Loan;
-  paymentRecord: PaymentRecord;
+  updatedInstallment: Installment;
+  paymentRecord: Omit<Payment, "id" | "loanId">;
 }
 
 export function applyPayment(input: ApplyPaymentInput): ApplyPaymentResult {
-  const reference = input.reference || new Date();
-  const derived = deriveLoan(input.loan, reference);
-  
-  let amountCents = 0;
-  
-  const interestOfCycle = derived.interestCents + derived.lateInterestCents;
-  const alreadyAppliedToInterest = Math.min(input.loan.paidOffCents, interestOfCycle);
-  const remainingInterest = Math.max(0, interestOfCycle - alreadyAppliedToInterest);
-
-  let updatedLoan: Loan = { ...input.loan, updatedAt: new Date().toISOString() };
-
-  if (input.type === "full") {
-    amountCents = derived.balanceCents;
-    updatedLoan.isPaid = true;
-    updatedLoan.paidOffCents += amountCents;
-  } else if (input.type === "interest") {
-    amountCents = interestOfCycle;
-    updatedLoan.renewalCount += 1;
-    updatedLoan.paidOffCents = 0;
-    // Nueva fecha de entrega es la fecha de vencimiento anterior
-    updatedLoan.disbursedAt = derived.dueDate.toISOString();
-    updatedLoan.isPaid = false;
-  } else if (input.type === "partial") {
-    if (input.amountCents <= 0) {
-      throw new RangeError("amountCents debe ser > 0");
-    }
-    if (input.amountCents > derived.balanceCents) {
-      throw new RangeError("El abono excede el saldo");
-    }
-    amountCents = input.amountCents;
-    updatedLoan.paidOffCents += amountCents;
-    if (derived.balanceCents - amountCents === 0) {
-      updatedLoan.isPaid = true;
-    }
+  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
+    throw new RangeError("El monto debe ser un entero mayor a 0");
   }
 
-  const interestPaidCents = input.type === "interest" 
-    ? amountCents 
-    : Math.min(amountCents, remainingInterest);
-    
-  const principalPaidCents = Math.max(0, amountCents - interestPaidCents);
+  const derived = deriveInstallment(input.installment, input.reference);
 
-  const paymentRecord: PaymentRecord = {
-    type: input.type,
-    amountCents,
-    interestPaidCents,
-    principalPaidCents,
+  if (input.amountCents > derived.totalOwedCents) {
+    throw new RangeError("El pago excede lo debido en la cuota");
+  }
+
+  const newPaidCents = input.installment.paidCents + input.amountCents;
+  const isNowPaid = newPaidCents >= (input.installment.amountCents + derived.lateInterestCents);
+  
+  const now = input.reference || new Date();
+  const nowStr = now.toISOString();
+
+  const updatedInstallment: Installment = {
+    ...input.installment,
+    paidCents: newPaidCents,
+    status: isNowPaid ? "paid" : "pending",
+    paidAt: isNowPaid ? nowStr : null,
+    updatedAt: nowStr
+  };
+
+  const paymentRecord: Omit<Payment, "id" | "loanId"> = {
+    installmentId: input.installment.id,
+    amountCents: input.amountCents,
     method: input.method,
     daysLate: derived.daysLate,
+    paidAt: nowStr
   };
 
-  return {
-    updatedLoan,
-    paymentRecord,
-  };
+  return { updatedInstallment, paymentRecord };
 }

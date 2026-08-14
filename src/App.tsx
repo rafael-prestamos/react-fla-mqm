@@ -14,6 +14,7 @@ import { paymentsRepo } from "./repositories/paymentsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
+import { useSession } from "./auth/SessionContext";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -140,6 +141,7 @@ interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRa
 
 /* ---------- app ---------- */
 export default function App() {
+  const { session, signOut } = useSession();
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
@@ -365,6 +367,17 @@ export default function App() {
                   </div>
                 );
               }))}
+              
+              {session && (
+                <div style={{ marginTop: 24, textAlign: "center" }}>
+                  <button 
+                    onClick={() => signOut()} 
+                    style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
+                  >
+                    Cerrar sesión ({session.user?.email})
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

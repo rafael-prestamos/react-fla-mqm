@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 3b completo (sync bidireccional con Supabase usando last-write-wins y Sync UI). El siguiente paso es activar el interés por mora (Sprint 3c) o avanzar al Sprint 4 (Panel resumen, Sentry, backups).
+Estado actual: Sprint 4b (UI Cuotas) completo (refactor de UI sobre modelo de cuotas 1:N). El siguiente paso es el Sprint 4c (Sync de base de datos) o panel resumen. El siguiente paso es activar el interés por mora (Sprint 3c) o avanzar al Sprint 4 (Panel resumen, Sentry, backups).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -32,7 +32,7 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 
 **Reglas de Negocio (Resumen):**
 - **Interés simple**: (capital × tasa), no es compuesto.
-- **Plazos**: 25, 28 o 30 días.
+- **Frecuencias**: Semanal, Quincenal, Mensual (modelo en cuotas).
 - **Tolerancia**: 7 días de gracia (atraso) sin penalidad.
 - **Renovación**: Opción por "solo interés" (inicia un nuevo ciclo).
 - **Abonos**: Abonos parciales reducen el saldo principal, cubriendo primero el interés pendiente. La renovación arranca un nuevo ciclo desde la fecha de vencimiento. Aplicar un pago es una transacción única (loan+payment+outbox).

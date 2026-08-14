@@ -14,12 +14,16 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { getLocalOwner, setLocalOwner, clearLocalOwner } from "../db/localOwnership";
+import { nukeLocalData } from "../db/nukeLocal";
 
 interface SessionContextValue {
   session: Session | null;
   loading: boolean;
   /** true cuando corremos sin Supabase (solo local). */
   localOnly: boolean;
+  /** true cuando se está limpiando la base local (ej. tras cambio de usuario). */
+  wipingLocal: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -29,6 +33,7 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [wipingLocal, setWipingLocal] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -45,10 +50,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    async function handleSessionChange() {
+      const currentUserId = session?.user?.id;
+      if (!currentUserId) return; // No session
+      
+      const localOwner = getLocalOwner();
+      if (localOwner === null || localOwner !== currentUserId) {
+        setWipingLocal(true);
+        try {
+          await nukeLocalData();
+          setLocalOwner(currentUserId);
+        } finally {
+          setWipingLocal(false);
+        }
+      }
+    }
+    handleSessionChange();
+  }, [session?.user?.id]);
+
   const value = useMemo<SessionContextValue>(
     () => ({
       session,
       loading,
+      wipingLocal,
       localOnly: !isSupabaseConfigured,
       async signIn(email, password) {
         if (!supabase) return { error: "Supabase no configurado" };
@@ -56,10 +81,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return { error: error?.message ?? null };
       },
       async signOut() {
-        await supabase?.auth.signOut();
+        if (!supabase) return;
+        setWipingLocal(true);
+        try {
+          await nukeLocalData();
+          clearLocalOwner();
+          await supabase.auth.signOut();
+        } finally {
+          setWipingLocal(false);
+        }
       },
     }),
-    [session, loading]
+    [session, loading, wipingLocal]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

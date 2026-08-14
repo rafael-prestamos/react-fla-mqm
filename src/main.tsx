@@ -4,6 +4,7 @@ import App from "./App";
 import { SessionProvider, useSession } from "./auth/SessionContext";
 import { LoginScreen, LoadingScreen } from "./auth/LoginScreen";
 import { seedIfEmpty } from "./db/seedDatabase";
+import { OnlineProvider } from "./sync/OnlineContext";
 import "./styles/theme.css";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -22,10 +23,12 @@ if (import.meta.env.DEV) {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <SessionProvider>
-      <AuthGate>
-        <App />
-      </AuthGate>
-    </SessionProvider>
+    <OnlineProvider>
+      <SessionProvider>
+        <AuthGate>
+          <App />
+        </AuthGate>
+      </SessionProvider>
+    </OnlineProvider>
   </StrictMode>
 );

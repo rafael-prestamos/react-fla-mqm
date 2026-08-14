@@ -22,16 +22,23 @@ if (import.meta.env.DEV) {
   seedIfEmpty();
 }
 
+
+
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <OnlineProvider>
-      <SessionProvider>
-        <SyncProvider>
-          <AuthGate>
-            <App />
-          </AuthGate>
-        </SyncProvider>
-      </SessionProvider>
-    </OnlineProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <OnlineProvider>
+          <SessionProvider>
+            <SyncProvider>
+              <AuthGate>
+                <App />
+              </AuthGate>
+            </SyncProvider>
+          </SessionProvider>
+        </OnlineProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

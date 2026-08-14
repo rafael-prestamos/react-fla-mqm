@@ -16,6 +16,7 @@ import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
+import { useToast } from "./ui/ToastContext";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -134,6 +135,7 @@ interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRa
 export default function App() {
   const { session, signOut } = useSession();
   const sync = useSync();
+  const toast = useToast();
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
@@ -192,18 +194,26 @@ export default function App() {
         method: input.method,
       });
       setPayingId(null);
+      toast.success("Pago registrado");
       return null;
     } catch (e) {
-      return e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
+      const msg = e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
+      toast.error(msg);
+      return msg;
     }
   }
 
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
     const validation = validateLoanInput(input);
     if (!validation.ok) return;
-    await loansRepo.create(input);
-    setCreating(false);
-    setTab("loans");
+    try {
+      await loansRepo.create(input);
+      setCreating(false);
+      setTab("loans");
+      toast.success("Préstamo creado");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al crear préstamo");
+    }
   }
 
   async function createHistoricalLoan(input: LoanBackfillInput): Promise<string | null> {
@@ -211,18 +221,28 @@ export default function App() {
       await loansRepo.backfill(input);
       setCreating(false);
       setTab("loans");
+      toast.success("Histórico registrado");
       return null;
     } catch (e) {
-      return e instanceof Error ? e.message : "Error al registrar el préstamo histórico";
+      const msg = e instanceof Error ? e.message : "Error al registrar el préstamo histórico";
+      toast.error(msg);
+      return msg;
     }
   }
 
   async function createClient(input: ClientInput): Promise<string | null> {
     const existing = await clientsRepo.findByDni(input.dni);
     if (existing) return "Ya existe un cliente con ese DNI";
-    await clientsRepo.create({ name: input.name, dni: input.dni, phone: input.phone });
-    setCreatingClient(false);
-    return null;
+    try {
+      await clientsRepo.create({ name: input.name, dni: input.dni, phone: input.phone });
+      setCreatingClient(false);
+      toast.success("Cliente registrado");
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error al crear cliente";
+      toast.error(msg);
+      return msg;
+    }
   }
 
   const payingRow = payingId ? rows.find((r) => r.loan.id === payingId) ?? null : null;

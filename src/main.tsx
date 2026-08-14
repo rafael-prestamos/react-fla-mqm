@@ -1,4 +1,6 @@
 import { StrictMode } from "react";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { ToastProvider } from "./ui/ToastContext";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { SessionProvider, useSession } from "./auth/SessionContext";

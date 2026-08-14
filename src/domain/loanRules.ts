@@ -1,105 +1,118 @@
-/**
- * Reglas de negocio del préstamo — funciones PURAS (sin estado, fáciles de testear).
- * Patrón: Domain Model / Pure Functions.
- *
- * Reglas confirmadas con el cliente:
- *  - interés = capital × tasa (interés simple, NO compuesto)
- *  - total = capital + interés
- *  - plazos 25 / 28 / 30 días
- *  - tolerancia de 7 días de atraso sin penalidad
- *
- *  ⚠️ REGLA DE MAYOR RIESGO — mora por atraso (interés extra):
- *     pasados los 7 días de tolerancia corre 1 interés adicional (sobre el capital)
- *     por cada 30 días de atraso.
- *     Está marcada como PENDIENTE de confirmación VERBAL con el cliente antes de
- *     activarla de forma definitiva en Sprint 3. Por eso vive detrás del flag
- *     LATE_INTEREST_ENABLED para poder apagarla sin tocar la UI.
- */
-
-import type { Loan, ClientRating } from "../types/domain";
-import { addDays, diffDays, startOfToday } from "../lib/dates";
+import type { Installment, Loan, ClientRating } from "../types/domain";
+import { diffDays } from "../lib/dates";
 
 export const GRACE_DAYS = 7;
 export const LATE_PERIOD_DAYS = 30;
+export const LATE_INTEREST_ENABLED = false;
 
-/** ⚠️ Apagar hasta la confirmación verbal del cliente (Sprint 3). */
-export const LATE_INTEREST_ENABLED: boolean = true;
+export type InstallmentLateStatus = "pending" | "dueSoon" | "dueToday" | "grace" | "lateInterest" | "paid";
 
-/** Umbrales de clasificación automática del cliente (en días de atraso). */
-export const SLOW_PAYER_DAYS = 7;
-export const BAD_PAYER_DAYS = 30;
-
-/** Estado operativo de un préstamo para la vista de cobranza. */
-export type LoanStatus =
-  | "active" // al día
-  | "dueSoon" // por vencer (<= 3 días)
-  | "dueToday" // vence hoy
-  | "grace" // atrasado dentro de la tolerancia
-  | "lateInterest" // atrasado con interés extra corriendo
-  | "paid"; // pagado
-
-/** Resultado del cálculo derivado de un préstamo. */
-export interface LoanDerived {
-  disbursedDate: Date;
-  dueDate: Date;
-  interestCents: number;
-  totalCents: number; // capital + interés
-  daysLate: number; // > 0 = atrasado
-  latePeriods: number; // períodos de interés extra corridos
-  lateInterestCents: number;
-  debtCents: number; // total + interés extra
-  balanceCents: number; // deuda - abonos
-  status: LoanStatus;
+export interface InstallmentDerived {
+  daysLate: number;               // > 0 = atrasada
+  latePeriods: number;
+  lateInterestCents: number;      // 1 interés proporcional a la cuota por cada 30 días > 7
+  remainingBaseCents: number;     // amountCents - paidCents
+  totalOwedCents: number;         // remainingBase + lateInterest (si aplica)
+  status: InstallmentLateStatus;
 }
 
 /**
- * Calcula los períodos de interés extra por atraso.
- * 0 dentro de la tolerancia; luego 1 período por cada bloque de 30 días.
+ * Calcula la mora y el estado de una cuota.
+ * Interés proporcional a la cuota: lateInterest = latePeriods * amountCents
+ * (aproximación deliberada, confirmar con Fla antes de activar el flag LATE_INTEREST_ENABLED).
  */
-export const computeLatePeriods = (daysLate: number): number => {
-  if (!LATE_INTEREST_ENABLED) return 0;
-  if (daysLate <= GRACE_DAYS) return 0;
-  return 1 + Math.floor((daysLate - (GRACE_DAYS + 1)) / LATE_PERIOD_DAYS);
-};
+export function deriveInstallment(
+  installment: Installment,
+  reference?: Date
+): InstallmentDerived {
+  const daysLate = diffDays(reference || new Date(), installment.dueDate);
+  const remainingBaseCents = Math.max(0, installment.amountCents - installment.paidCents);
+  
+  let latePeriods = 0;
+  let lateInterestCents = 0;
 
-/** Deriva todos los valores calculados de un préstamo a una fecha de referencia. */
-export const deriveLoan = (loan: Loan, reference: Date = startOfToday()): LoanDerived => {
-  const disbursedDate = new Date(loan.disbursedAt);
-  const dueDate = addDays(disbursedDate, loan.termDays);
-  const interestCents = Math.round(loan.principalCents * loan.rate);
-  const totalCents = loan.principalCents + interestCents;
+  if (installment.status !== "paid" && remainingBaseCents > 0) {
+    if (daysLate > GRACE_DAYS) {
+      latePeriods = Math.floor((daysLate - GRACE_DAYS) / LATE_PERIOD_DAYS) + 1;
+      if (LATE_INTEREST_ENABLED) {
+        // Mora usando monto base de la cuota como aproximación de penalidad
+        lateInterestCents = latePeriods * installment.amountCents;
+      }
+    }
+  }
 
-  const daysLate = diffDays(reference, dueDate);
-  const latePeriods = computeLatePeriods(daysLate);
-  const lateInterestCents = latePeriods * interestCents;
-  const debtCents = totalCents + lateInterestCents;
-  const balanceCents = loan.isPaid ? 0 : Math.max(0, debtCents - loan.paidOffCents);
+  const totalOwedCents = remainingBaseCents + lateInterestCents;
 
-  let status: LoanStatus;
-  if (loan.isPaid || balanceCents === 0) status = "paid";
-  else if (daysLate > GRACE_DAYS) status = "lateInterest";
-  else if (daysLate > 0) status = "grace";
-  else if (daysLate === 0) status = "dueToday";
-  else if (daysLate >= -3) status = "dueSoon";
-  else status = "active";
+  let status: InstallmentLateStatus = "pending";
+  if (installment.status === "paid") {
+    status = "paid";
+  } else if (daysLate > GRACE_DAYS) {
+    status = "lateInterest";
+  } else if (daysLate > 0) {
+    status = "grace";
+  } else if (daysLate === 0) {
+    status = "dueToday";
+  } else if (daysLate >= -3) {
+    status = "dueSoon";
+  }
 
   return {
-    disbursedDate,
-    dueDate,
-    interestCents,
-    totalCents,
     daysLate,
     latePeriods,
     lateInterestCents,
-    debtCents,
-    balanceCents,
-    status,
+    remainingBaseCents,
+    totalOwedCents,
+    status
   };
-};
+}
 
-/** Clasifica al cliente según su mayor atraso (histórico o vigente). */
-export const classifyByMaxDaysLate = (maxDaysLate: number): ClientRating => {
-  if (maxDaysLate > BAD_PAYER_DAYS) return "bad";
-  if (maxDaysLate > SLOW_PAYER_DAYS) return "slow";
+export function derivedLoanTotals(
+  loan: Loan,
+  installments: Installment[],
+  reference?: Date
+): {
+  totalCents: number;
+  paidCents: number;
+  balanceCents: number;
+  pendingInstallments: number;
+  nextDueInstallment: Installment | null;
+  status: "active" | "paid";
+} {
+  let totalCents = 0;
+  let paidCents = 0;
+  let balanceCents = 0;
+  let pendingInstallments = 0;
+  let nextDueInstallment: Installment | null = null;
+
+  for (const inst of installments) {
+    const derived = deriveInstallment(inst, reference);
+    totalCents += inst.amountCents;
+    paidCents += inst.paidCents;
+    balanceCents += derived.totalOwedCents;
+
+    if (inst.status !== "paid") {
+      pendingInstallments++;
+      if (!nextDueInstallment || inst.dueDate < nextDueInstallment.dueDate) {
+        nextDueInstallment = inst;
+      }
+    }
+  }
+
+  return {
+    totalCents,
+    paidCents,
+    balanceCents,
+    pendingInstallments,
+    nextDueInstallment,
+    status: pendingInstallments === 0 ? "paid" : "active"
+  };
+}
+
+/**
+ * Clasifica a un cliente basado en su máximo atraso histórico.
+ */
+export function classifyByMaxDaysLate(maxDaysLate: number): ClientRating {
+  if (maxDaysLate > 30) return "bad";
+  if (maxDaysLate > 7) return "slow";
   return "good";
-};
+}

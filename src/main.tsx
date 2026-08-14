@@ -7,6 +7,7 @@ import { seedIfEmpty } from "./db/seedDatabase";
 import { OnlineProvider } from "./sync/OnlineContext";
 import { SyncProvider } from "./sync/SyncEngine";
 import "./styles/theme.css";
+import "./styles/app.css";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading, localOnly, wipingLocal } = useSession();

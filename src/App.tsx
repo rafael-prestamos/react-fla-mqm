@@ -22,16 +22,6 @@ import { useSession } from "./auth/SessionContext";
  * ------------------------------------------------------------------ */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-:root{
-  --paper:#F2F4F8; --card:#FFFFFF; --ink:#152238;
-  --navy:#16325C; --navy-light:#1F406A; --navy-deep:#122845;
-  --accent:#D49A5D; --accent-soft:#FBF0DF; --cream:#FBF5E9;
-  --good:#1E7A55; --good-soft:#E1F0E8;
-  --warn:#B9720C; --warn-soft:#FBE9CE;
-  --bad:#B23A2B; --bad-soft:#F6E1DD;
-  --line:#E4E8F0; --muted:#65728A;
-}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 .pf-root{background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;
   min-height:100vh;display:flex;justify-content:center}

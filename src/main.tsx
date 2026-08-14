@@ -4,6 +4,7 @@ import App from "./App";
 import { SessionProvider, useSession } from "./auth/SessionContext";
 import { LoginScreen, LoadingScreen } from "./auth/LoginScreen";
 import { seedIfEmpty } from "./db/seedDatabase";
+import "./styles/theme.css";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading, localOnly, wipingLocal } = useSession();

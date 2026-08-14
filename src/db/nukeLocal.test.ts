@@ -5,11 +5,11 @@ import { nukeLocalData } from "./nukeLocal";
 
 describe("nukeLocalData", () => {
   beforeEach(async () => {
-    await db.clients.clear();
-    await db.loans.clear();
-    await db.installments.clear();
-    await db.payments.clear();
-    await db.outbox.clear();
+    if (db.isOpen()) {
+      db.close();
+    }
+    await db.delete();
+    await db.open();
   });
 
   it("should clear all tables when called", async () => {

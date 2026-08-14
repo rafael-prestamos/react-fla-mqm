@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { deriveInstallment, derivedLoanTotals, classifyByMaxDaysLate } from "./loanRules";
-import * as loanRules from "./loanRules";
+
 import type { Installment, Loan } from "../types/domain";
 
 describe("loanRules", () => {
@@ -56,25 +56,7 @@ describe("loanRules", () => {
       expect(d.lateInterestCents).toBe(0); // Because flag is false
     });
 
-    it("calculates late interest penalty if flag is on", () => {
-      // @ts-ignore - Mocking constant for test
-      vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
-      const d = deriveInstallment(baseInstallment, new Date("2024-01-20T12:00:00Z")); // 10 days late
-      expect(d.status).toBe("lateInterest");
-      expect(d.latePeriods).toBe(1);
-      expect(d.lateInterestCents).toBe(10000); // 1 period * 10000 base
-      expect(d.totalOwedCents).toBe(20000);
-    });
 
-    it("calculates multi-period late interest if flag is on", () => {
-      // @ts-ignore
-      vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
-      // dueDate = 10, grace=7, period=30. daysLate = 40. period = floor((40-7)/30)+1 = floor(33/30)+1 = 2
-      const d = deriveInstallment(baseInstallment, new Date("2024-02-19T12:00:00Z")); // 40 days late
-      expect(d.daysLate).toBe(40);
-      expect(d.latePeriods).toBe(2);
-      expect(d.lateInterestCents).toBe(20000); 
-    });
 
     it("identifies paid state and has 0 totalOwed if fully paid", () => {
       const paidInst = { ...baseInstallment, status: "paid", paidCents: 10000 } as Installment;

@@ -25,7 +25,7 @@ export function deriveInstallment(
   installment: Installment,
   reference?: Date
 ): InstallmentDerived {
-  const daysLate = diffDays(reference || new Date(), installment.dueDate);
+  const daysLate = diffDays(reference || new Date(), new Date(installment.dueDate + "T00:00:00"));
   const remainingBaseCents = Math.max(0, installment.amountCents - installment.paidCents);
   
   let latePeriods = 0;
@@ -67,7 +67,7 @@ export function deriveInstallment(
 }
 
 export function derivedLoanTotals(
-  loan: Loan,
+  _loan: Loan,
   installments: Installment[],
   reference?: Date
 ): {

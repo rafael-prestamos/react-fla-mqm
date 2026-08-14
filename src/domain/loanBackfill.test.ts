@@ -34,7 +34,7 @@ describe("loanBackfill", () => {
         { index: 2, paidCents: 1500, paidAt: null }
       ]
     };
-    const { loan, installments, syntheticPayments } = buildLoanBackfill(input);
+    const { installments, syntheticPayments } = buildLoanBackfill(input);
     
     // Inst 1 should be fully paid (base is 3000 for 4 cuotas of 12000 total)
     expect(installments[0].status).toBe("paid");

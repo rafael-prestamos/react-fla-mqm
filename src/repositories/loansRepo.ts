@@ -66,18 +66,6 @@ export const loansRepo = {
 
     const { loan: draftLoan, installments, syntheticPayments } = buildLoanBackfill(input);
 
-    const finalLoan: Loan = { ...draftLoan, id: newId() };
-    const finalInstallments = installments.map(i => ({ ...i, id: newId(), loanId: finalLoan.id }));
-    const finalPayments = syntheticPayments.map((p, idx) => ({ 
-      ...p, 
-      id: newId(), 
-      loanId: finalLoan.id,
-      installmentId: finalInstallments[idx].id // map array length correctly since we only generate payments for paid installments
-    }));
-
-    // Wait, the syntheticPayments are matched by cuota index in buildLoanBackfill.
-    // I need to properly map them. Let's rely on the IDs generated in buildLoanBackfill!
-    // buildLoanBackfill already generates valid UUIDs for loan, installments, and payments!
     // We don't need to overwrite them.
     
     await db.transaction("rw", db.loans, db.installments, db.payments, db.outbox, async () => {

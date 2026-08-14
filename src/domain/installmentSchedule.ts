@@ -26,17 +26,19 @@ export function buildSchedule(input: {
   const nowStr = (input.now || new Date()).toISOString();
 
   const installments: Installment[] = [];
-  let currentDueDate = input.disbursedAt;
+  let currentDueDate = new Date(input.disbursedAt + "T00:00:00");
 
   for (let i = 1; i <= input.installmentCount; i++) {
     currentDueDate = addDays(currentDueDate, intervalDays);
     const isLast = i === input.installmentCount;
+    // toIsoDate gives YYYY-MM-DD
+    const dueDateStr = currentDueDate.toISOString().split("T")[0];
 
     installments.push({
       id: uuidv4(),
       loanId: input.loanId,
       index: i,
-      dueDate: currentDueDate,
+      dueDate: dueDateStr,
       amountCents: isLast ? lastInstallmentCents : baseInstallmentCents,
       paidCents: 0,
       status: "pending",

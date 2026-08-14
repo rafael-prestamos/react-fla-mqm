@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { pullFromSupabase } from "./pull";
 import { db } from "../db/database";
 import { supabase } from "../lib/supabase";
-import type { ClientRow, LoanRow, InstallmentRow, PaymentRow } from "./mappers";
+import type { ClientRow, InstallmentRow } from "./mappers";
 
 vi.mock("../lib/supabase", () => {
   return {
@@ -17,10 +17,11 @@ vi.mock("../lib/supabase", () => {
 
 describe("pullFromSupabase", () => {
   beforeEach(async () => {
-    await db.clients.clear();
-    await db.loans.clear();
-    await db.installments.clear();
-    await db.payments.clear();
+    if (db.isOpen()) {
+      db.close();
+    }
+    await db.delete();
+    await db.open();
     vi.resetAllMocks();
   });
 

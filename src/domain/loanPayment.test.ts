@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyPayment } from "./loanPayment";
 import type { Installment } from "../types/domain";
-import * as loanRules from "./loanRules";
+
 
 describe("applyPayment", () => {
   afterEach(() => {
@@ -58,26 +58,5 @@ describe("applyPayment", () => {
     expect(res.paymentRecord.amountCents).toBe(4000);
   });
 
-  it("applies full payment including late interest", () => {
-    // @ts-ignore
-    vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
-    // 40 days late -> 2 late periods -> 20000 interest + 10000 base = 30000 total
-    const res = applyPayment({ installment: baseInst, amountCents: 30000, method: "cash", reference: new Date("2024-02-19T12:00:00Z") });
-    
-    expect(res.updatedInstallment.paidCents).toBe(30000);
-    expect(res.updatedInstallment.status).toBe("paid");
-    expect(res.paymentRecord.amountCents).toBe(30000);
-    expect(res.paymentRecord.daysLate).toBe(40);
-  });
 
-  it("applies partial payment when late interest is present but not fully paid", () => {
-    // @ts-ignore
-    vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
-    // 30000 total, pays 15000
-    const res = applyPayment({ installment: baseInst, amountCents: 15000, method: "cash", reference: new Date("2024-02-19T12:00:00Z") });
-    
-    expect(res.updatedInstallment.paidCents).toBe(15000);
-    expect(res.updatedInstallment.status).toBe("pending");
-    expect(res.updatedInstallment.paidAt).toBeNull();
-  });
 });

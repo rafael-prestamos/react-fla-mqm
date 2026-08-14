@@ -1,7 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db/database";
-import { clientsRepo } from "./clientsRepo";
 import { loansRepo } from "./loansRepo";
 import { installmentsRepo } from "./installmentsRepo";
 import { paymentsRepo } from "./paymentsRepo";
@@ -9,11 +8,11 @@ import type { InstallmentFrequency } from "../types/domain";
 
 describe("Repositories (Cuotas)", () => {
   beforeEach(async () => {
-    await db.clients.clear();
-    await db.loans.clear();
-    await db.installments.clear();
-    await db.payments.clear();
-    await db.outbox.clear();
+    if (db.isOpen()) {
+      db.close();
+    }
+    await db.delete();
+    await db.open();
   });
 
   describe("loansRepo & installmentsRepo", () => {
@@ -42,7 +41,7 @@ describe("Repositories (Cuotas)", () => {
     });
 
     it("applies a payment and updates outbox", async () => {
-      const { loan, installments } = await loansRepo.create({
+      const { installments } = await loansRepo.create({
         clientId: "client-1",
         principalCents: 10000,
         rate: 0.1,
@@ -70,7 +69,7 @@ describe("Repositories (Cuotas)", () => {
     });
 
     it("marks loan as paid if all installments paid", async () => {
-      const { loan, installments } = await loansRepo.create({
+      const { installments } = await loansRepo.create({
         clientId: "client-1",
         principalCents: 10000,
         rate: 0.1,

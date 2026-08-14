@@ -25,14 +25,14 @@ const baseClients: ClientSeed[] = [
 const disbursed = (daysAgo: number): string => toIsoDate(addDays(startOfToday(), -daysAgo));
 
 const baseLoans: LoanSeed[] = [
-  { id: "l1", clientId: "c1", principalCents: 1_500_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(30), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l2", clientId: "c2", principalCents: 100_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(33), paidOffCents: 0, renewalCount: 1, isPaid: false },
-  { id: "l3", clientId: "c3", principalCents: 50_000, rate: 0.2, termDays: 28, disbursedAt: disbursed(20), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l4", clientId: "c4", principalCents: 100_000, rate: 0.2, termDays: 25, disbursedAt: disbursed(12), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l5", clientId: "c5", principalCents: 20_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(40), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l6", clientId: "c6", principalCents: 90_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(65), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l7", clientId: "c7", principalCents: 80_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(50), paidOffCents: 0, renewalCount: 0, isPaid: false },
-  { id: "l8", clientId: "c8", principalCents: 200_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(5), paidOffCents: 0, renewalCount: 0, isPaid: false },
+  { id: "l1", clientId: "c1", principalCents: 1_500_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(30), isPaid: false },
+  { id: "l2", clientId: "c2", principalCents: 100_000, rate: 0.2, installmentCount: 2, frequency: "biweekly", disbursedAt: disbursed(33), isPaid: false },
+  { id: "l3", clientId: "c3", principalCents: 50_000, rate: 0.2, installmentCount: 4, frequency: "weekly", disbursedAt: disbursed(20), isPaid: false },
+  { id: "l4", clientId: "c4", principalCents: 100_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(12), isPaid: false },
+  { id: "l5", clientId: "c5", principalCents: 20_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(40), isPaid: false },
+  { id: "l6", clientId: "c6", principalCents: 90_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(65), isPaid: false },
+  { id: "l7", clientId: "c7", principalCents: 80_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(50), isPaid: false },
+  { id: "l8", clientId: "c8", principalCents: 200_000, rate: 0.2, installmentCount: 1, frequency: "monthly", disbursedAt: disbursed(5), isPaid: false },
 ];
 
 const EPOCH = "2025-01-01T00:00:00.000Z";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { formatSoles, toCents } from "../lib/money";
 import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
 import { X } from "lucide-react";
@@ -40,18 +40,33 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
   const principalCents = toCents(parseFloat(principal) || 0);
   const rate = (parseFloat(ratePct) || 0) / 100;
   
-  const schedule = buildSchedule({
-    loanId: "preview",
-    principalCents,
-    rate,
-    installmentCount: installmentCount || 1,
-    frequency,
-    disbursedAt: toIsoDate(startOfToday()),
-  });
+  const schedule = useMemo(() => {
+    const inputComplete =
+      principalCents > 0 &&
+      rate > 0 &&
+      rate <= 1 &&
+      Number.isInteger(installmentCount) &&
+      installmentCount >= 1 &&
+      installmentCount <= 60;
+    
+    if (!inputComplete) return null;
+    try {
+      return buildSchedule({
+        loanId: "__preview__",
+        principalCents,
+        rate,
+        installmentCount,
+        frequency,
+        disbursedAt: toIsoDate(startOfToday()),
+      });
+    } catch {
+      return null;
+    }
+  }, [principalCents, rate, installmentCount, frequency]);
 
-  const totalOwed = schedule.reduce((sum, i) => sum + i.amountCents, 0);
-  const firstDueDate = schedule[0]?.dueDate;
-  const lastDueDate = schedule[schedule.length - 1]?.dueDate;
+  const totalOwed = schedule?.reduce((sum, i) => sum + i.amountCents, 0) ?? 0;
+  const firstDueDate = schedule?.[0]?.dueDate;
+  const lastDueDate = schedule?.[schedule.length - 1]?.dueDate;
 
   const handleSubmit = async () => {
     const input: LoanInput = { clientId, principalCents, rate, installmentCount, frequency };
@@ -115,7 +130,7 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
           </div>
         </div>
 
-        {principalCents > 0 && installmentCount > 0 && (
+        {schedule ? (
           <div className="preview">
             <div className="r"><span>Total a cobrar (capital + interés)</span><span className="num">{formatSoles(totalOwed)}</span></div>
             <div className="r"><span>Cuota base</span><span className="num">{formatSoles(schedule[0]?.amountCents ?? 0)}</span></div>
@@ -131,6 +146,10 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
                 </div>
               ))}
             </div>
+          </div>
+        ) : (
+          <div style={{ margin: "20px 0", textAlign: "center", color: "var(--muted)", fontSize: 13, padding: 20, background: "var(--paper)", borderRadius: 12 }}>
+            Completa los datos para ver el cronograma
           </div>
         )}
 

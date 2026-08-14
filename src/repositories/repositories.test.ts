@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "../db/database";
 import { clientsRepo } from "./clientsRepo";
 import { loansRepo } from "./loansRepo";
@@ -87,5 +87,59 @@ describe("Repositories", () => {
     expect(ops).toHaveLength(1);
     expect(ops[0].entity).toBe("payments");
     expect(ops[0].op).toBe("put");
+  });
+
+  it("loansRepo.applyPayment with missing id throws", async () => {
+    const fakeLoan = { id: "no-existe" } as any;
+    await expect(loansRepo.applyPayment({ loan: fakeLoan, type: "partial", amountCents: 5000, method: "cash" })).rejects.toThrow("Préstamo no encontrado");
+  });
+
+  it("loansRepo.applyPayment applies partial payment transactionally", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.outbox.clear();
+    
+    await loansRepo.applyPayment({
+      loan,
+      type: "partial",
+      amountCents: 5000,
+      method: "cash",
+      reference: new Date("2025-01-15T00:00:00Z")
+    });
+
+    const l = await db.loans.get(loan.id);
+    expect(l?.paidOffCents).toBe(5000);
+    
+    const payments = await db.payments.toArray();
+    expect(payments).toHaveLength(1);
+    expect(payments[0].type).toBe("partial");
+    expect(payments[0].amountCents).toBe(5000);
+
+    const ops = await db.outbox.toArray();
+    expect(ops).toHaveLength(2);
+    expect(ops.map(o => o.entity).sort()).toEqual(["loans", "payments"]);
+    expect(ops.every(o => o.syncedAt === undefined)).toBe(true);
+  });
+
+  it("loansRepo.applyPayment rolls back if paymentsRepo.create fails", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.outbox.clear();
+
+    const spy = vi.spyOn(paymentsRepo, "create").mockRejectedValueOnce(new Error("Simulated failure"));
+    
+    await expect(loansRepo.applyPayment({
+      loan,
+      type: "partial",
+      amountCents: 5000,
+      method: "cash",
+      reference: new Date("2025-01-15T00:00:00Z")
+    })).rejects.toThrow("Simulated failure");
+
+    // Because it's a Dexie transaction, the loan modification should be rolled back!
+    const l = await db.loans.get(loan.id);
+    expect(l?.paidOffCents).toBe(0); // Rollback successful
+    expect(await db.payments.count()).toBe(0);
+    expect(await db.outbox.count()).toBe(0);
+
+    spy.mockRestore();
   });
 });

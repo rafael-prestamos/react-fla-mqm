@@ -59,11 +59,12 @@ Pasados los 7 días corre **1 interés adicional por cada 30 días** de atraso
 `src/domain/loanRules.ts`. **Pendiente de CONFIRMACIÓN VERBAL con la clienta
 antes de activarla en firme en Sprint 3.**
 
-### Sprint 2: Modelo de pagos (a+b completado)
+### Sprint 2: Modelo de pagos y Onboarding de cartera activa
 - **Orden de abonos (partial):** Primero cubren el interés pendiente del ciclo actual. El sobrante reduce el capital (saldo).
 - **Semántica de renovación (interest):** El pago de "solo interés" inicia un nuevo ciclo cuya fecha de entrega (`disbursedAt`) es idéntica a la fecha de vencimiento anterior, corriendo el plazo hacia adelante.
 - **Transacción única y Cableado UI:** La aplicación de un pago usa `applyPayment` transaccional (muta el `loan`, inserta el `payment` y encola en `outbox` en ACID de Dexie). Los antiguos métodos no transaccionales fueron retirados.
 - **Cobranzas "Hoy":** Reordenada, incorpora sección "Por vencer" (próximos 3 días) y manejo de errores explícito en el `PaymentSheet`.
+- **Sprint 2c (Registro Histórico):** Onboarding de la cartera activa. Permite a Fla cargar los préstamos vigentes que tiene en su cuaderno. Se consolida el saldo inicial restándolo de la deuda calculada (la cual toma en cuenta mora si `LATE_INTEREST_ENABLED` está activo). Si hay abonos consolidados, se genera un Payment sintético "Saldo inicial" para no perder la cuadratura. Este flujo es exclusivo para el arranque y no reemplaza el registro estándar de préstamos nuevos.
 
 ## 6. Diseño / marca
 

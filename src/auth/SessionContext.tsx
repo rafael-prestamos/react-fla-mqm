@@ -16,6 +16,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { getLocalOwner, setLocalOwner, clearLocalOwner } from "../db/localOwnership";
 import { nukeLocalData } from "../db/nukeLocal";
+import { pullFromSupabase } from "../sync/pull";
 
 interface SessionContextValue {
   session: Session | null;
@@ -56,14 +57,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!currentUserId) return; // No session
       
       const localOwner = getLocalOwner();
-      if (localOwner === null || localOwner !== currentUserId) {
-        setWipingLocal(true);
-        try {
+      setWipingLocal(true);
+      try {
+        if (localOwner === null || localOwner !== currentUserId) {
           await nukeLocalData();
           setLocalOwner(currentUserId);
-        } finally {
-          setWipingLocal(false);
         }
+        await pullFromSupabase();
+      } catch (e) {
+        console.error("Error en pull inicial:", e);
+        // Permitir reintentos? El flag se apaga y el sync background reintentará
+      } finally {
+        setWipingLocal(false);
       }
     }
     handleSessionChange();

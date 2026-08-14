@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 2 completo (incluye 2c: carga histórica / onboarding de cartera activa). UI cableada a `applyPayment` transaccional, métodos deprecados retirados, pantalla "Hoy" reordenada con sección "Por vencer". Sprint 3 es el siguiente (interés por mora y clasificación).
+Estado actual: Sprint 3a completo (login gate estricto en prod, nuke local por cambio de propietario). Sprint 3b es el siguiente (sync bidireccional, interés por mora).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.

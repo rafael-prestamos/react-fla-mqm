@@ -6,6 +6,7 @@ export async function nukeLocalData(): Promise<void> {
     await Promise.all([
       db.clients.clear(),
       db.loans.clear(),
+      db.installments.clear(),
       db.payments.clear(),
       db.outbox.clear(),
     ]);

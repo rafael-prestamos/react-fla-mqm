@@ -1,40 +1,57 @@
-/**
- * Base de datos local (offline-first) sobre IndexedDB usando Dexie.
- * Dexie es la FUENTE DE VERDAD local; Supabase es respaldo/sync.
- * Patrón: Unit of Work + Outbox (los cambios se encolan para empujarlos a la nube).
- */
-
 import Dexie, { type Table } from "dexie";
-import type { Client, Loan, Payment } from "../types/domain";
+import type { Client, Loan, Payment, Installment } from "../types/domain";
 
-/** Nombre de tabla replicable en Supabase. */
-export type SyncEntity = "clients" | "loans" | "payments";
+export type SyncEntity = "clients" | "loans" | "payments" | "installments";
 
-/** Operación pendiente de sincronizar hacia Supabase. */
 export interface OutboxOp {
-  id?: number; // autoincremental local
+  id?: number;
   entity: SyncEntity;
   entityId: string;
   op: "put" | "delete";
   payload: unknown;
-  createdAt: string; // ISO
-  syncedAt?: string; // ISO cuando ya se empujó
+  createdAt: string;
+  syncedAt?: string;
 }
 
 export class AppDatabase extends Dexie {
   clients!: Table<Client, string>;
   loans!: Table<Loan, string>;
+  installments!: Table<Installment, string>;
   payments!: Table<Payment, string>;
   outbox!: Table<OutboxOp, number>;
 
   constructor() {
     super("fla-mpm");
-    // Solo se indexan las columnas por las que consultamos/filtramos.
+    
+    // v1 original
     this.version(1).stores({
       clients: "id, dni, name, updatedAt",
       loans: "id, clientId, isPaid, disbursedAt, updatedAt",
       payments: "id, loanId, paidAt",
       outbox: "++id, entity, entityId, syncedAt",
+    });
+
+    // v2 (if it existed)
+    this.version(2).stores({
+      clients: "id, dni, name, updatedAt",
+      loans: "id, clientId, isPaid, disbursedAt, updatedAt",
+      payments: "id, loanId, paidAt",
+      outbox: "++id, entity, entityId, syncedAt",
+    });
+
+    // v3 adds installments, alters loans/payments schemas
+    this.version(3).stores({
+      clients: "id, dni, name, updatedAt",
+      loans: "id, clientId, isPaid, disbursedAt, updatedAt",
+      installments: "id, loanId, dueDate, status, updatedAt",
+      payments: "id, loanId, paidAt",
+      outbox: "++id, entity, entityId, syncedAt",
+    }).upgrade(async tx => {
+      // Destructive migration for loans/payments due to redesign
+      // Q6=a del grill: datos actuales son solo de pruebas.
+      await tx.table("loans").clear();
+      await tx.table("payments").clear();
+      await tx.table("installments").clear();
     });
   }
 }

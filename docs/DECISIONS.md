@@ -97,6 +97,13 @@ antes de activarla en firme en Sprint 3.**
 - **Sentry** en Sprint 3/4.
 - **Logo** fiel a la foto (al final).
 
+## 9.5. Hotfixes
+Sprint 4b-hotfix: Manejo de errores
+- **ErrorBoundary:** Componente global en la raíz para capturar crashes de React, previniendo pantallas blancas.
+- **ToastProvider:** Sistema de notificaciones minimalista no intrusivo para operaciones asíncronas y eventos de sincronización.
+- **Previews seguras:** Guardas estrictas en los cálculos derivados en render (buildSchedule, etc) para prevenir crashes por inputs inválidos como NaN.
+- **Robustez en money:** toCents ahora captura de forma segura valores no finitos (NaN, Infinity) retornando 0.
+
 ## 10. Plan de sprints
 
 - **Sprint 0:** repo, TS, Dexie + Repository, Supabase (SQL+RLS), sync Outbox (esqueleto), PWA (navy + rename + íconos), CI/CD, este documento.

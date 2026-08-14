@@ -51,5 +51,12 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 - `src/auth`: Autenticación y sesión.
 - **Fuente de Verdad**: `docs/DECISIONS.md` es la documentación canónica del proyecto.
 
+**Notas de Sprints Recientes:**
+Sprint 4b-hotfix: Manejo de errores
+- **ErrorBoundary:** Componente global en la raíz para capturar crashes de React, previniendo pantallas blancas.
+- **ToastProvider:** Sistema de notificaciones minimalista no intrusivo para operaciones asíncronas y eventos de sincronización.
+- **Previews seguras:** Guardas estrictas en los cálculos derivados en render (buildSchedule, etc) para prevenir crashes por inputs inválidos como NaN.
+- **Robustez en money:** toCents ahora captura de forma segura valores no finitos (NaN, Infinity) retornando 0.
+
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

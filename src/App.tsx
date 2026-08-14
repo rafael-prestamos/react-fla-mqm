@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Wifi, Coins, User, PawPrint, Check, RefreshCw
+  Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw
 } from "lucide-react";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, classifyByMaxDaysLate, type LoanDerived, type LoanStatus } from "./domain/loanRules";

@@ -4,37 +4,42 @@
  * Los montos SIEMPRE se guardan como enteros en céntimos (evita errores de coma flotante).
  */
 
-/** Plazos permitidos del préstamo (en días). */
-export type LoanTerm = 25 | 28 | 30;
-
-/** Cómo pagó el cliente. */
-export type PaymentMethod = "cash" | "digital"; // efectivo / virtual (Yape/Plin)
-
-/** Qué tipo de pago registró. */
-export type PaymentType = "full" | "interest" | "partial"; // total / solo interés (renovación) / abono
-
-/** Clasificación automática del cliente según su mayor atraso. */
-export type ClientRating = "good" | "slow" | "bad"; // buen pagador / se demora / mal pagador
+export type InstallmentFrequency = "weekly" | "biweekly" | "monthly";
+export type PaymentMethod = "cash" | "digital";
+export type ClientRating = "good" | "slow" | "bad";
+export type InstallmentStatus = "pending" | "paid";
 
 export interface Client {
   id: string;
   dni: string;
   name: string;
   phone: string;
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Loan {
   id: string;
   clientId: string;
-  principalCents: number; // capital prestado, en céntimos
-  rate: number; // tasa por período (0.20 = 20%)
-  termDays: LoanTerm;
-  disbursedAt: string; // fecha de entrega (ISO, solo fecha)
-  paidOffCents: number; // abonos acumulados, en céntimos
-  renewalCount: number; // veces que renovó pagando solo interés
-  isPaid: boolean;
+  principalCents: number;         // capital prestado
+  rate: number;                   // 0.20 = 20%; interés total sobre capital, distribuido en cuotas
+  installmentCount: number;       // N cuotas, entero >= 1
+  frequency: InstallmentFrequency;
+  disbursedAt: string;            // ISO date (YYYY-MM-DD)
+  isPaid: boolean;                // true cuando TODAS las cuotas están pagadas
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Installment {
+  id: string;
+  loanId: string;
+  index: number;                  // 1..installmentCount
+  dueDate: string;                // ISO date
+  amountCents: number;            // monto de la cuota (montos iguales; última absorbe redondeo)
+  paidCents: number;              // acumulado abonado a esta cuota (para abonos parciales a cuota)
+  status: InstallmentStatus;
+  paidAt: string | null;          // ISO; se setea cuando status pasa a "paid"
   createdAt: string;
   updatedAt: string;
 }
@@ -42,9 +47,9 @@ export interface Loan {
 export interface Payment {
   id: string;
   loanId: string;
-  type: PaymentType;
+  installmentId: string;          // a qué cuota se aplicó
   amountCents: number;
   method: PaymentMethod;
-  daysLate: number; // atraso al momento del pago (para historial/clasificación)
-  paidAt: string; // ISO
+  daysLate: number;               // atraso de la cuota al momento del pago
+  paidAt: string;                 // ISO datetime
 }

@@ -104,6 +104,7 @@ antes de activarla en firme en Sprint 3.**
 - **Sprint 1b:** alta de cliente + validación (TDD para validación de dominio). (Completado)
 - **Sprint 1c:** registrar préstamo con auto-cálculo, ver activos. (Completado)
 - **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día. (Completado)
-- **Sprint 3a (Login Gate):** Pantalla de login estricta para asegurar producción. Incluye nuke local en primer login y cambio de propietario (un Dexie = un usuario). En entorno de desarrollo sin Supabase (`localOnly`), se hace un bypass directo sin mostrar login.
-- **Sprint 3b:** Sync bidireccional (subida outbox / bajada Supabase), interés por mora, clasificación automática, alerta mal pagador.
+- **Sprint 3a (Login Gate):** Pantalla de login estricta para asegurar producción. (Completado)
+- **Sprint 3b (Sync Bidireccional):** Mappers de BD, pull inicial por sesión, push automático reaccionario, y Sync UI en la cabecera. Estrategia last-write-wins. (Completado)
+- **Sprint 3c:** Activación final de interés por mora (tras confirmación verbal de Fla).
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.

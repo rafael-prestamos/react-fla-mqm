@@ -110,4 +110,75 @@ describe("Repositories", () => {
 
     spy.mockRestore();
   });
+
+  describe("loansRepo.backfill", () => {
+    it("Backfill sin abonos previos", async () => {
+      const input = {
+        clientId: "c1",
+        principalCents: 100000,
+        rate: 0.2,
+        termDays: 30 as const,
+        lastCycleStart: "2025-01-01",
+        renewalCount: 0,
+        outstandingBalanceCents: 120000,
+        reference: new Date("2025-01-15T00:00:00Z"),
+      };
+      const result = await loansRepo.backfill(input);
+      
+      expect(result.loan.paidOffCents).toBe(0);
+      expect(result.payment).toBeNull();
+
+      const l = await db.loans.get(result.loan.id);
+      expect(l).toBeDefined();
+      expect(await db.payments.count()).toBe(0);
+
+      const ops = await db.outbox.toArray();
+      expect(ops).toHaveLength(1);
+      expect(ops[0].entity).toBe("loans");
+    });
+
+    it("Backfill con abonos previos", async () => {
+      const input = {
+        clientId: "c1",
+        principalCents: 100000,
+        rate: 0.2,
+        termDays: 30 as const,
+        lastCycleStart: "2025-01-01",
+        renewalCount: 0,
+        outstandingBalanceCents: 100000,
+        reference: new Date("2025-01-15T00:00:00Z"),
+      };
+      const result = await loansRepo.backfill(input);
+      
+      expect(result.loan.paidOffCents).toBe(20000);
+      expect(result.payment).toBeDefined();
+      expect(result.payment?.amountCents).toBe(20000);
+
+      const p = await db.payments.get(result.payment!.id);
+      expect(p).toBeDefined();
+
+      const ops = await db.outbox.toArray();
+      expect(ops).toHaveLength(2);
+      expect(ops.map(o => o.entity).sort()).toEqual(["loans", "payments"]);
+    });
+
+    it("Validación falla", async () => {
+      const input = {
+        clientId: "",
+        principalCents: 100000,
+        rate: 0.2,
+        termDays: 30 as const,
+        lastCycleStart: "2025-01-01",
+        renewalCount: 0,
+        outstandingBalanceCents: 100000,
+      };
+      
+      await expect(loansRepo.backfill(input)).rejects.toThrow();
+
+      expect(await db.loans.count()).toBe(0);
+      expect(await db.payments.count()).toBe(0);
+      expect(await db.outbox.count()).toBe(0);
+    });
+  });
 });
+

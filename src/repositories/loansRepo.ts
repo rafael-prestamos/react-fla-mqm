@@ -11,6 +11,8 @@ import { toIsoDate, startOfToday } from "../lib/dates";
 import type { Loan, LoanTerm } from "../types/domain";
 import { applyPayment, type ApplyPaymentInput, type ApplyPaymentResult } from "../domain/loanPayment";
 import { paymentsRepo } from "./paymentsRepo";
+import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from "../domain/loanBackfill";
+import type { Payment } from "../types/domain";
 
 
 
@@ -75,5 +77,31 @@ export const loansRepo = {
     });
 
     return result;
+  },
+
+  async backfill(input: LoanBackfillInput): Promise<{ loan: Loan; payment: Payment | null }> {
+    const { ok, errors } = validateLoanBackfillInput(input);
+    if (!ok) {
+      throw new Error(Object.values(errors).join(", "));
+    }
+
+    const { loan: draftLoan, syntheticPayment: draftPayment } = buildLoanBackfill(input, new Date(nowIso()));
+
+    const finalLoan: Loan = { ...draftLoan, id: newId() };
+    const finalPayment: Payment | null = draftPayment
+      ? { ...draftPayment, id: newId(), loanId: finalLoan.id }
+      : null;
+
+    await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
+      await db.loans.put(finalLoan);
+      await enqueue("loans", finalLoan.id, "put", finalLoan);
+
+      if (finalPayment) {
+        await db.payments.put(finalPayment);
+        await enqueue("payments", finalPayment.id, "put", finalPayment);
+      }
+    });
+
+    return { loan: finalLoan, payment: finalPayment };
   },
 };

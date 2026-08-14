@@ -16,7 +16,7 @@ describe("nukeLocalData", () => {
     await db.clients.put({ id: "c1", name: "Test", dni: "123", phone: "123", createdAt: "", updatedAt: "" });
     await db.loans.put({ id: "l1", clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30, disbursedAt: "", paidOffCents: 0, renewalCount: 0, isPaid: false, createdAt: "", updatedAt: "" });
     await db.payments.put({ id: "p1", loanId: "l1", type: "full", amountCents: 1000, method: "cash", daysLate: 0, paidAt: "" });
-    await db.outbox.put({ id: "o1", entity: "clients", entityId: "c1", op: "put", payload: {}, enqueuedAt: "" });
+    await db.outbox.put({ entity: "clients", entityId: "c1", op: "put", payload: {}, createdAt: "" });
 
     // Verify seeded data exists
     expect(await db.clients.count()).toBe(1);

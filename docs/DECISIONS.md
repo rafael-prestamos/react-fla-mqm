@@ -59,10 +59,11 @@ Pasados los 7 días corre **1 interés adicional por cada 30 días** de atraso
 `src/domain/loanRules.ts`. **Pendiente de CONFIRMACIÓN VERBAL con la clienta
 antes de activarla en firme en Sprint 3.**
 
-### Sprint 2a: Modelo de pagos
+### Sprint 2: Modelo de pagos (a+b completado)
 - **Orden de abonos (partial):** Primero cubren el interés pendiente del ciclo actual. El sobrante reduce el capital (saldo).
 - **Semántica de renovación (interest):** El pago de "solo interés" inicia un nuevo ciclo cuya fecha de entrega (`disbursedAt`) es idéntica a la fecha de vencimiento anterior, corriendo el plazo hacia adelante.
-- **Transacción única:** La aplicación de un pago muta el `loan`, inserta el `payment` y encola en `outbox` dentro de una única transacción ACID de Dexie (`db.transaction`).
+- **Transacción única y Cableado UI:** La aplicación de un pago usa `applyPayment` transaccional (muta el `loan`, inserta el `payment` y encola en `outbox` en ACID de Dexie). Los antiguos métodos no transaccionales fueron retirados.
+- **Cobranzas "Hoy":** Reordenada, incorpora sección "Por vencer" (próximos 3 días) y manejo de errores explícito en el `PaymentSheet`.
 
 ## 6. Diseño / marca
 
@@ -101,7 +102,7 @@ antes de activarla en firme en Sprint 3.**
 - **Sprint 1a:** Dexie como backbone en vivo (useLiveQuery). Sembrado dev-only. Prod arranca vacío. (Completado)
 - **Sprint 1b:** alta de cliente + validación (TDD para validación de dominio). (Completado)
 - **Sprint 1c:** registrar préstamo con auto-cálculo, ver activos. (Completado)
-- **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día. (Próximo)
-- **Sprint 3:** interés por mora, clasificación automática, alerta mal pagador,
+- **Sprint 2:** pago total/parcial, renovación, método de pago, pantalla de cobranzas del día. (Completado)
+- **Sprint 3:** interés por mora, clasificación automática, alerta mal pagador, (Próximo)
   historial de cliente, sync offline.
 - **Sprint 4:** panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.

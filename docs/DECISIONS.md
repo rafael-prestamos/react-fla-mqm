@@ -66,6 +66,12 @@ antes de activarla en firme en Sprint 3.**
 - **Cobranzas "Hoy":** Reordenada, incorpora sección "Por vencer" (próximos 3 días) y manejo de errores explícito en el `PaymentSheet`.
 - **Sprint 2c (Registro Histórico):** Onboarding de la cartera activa. Permite a Fla cargar los préstamos vigentes que tiene en su cuaderno. Se consolida el saldo inicial restándolo de la deuda calculada (la cual toma en cuenta mora si `LATE_INTEREST_ENABLED` está activo). Si hay abonos consolidados, se genera un Payment sintético "Saldo inicial" para no perder la cuadratura. Este flujo es exclusivo para el arranque y no reemplaza el registro estándar de préstamos nuevos.
 
+### Revert del modelo de cuotas (post 4b)
+Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión inicial en los requisitos. Se confirmó que Fla NO maneja cuotas; su modelo es siempre de pago único al final de plazos fijos (25/28/30 días). Por lo tanto:
+- Se revirtió todo el dominio y la UI de cuotas, regresando al estado estable del Sprint 3b.
+- **Qué se preservó**: Toda la infraestructura de `ErrorBoundary` y notificaciones (`ToastContext`), así como el endurecimiento de funciones puras en `money.ts`.
+- **Qué se descartó**: Todos los modelos, repositorios, sincronización y UI relacionados con `installments`. (Los commits siguen accesibles en refs de ser necesarios).
+
 ## 6. Diseño / marca
 
 - **Color principal: azul marino.** Tokens: `#16325C` principal, `#1F406A` claro,

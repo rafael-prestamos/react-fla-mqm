@@ -36,6 +36,7 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 - **Tolerancia**: 7 días de gracia (atraso) sin penalidad.
 - **Renovación**: Opción por "solo interés" (inicia un nuevo ciclo).
 - **Abonos**: Abonos parciales reducen el saldo principal, cubriendo primero el interés pendiente. La renovación arranca un nuevo ciclo desde la fecha de vencimiento. Aplicar un pago es una transacción única (loan+payment+outbox).
+- **Revert del modelo de cuotas**: Se intentó migrar a un modelo de "Cuotas" por confusión inicial. Se confirmó que Fla NO maneja cuotas; su modelo es siempre de pago único al final de plazos fijos. Se revirtió todo el dominio y la UI de cuotas, regresando al estado estable del Sprint 3b. Se conservaron las notificaciones Toast y mejoras en math logic.
 - **Clasificación del cliente**:
   - *Bueno*: al día.
   - *Se demora*: > 7 días de atraso.

@@ -1,159 +1,80 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from './loanBackfill';
+import { describe, it, expect } from "vitest";
+import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from "./loanBackfill";
 
-describe('loanBackfill', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
+describe("loanBackfill", () => {
+  const valid: LoanBackfillInput = {
+    clientId: "c1",
+    principalCents: 10000,
+    rate: 0.2,
+    installmentCount: 4,
+    frequency: "weekly",
+    disbursedAt: "2024-01-01",
+    installments: []
+  };
+
+  it("validates basic input correctly", () => {
+    const { ok } = validateLoanBackfillInput(valid);
+    expect(ok).toBe(true);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  it("generates schedule with no prior payments", () => {
+    const { loan, installments, syntheticPayments } = buildLoanBackfill(valid);
+    expect(loan.principalCents).toBe(10000);
+    expect(installments.length).toBe(4);
+    expect(syntheticPayments.length).toBe(0);
+    expect(installments[0].paidCents).toBe(0);
+    expect(loan.isPaid).toBe(false);
   });
 
-  describe('buildLoanBackfill', () => {
-    it('1. Sin renovaciones, sin abonos previos, al día', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2025-01-20",
-        renewalCount: 0,
-        outstandingBalanceCents: 120000,
-        reference: refDate
-      };
-      
-      const { loan, syntheticPayment } = buildLoanBackfill(input, refDate);
-      expect(loan.paidOffCents).toBe(0);
-      expect(loan.renewalCount).toBe(0);
-      expect(loan.disbursedAt).toBe("2025-01-20");
-      expect(syntheticPayment).toBeNull();
-    });
+  it("applies partial and full historical payments", () => {
+    const input: LoanBackfillInput = {
+      ...valid,
+      installments: [
+        { index: 1, paidCents: 3000, paidAt: "2024-01-08T12:00:00Z" },
+        { index: 2, paidCents: 1500, paidAt: null }
+      ]
+    };
+    const { loan, installments, syntheticPayments } = buildLoanBackfill(input);
+    
+    // Inst 1 should be fully paid (base is 3000 for 4 cuotas of 12000 total)
+    expect(installments[0].status).toBe("paid");
+    expect(installments[0].paidCents).toBe(3000);
+    expect(installments[0].paidAt).toBe("2024-01-08T12:00:00Z");
 
-    it('2. Sin renovaciones, con abonos previos', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2025-01-20",
-        renewalCount: 0,
-        outstandingBalanceCents: 90000,
-        reference: refDate
-      };
-      
-      const { loan, syntheticPayment } = buildLoanBackfill(input, refDate);
-      expect(loan.paidOffCents).toBe(30000);
-      expect(syntheticPayment?.amountCents).toBe(30000);
-      expect(syntheticPayment?.type).toBe("partial");
-    });
+    // Inst 2 should be partial
+    expect(installments[1].status).toBe("pending");
+    expect(installments[1].paidCents).toBe(1500);
 
-    it('3. Con 2 renovaciones', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2025-01-20",
-        renewalCount: 2,
-        outstandingBalanceCents: 120000,
-        reference: refDate
-      };
-      
-      const { loan } = buildLoanBackfill(input, refDate);
-      expect(loan.renewalCount).toBe(2);
-      expect(loan.disbursedAt).toBe("2025-01-20");
-    });
+    // Inst 3 and 4 should be 0
+    expect(installments[2].paidCents).toBe(0);
 
-    it('4. Con mora activa (LATE_INTEREST_ENABLED=true) - atraso 10 días', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      // termDays: 30. dueDate = lastCycleStart + 30.
-      // diffDays(refDate, dueDate) = 10.
-      // refDate is Feb 5, 2025. 10 days before is Jan 26, 2025 (dueDate).
-      // lastCycleStart = Jan 26 - 30 days = Dec 27, 2024.
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2024-12-27",
-        renewalCount: 0,
-        outstandingBalanceCents: 140000, // debt = 100000 + 20000 (interest) + 20000 (late interest) = 140000
-        reference: refDate
-      };
-      
-      const { loan, syntheticPayment } = buildLoanBackfill(input, refDate);
-      expect(loan.paidOffCents).toBe(0);
-      expect(syntheticPayment).toBeNull();
-      
-      const inputPartial: LoanBackfillInput = { ...input, outstandingBalanceCents: 100000 };
-      const resPartial = buildLoanBackfill(inputPartial, refDate);
-      expect(resPartial.loan.paidOffCents).toBe(40000);
-      expect(resPartial.syntheticPayment?.amountCents).toBe(40000);
-    });
+    // 2 synthetic payments generated
+    expect(syntheticPayments.length).toBe(2);
+    expect(syntheticPayments[0].amountCents).toBe(3000);
+    expect(syntheticPayments[1].amountCents).toBe(1500);
   });
 
-  describe('validateLoanBackfillInput', () => {
-    it('5. Validación — outstanding excede deuda', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2025-01-20",
-        renewalCount: 0,
-        outstandingBalanceCents: 200000, // deuda es 120000
-        reference: refDate
-      };
-      
-      const { ok, errors } = validateLoanBackfillInput(input);
-      expect(ok).toBe(false);
-      expect(errors.outstandingBalance).toBe("El saldo pendiente excede la deuda calculada");
-    });
+  it("throws RangeError if installment paid amount exceeds base", () => {
+    const input: LoanBackfillInput = {
+      ...valid,
+      installments: [
+        { index: 1, paidCents: 3001, paidAt: null }
+      ]
+    };
+    expect(() => buildLoanBackfill(input)).toThrow(RangeError);
+  });
 
-    it('6. Validación — fecha futura', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30,
-        lastCycleStart: "2025-12-31",
-        renewalCount: 0,
-        outstandingBalanceCents: 120000,
-        reference: refDate
-      };
-      
-      const { ok, errors } = validateLoanBackfillInput(input);
-      expect(ok).toBe(false);
-      expect(errors.lastCycleStart).toBe("La fecha no puede ser futura");
-    });
-
-    it('7. Validación — inputs inválidos triviales', () => {
-      const refDate = new Date("2025-02-05T00:00:00Z");
-      const input: LoanBackfillInput = {
-        clientId: "",
-        principalCents: 0,
-        rate: 1.5,
-        termDays: 20 as any,
-        lastCycleStart: "2025-01-20",
-        renewalCount: -1,
-        outstandingBalanceCents: 0,
-        reference: refDate
-      };
-      
-      const { ok, errors } = validateLoanBackfillInput(input);
-      expect(ok).toBe(false);
-      expect(errors.clientId).toBe("Selecciona un cliente");
-      expect(errors.principal).toBe("Ingresa un capital válido");
-      expect(errors.rate).toBe("Ingresa un interés válido");
-      expect(errors.termDays).toBe("Plazo inválido");
-      expect(errors.renewalCount).toBe("Número de renovaciones inválido");
-      expect(errors.outstandingBalance).toBe("Saldo pendiente inválido");
-    });
+  it("marks loan as isPaid if all installments are fully paid", () => {
+    const input: LoanBackfillInput = {
+      ...valid,
+      installments: [
+        { index: 1, paidCents: 3000, paidAt: null },
+        { index: 2, paidCents: 3000, paidAt: null },
+        { index: 3, paidCents: 3000, paidAt: null },
+        { index: 4, paidCents: 3000, paidAt: null }
+      ]
+    };
+    const { loan } = buildLoanBackfill(input);
+    expect(loan.isPaid).toBe(true);
   });
 });

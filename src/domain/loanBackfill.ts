@@ -1,151 +1,97 @@
-import type { Loan, Payment, LoanTerm } from "../types/domain";
-import { deriveLoan } from "./loanRules";
-import { startOfToday } from "../lib/dates";
+import type { InstallmentFrequency, Loan, Installment, Payment } from "../types/domain";
+import { buildSchedule } from "./installmentSchedule";
+import { v4 as uuidv4 } from "uuid";
 
 export interface LoanBackfillInput {
   clientId: string;
-  principalCents: number;         // capital original
-  rate: number;                   // 0.20 = 20%
-  termDays: LoanTerm;             // 25 | 28 | 30
-  lastCycleStart: string;         // "YYYY-MM-DD" — fecha de entrega si nunca renovó, o de la ÚLTIMA renovación
-  renewalCount: number;           // >=0; default 0
-  outstandingBalanceCents: number;// SALDO PENDIENTE HOY (lo que Fla tiene en su cuaderno). >0, <= deuda calculada del ciclo actual
-  reference?: Date;               // default startOfToday()
+  principalCents: number;
+  rate: number;
+  installmentCount: number;
+  frequency: InstallmentFrequency;
+  disbursedAt: string;
+  installments: Array<{
+    index: number;
+    paidCents: number;
+    paidAt: string | null;
+  }>;
+  reference?: Date;
 }
 
-export interface LoanBackfillErrors {
-  clientId?: string;
-  principal?: string;
-  rate?: string;
-  termDays?: string;
-  lastCycleStart?: string;
-  renewalCount?: string;
-  outstandingBalance?: string;
-}
+export type LoanBackfillErrors = Partial<Record<keyof LoanBackfillInput, string>>;
 
-export function validateLoanBackfillInput(
-  input: LoanBackfillInput
-): { ok: boolean; errors: LoanBackfillErrors } {
+export function validateLoanBackfillInput(input: LoanBackfillInput): { ok: boolean; errors: LoanBackfillErrors } {
   const errors: LoanBackfillErrors = {};
-  let ok = true;
 
-  if (!input.clientId) {
-    errors.clientId = "Selecciona un cliente";
-    ok = false;
+  if (!input.clientId || input.clientId.trim() === "") {
+    errors.clientId = "El cliente es obligatorio.";
   }
   if (!Number.isInteger(input.principalCents) || input.principalCents <= 0) {
-    errors.principal = "Ingresa un capital válido";
-    ok = false;
+    errors.principalCents = "El monto debe ser mayor a 0.";
   }
   if (input.rate <= 0 || input.rate > 1) {
-    errors.rate = "Ingresa un interés válido";
-    ok = false;
+    errors.rate = "La tasa debe ser válida (>0 y <=1).";
   }
-  if (![25, 28, 30].includes(input.termDays)) {
-    errors.termDays = "Plazo inválido";
-    ok = false;
+  if (!Number.isInteger(input.installmentCount) || input.installmentCount < 1 || input.installmentCount > 60) {
+    errors.installmentCount = "Número de cuotas inválido (1-60).";
   }
-
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(input.lastCycleStart)) {
-    errors.lastCycleStart = "La fecha no puede ser futura";
-    ok = false;
-  } else {
-    const d = new Date(input.lastCycleStart);
-    if (isNaN(d.getTime())) {
-      errors.lastCycleStart = "La fecha no puede ser futura";
-      ok = false;
-    } else {
-      const refDate = input.reference ?? startOfToday();
-      if (d > refDate) {
-        errors.lastCycleStart = "La fecha no puede ser futura";
-        ok = false;
-      }
-    }
+  if (!input.disbursedAt) {
+    errors.disbursedAt = "La fecha de entrega es obligatoria.";
   }
 
-  if (!Number.isInteger(input.renewalCount) || input.renewalCount < 0) {
-    errors.renewalCount = "Número de renovaciones inválido";
-    ok = false;
-  }
-  if (!Number.isInteger(input.outstandingBalanceCents) || input.outstandingBalanceCents <= 0) {
-    errors.outstandingBalance = "Saldo pendiente inválido";
-    ok = false;
-  }
-
-  if (ok && typeof input.outstandingBalanceCents === 'number') {
-    const previewLoan: Loan = {
-      id: "__preview__",
-      clientId: input.clientId,
-      principalCents: input.principalCents,
-      rate: input.rate,
-      termDays: input.termDays,
-      disbursedAt: input.lastCycleStart,
-      paidOffCents: 0,
-      renewalCount: input.renewalCount,
-      isPaid: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    const derived = deriveLoan(previewLoan, input.reference ?? startOfToday());
-    if (input.outstandingBalanceCents > derived.debtCents) {
-      errors.outstandingBalance = "El saldo pendiente excede la deuda calculada";
-      ok = false;
-    }
-  }
-
-  return { ok, errors };
+  return { ok: Object.keys(errors).length === 0, errors };
 }
 
-export interface LoanBackfillResult {
-  loan: Loan;                     // listo para persistir (id/timestamps los pone el repo)
-  syntheticPayment: Payment | null; // solo si hay abonos previos (paidOffCents > 0)
-}
+export function buildLoanBackfill(input: LoanBackfillInput, now?: Date): {
+  loan: Loan;
+  installments: Installment[];
+  syntheticPayments: Payment[];
+} {
+  const reference = now || new Date();
+  const nowStr = reference.toISOString();
+  const loanId = uuidv4();
 
-/** 
- * Construye el Loan actual y, si aplica, un Payment sintético "Saldo inicial".
- * ⚠️ El cálculo de deuda incluye mora si LATE_INTEREST_ENABLED=true. Ver DECISIONS §5.
- */
-export function buildLoanBackfill(
-  input: LoanBackfillInput,
-  now: Date = new Date()
-): LoanBackfillResult {
-  const previewLoan: Loan = {
-    id: "__preview__",
+  const loan: Loan = {
+    id: loanId,
     clientId: input.clientId,
     principalCents: input.principalCents,
     rate: input.rate,
-    termDays: input.termDays,
-    disbursedAt: input.lastCycleStart,
-    paidOffCents: 0,
-    renewalCount: input.renewalCount,
+    installmentCount: input.installmentCount,
+    frequency: input.frequency,
+    disbursedAt: input.disbursedAt,
     isPaid: false,
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
+    createdAt: nowStr,
+    updatedAt: nowStr
   };
 
-  const derived = deriveLoan(previewLoan, input.reference ?? startOfToday());
-  const paidOffCents = derived.debtCents - input.outstandingBalanceCents;
+  const schedule = buildSchedule({ ...input, loanId, now: reference });
+  const syntheticPayments: Payment[] = [];
 
-  const loan: Loan = {
-    ...previewLoan,
-    paidOffCents,
-  };
+  for (const inst of schedule) {
+    const inputInst = input.installments.find(i => i.index === inst.index);
+    if (inputInst && inputInst.paidCents > 0) {
+      if (inputInst.paidCents > inst.amountCents) {
+        throw new RangeError(`Abono a cuota ${inst.index} excede su monto base.`);
+      }
 
-  let syntheticPayment: Payment | null = null;
-  if (paidOffCents > 0) {
-    syntheticPayment = {
-      id: "__preview__",
-      loanId: "__preview__",
-      type: "partial",
-      amountCents: paidOffCents,
-      method: "cash",
-      daysLate: 0,
-      paidAt: now.toISOString(),
-    };
-    // Payment sintético de saldo inicial — representa abonos previos consolidados al onboarding; no es un cobro real.
+      inst.paidCents = inputInst.paidCents;
+      if (inst.paidCents >= inst.amountCents) {
+        inst.status = "paid";
+        inst.paidAt = inputInst.paidAt || nowStr;
+      }
+      
+      syntheticPayments.push({
+        id: uuidv4(),
+        loanId,
+        installmentId: inst.id,
+        amountCents: inputInst.paidCents,
+        method: "cash",
+        daysLate: 0,
+        paidAt: inputInst.paidAt || nowStr
+      });
+    }
   }
 
-  return { loan, syntheticPayment };
+  loan.isPaid = schedule.every(i => i.status === "paid");
+
+  return { loan, installments: schedule, syntheticPayments };
 }

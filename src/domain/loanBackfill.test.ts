@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateLoanBackfillInput, buildLoanBackfill, LoanBackfillInput } from './loanBackfill';
+import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from './loanBackfill';
 
 describe('loanBackfill', () => {
   beforeEach(() => {

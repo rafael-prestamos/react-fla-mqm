@@ -6,6 +6,7 @@ import { pushOutbox } from "./outbox";
 import { pullFromSupabase } from "./pull";
 import { useOnline } from "./OnlineContext";
 import { useSession } from "../auth/SessionContext";
+import { useToast } from "../ui/ToastContext";
 
 interface SyncState {
   status: "synced" | "syncing" | "offline" | "error";
@@ -26,6 +27,7 @@ const SyncContext = createContext<SyncState & { forcePush: () => Promise<void>; 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { online } = useOnline();
   const { session } = useSession();
+  const toast = useToast();
   
   const pendingCount = useLiveQuery(() => db.outbox.filter((e) => !e.syncedAt).count()) ?? 0;
   
@@ -36,6 +38,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const pushRunningRef = useRef(false);
   const needsRerunRef = useRef(false);
+  const errorShownRef = useRef(false);
   
   const forcePush = async () => {
     if (!online || !session) return;
@@ -52,11 +55,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const result = await pushOutbox();
       if (result.errors > 0) {
         setLastError("Error al enviar algunos cambios");
+        if (!errorShownRef.current) {
+          toast.error("Error al sincronizar: Error al enviar algunos cambios");
+          errorShownRef.current = true;
+        }
       } else if (result.synced > 0) {
         setLastSyncAt(new Date().toISOString());
+        errorShownRef.current = false;
       }
     } catch (e) {
-      setLastError(e instanceof Error ? e.message : "Error de sincronización");
+      const msg = e instanceof Error ? e.message : "Error de sincronización";
+      setLastError(msg);
+      if (!errorShownRef.current) {
+        toast.error(`Error al sincronizar: ${msg}`);
+        errorShownRef.current = true;
+      }
     } finally {
       pushRunningRef.current = false;
       setIsPushing(false);
@@ -75,8 +88,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       await pullFromSupabase();
       setLastSyncAt(new Date().toISOString());
+      errorShownRef.current = false;
     } catch (e) {
-      setLastError(e instanceof Error ? e.message : "Error descargando datos");
+      const msg = e instanceof Error ? e.message : "Error descargando datos";
+      setLastError(msg);
+      if (!errorShownRef.current) {
+        toast.error(`Error al sincronizar: ${msg}`);
+        errorShownRef.current = true;
+      }
     } finally {
       setIsPulling(false);
     }
@@ -102,7 +121,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     prevSessionRef.current = !!session;
 
     if (becameOnline && session) {
-      void forcePull().then(() => forcePush());
+      void forcePull().then(() => {
+        void forcePush();
+        toast.success("Sincronización restaurada");
+      });
     } else if (justLoggedIn && online) {
       void forcePull();
     }

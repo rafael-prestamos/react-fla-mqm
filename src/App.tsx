@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { PawPrint, Check, RefreshCw, WifiOff, CalendarClock, Users, Wallet } from "lucide-react";
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
+import { useToast } from "./ui/ToastContext";
 
 import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
@@ -69,7 +70,8 @@ function NavBar({ tab, onChange }: { tab: "today" | "loans" | "clients"; onChang
 
 export default function App() {
   const { session, signOut } = useSession();
-  
+  const toast = useToast();
+
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const installments = useLiveQuery(() => installmentsRepo.all()) ?? [];
@@ -88,8 +90,10 @@ export default function App() {
     try {
       await clientsRepo.create(input);
       setCreatingClient(false);
+      toast.success("Cliente registrado");
       return null;
     } catch (err: any) {
+      toast.error(err.message || "Error al crear cliente");
       return err.message || "Error al crear cliente";
     }
   };
@@ -98,8 +102,10 @@ export default function App() {
     try {
       await loansRepo.create({ ...input, disbursedAt: new Date().toISOString().split("T")[0] });
       setCreatingLoan(false);
+      toast.success("Préstamo creado");
       return null;
     } catch (err: any) {
+      toast.error(err.message || "Error al crear préstamo");
       return err.message || "Error al crear préstamo";
     }
   };
@@ -108,8 +114,10 @@ export default function App() {
     try {
       await loansRepo.backfill(input);
       setCreatingHistorical(false);
+      toast.success("Histórico registrado");
       return null;
     } catch (err: any) {
+      toast.error(err.message || "Error al registrar histórico");
       return err.message || "Error al registrar histórico";
     }
   };
@@ -119,8 +127,10 @@ export default function App() {
     try {
       await installmentsRepo.applyPayment(payingInstallmentId, amountCents, method);
       setPayingInstallmentId(null);
+      toast.success("Pago registrado");
       return null;
     } catch (err: any) {
+      toast.error(err.message || "Error al registrar pago");
       return err.message || "Error al registrar pago";
     }
   };

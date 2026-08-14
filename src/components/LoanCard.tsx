@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatSoles } from "../lib/money";
 import { formatShort } from "../lib/dates";
-import { deriveLoan } from "../domain/loanRules";
+import { derivedLoanTotals } from "../domain/loanRules";
 import { InstallmentRow } from "./InstallmentRow";
 import { StatusChip } from "./Chips";
 import { frequencyLabel, nextPendingInstallment, sortByIndex } from "../domain/installmentHelpers";
@@ -18,7 +18,7 @@ export function LoanCard({ loan, client, installments, onPay }: Props) {
   const [expanded, setExpanded] = useState(false);
   
   const sorted = sortByIndex(installments);
-  const d = deriveLoan(loan);
+  const d = derivedLoanTotals(loan, installments);
   
   const totalOwed = sorted.reduce((sum, i) => sum + i.amountCents, 0);
   const totalPaid = sorted.reduce((sum, i) => sum + i.paidCents, 0);
@@ -48,7 +48,7 @@ export function LoanCard({ loan, client, installments, onPay }: Props) {
           <div style={{ borderTop: "1px dashed var(--line)", marginTop: 8, paddingTop: 8 }}>
             <span style={{ color: "var(--muted)" }}>Próxima cuota:</span>{" "}
             {nextPending ? (
-              <span style={{ fontWeight: 600 }}>#{nextPending.index} · {formatShort(nextPending.dueDate)} · {formatSoles(nextPending.amountCents)}</span>
+              <span style={{ fontWeight: 600 }}>#{nextPending.index} · {formatShort(new Date(nextPending.dueDate + "T00:00:00"))} · {formatSoles(nextPending.amountCents)}</span>
             ) : (
               <span style={{ color: "var(--good)", fontWeight: 600 }}>Todas pagadas ✓</span>
             )}

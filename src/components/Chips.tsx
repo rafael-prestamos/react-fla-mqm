@@ -1,5 +1,4 @@
 import type { ClientRating } from "../types/domain";
-import type { LoanStatus } from "../domain/loanRules";
 
 export interface RatingStyle { label: string; color: string; bg: string; }
 export const RATING_STYLE: Record<ClientRating, RatingStyle> = {
@@ -9,7 +8,7 @@ export const RATING_STYLE: Record<ClientRating, RatingStyle> = {
 };
 
 export interface StatusStyle { label: string; color: string; bg: string; bar: string; }
-export const STATUS_STYLE: Record<LoanStatus, StatusStyle> = {
+export const STATUS_STYLE: Record<string, StatusStyle> = {
   active: { label: "Al día", color: "var(--muted)", bg: "var(--paper)", bar: "#C6CFDD" },
   dueSoon: { label: "Por vencer", color: "var(--warn)", bg: "var(--warn-soft)", bar: "var(--warn)" },
   dueToday: { label: "Vence hoy", color: "var(--accent)", bg: "var(--accent-soft)", bar: "var(--accent)" },
@@ -21,13 +20,17 @@ export const STATUS_STYLE: Record<LoanStatus, StatusStyle> = {
 export function RatingChip({ rating }: { rating: ClientRating }) {
   const s = RATING_STYLE[rating];
   return (
-    <span className="chip" style={{ background: s.bg, color: s.color }}>
-      <span className="dot" style={{ background: s.color }} />{s.label}
-    </span>
+    <div style={{ background: s.bg, color: s.color, borderRadius: 12, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "inline-block" }}>
+      {s.label}
+    </div>
   );
 }
 
-export function StatusChip({ status }: { status: LoanStatus }) {
-  const s = STATUS_STYLE[status];
-  return <span className="chip" style={{ background: s.bg, color: s.color }}>{s.label}</span>;
+export function StatusChip({ status }: { status: string }) {
+  const s = STATUS_STYLE[status] || STATUS_STYLE.active;
+  return (
+    <div style={{ background: s.bg, color: s.color, borderRadius: 12, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "inline-block" }}>
+      {s.label}
+    </div>
+  );
 }

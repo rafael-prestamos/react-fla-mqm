@@ -7,7 +7,6 @@ import { useSync } from "./sync/SyncEngine";
 import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
 import { installmentsRepo } from "./repositories/installmentsRepo";
-import { paymentsRepo } from "./repositories/paymentsRepo";
 
 import { TodayView } from "./components/TodayView";
 import { LoansView } from "./components/LoansView";
@@ -74,14 +73,12 @@ export default function App() {
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const installments = useLiveQuery(() => installmentsRepo.all()) ?? [];
-  const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingInstallmentId, setPayingInstallmentId] = useState<string | null>(null);
   const [creatingLoan, setCreatingLoan] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
   const [creatingHistorical, setCreatingHistorical] = useState(false);
-  const [viewingClientId, setViewingClientId] = useState<string | null>(null);
 
   const payingInstallment = installments.find(i => i.id === payingInstallmentId);
   const payingLoan = loans.find(l => l.id === payingInstallment?.loanId);
@@ -99,7 +96,7 @@ export default function App() {
 
   const handleCreateLoan = async (input: any) => {
     try {
-      await loansRepo.create(input);
+      await loansRepo.create({ ...input, disbursedAt: new Date().toISOString().split("T")[0] });
       setCreatingLoan(false);
       return null;
     } catch (err: any) {
@@ -135,7 +132,7 @@ export default function App() {
         {tab === "today" ? (
           <TodayView 
             header={<Header />}
-            clients={clients} loans={loans} installments={installments} payments={payments} onPay={setPayingInstallmentId} 
+            clients={clients} loans={loans} installments={installments} onPay={setPayingInstallmentId} 
           />
         ) : tab === "loans" ? (
           <LoansView 
@@ -145,7 +142,7 @@ export default function App() {
         ) : (
           <ClientsView 
             header={<Header />}
-            clients={clients} loans={loans} onOpenDetail={setViewingClientId} onNewClient={() => setCreatingClient(true)} onSignOut={signOut} userEmail={session?.user?.email} 
+            clients={clients} loans={loans} onOpenDetail={() => {}} onNewClient={() => setCreatingClient(true)} onSignOut={signOut} userEmail={session?.user?.email} 
           />
         )}
 

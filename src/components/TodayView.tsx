@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { formatSoles } from "../lib/money";
 import { deriveInstallment } from "../domain/loanRules";
 import { InstallmentRow } from "./InstallmentRow";
-import type { Client, Loan, Installment, Payment } from "../types/domain";
+import type { Client, Loan, Installment } from "../types/domain";
 import { Wallet, TrendingUp, Coins, Users, CalendarClock, AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -10,7 +10,6 @@ interface Props {
   clients: Client[];
   loans: Loan[];
   installments: Installment[];
-  payments: Payment[];
   onPay: (installmentId: string) => void;
 }
 
@@ -23,7 +22,7 @@ function Stat({ icon, k, v }: { icon: ReactNode; k: string; v: string }) {
   );
 }
 
-export function TodayView({ header, clients, loans, installments, payments, onPay }: Props) {
+export function TodayView({ header, clients, loans, installments, onPay }: Props) {
   const activeLoans = useMemo(() => loans.filter(l => !l.isPaid), [loans]);
 
   const pendingInstallments = useMemo(() => {

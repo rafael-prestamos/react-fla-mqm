@@ -18,7 +18,7 @@ export function InstallmentRow({ installment, client, loan, onPay }: Props) {
   const sub =
     d.daysLate > 0
       ? `${d.daysLate} día${d.daysLate !== 1 ? "s" : ""} de atraso${d.latePeriods > 0 ? ` · +${d.latePeriods} interés` : ""}`
-      : `Cuota ${installment.index}/${loan.installmentCount} · vence ${formatShort(installment.dueDate)}`;
+      : `Cuota ${installment.index}/${loan.installmentCount} · vence ${formatShort(new Date(installment.dueDate + "T00:00:00"))}`;
 
   // Placeholder for rating until 4c
   const rating = "good";

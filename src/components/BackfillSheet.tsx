@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { formatSoles, toCents } from "../lib/money";
-import { formatShort, startOfToday } from "../lib/dates";
+import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
 import { X } from "lucide-react";
 import type { Client, InstallmentFrequency } from "../types/domain";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "../domain/loanBackfill";
@@ -19,7 +19,7 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
   const [ratePct, setRatePct] = useState("20");
   const [installmentCount, setInstallmentCount] = useState<number>(4);
   const [frequency, setFrequency] = useState<InstallmentFrequency>("weekly");
-  const [disbursedAt, setDisbursedAt] = useState(startOfToday());
+  const [disbursedAt, setDisbursedAt] = useState(toIsoDate(startOfToday()));
   
   const [errors, setErrors] = useState<LoanBackfillErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
         rate,
         installmentCount,
         frequency,
-        startDate: disbursedAt,
+        disbursedAt,
       });
     } catch {
       return [];
@@ -122,7 +122,7 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
 
         <div className="field">
           <label>Fecha de desembolso (Cuándo se prestó)</label>
-          <input className="inp" type="date" value={disbursedAt} max={startOfToday()} onChange={e => setDisbursedAt(e.target.value)} />
+          <input className="inp" type="date" value={disbursedAt} max={toIsoDate(startOfToday())} onChange={e => setDisbursedAt(e.target.value)} />
           {errors.disbursedAt && <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4 }}>{errors.disbursedAt}</div>}
         </div>
 
@@ -170,7 +170,7 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
                 return (
                   <div key={s.index} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px dashed var(--line)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>#{s.index} · Vence: {formatShort(s.dueDate)} · {formatSoles(s.amountCents)}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>#{s.index} · Vence: {formatShort(new Date(s.dueDate + "T00:00:00"))} · {formatSoles(s.amountCents)}</span>
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }}>
                         <input type="checkbox" checked={isPaid} onChange={() => toggleFullPaid(s.index, s.amountCents, s.dueDate)} />
                         Pagada completa
@@ -189,7 +189,7 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
                           <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Fecha de pago</div>
                           <input className="inp" type="date" style={{ padding: "6px 8px", fontSize: 13 }}
                             value={edit?.paidAt ?? ""}
-                            max={startOfToday()}
+                            max={toIsoDate(startOfToday())}
                             onChange={e => handleEditPaidAt(s.index, e.target.value)} />
                         </div>
                       )}

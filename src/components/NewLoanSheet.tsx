@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { formatSoles, toCents } from "../lib/money";
-import { formatShort, startOfToday } from "../lib/dates";
+import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
 import { X } from "lucide-react";
 import type { Client, InstallmentFrequency } from "../types/domain";
 import { validateLoanInput, type LoanInput, type LoanErrors } from "../domain/loanValidation";
 import { buildSchedule } from "../domain/installmentSchedule";
-import { frequencyLabel } from "../domain/installmentHelpers";
 
 interface Props {
   clients: Client[];
@@ -47,7 +46,7 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
     rate,
     installmentCount: installmentCount || 1,
     frequency,
-    startDate: startOfToday(),
+    disbursedAt: toIsoDate(startOfToday()),
   });
 
   const totalOwed = schedule.reduce((sum, i) => sum + i.amountCents, 0);
@@ -56,8 +55,8 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
 
   const handleSubmit = async () => {
     const input: LoanInput = { clientId, principalCents, rate, installmentCount, frequency };
-    const { valid, errors: errs } = validateLoanInput(input);
-    if (!valid) {
+    const { ok, errors: errs } = validateLoanInput(input);
+    if (!ok) {
       setErrors(errs);
       return;
     }
@@ -90,7 +89,7 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
           <div className="field" style={{ flex: 1 }}>
             <label>Capital (S/)</label>
             <input className="inp num" inputMode="decimal" value={principal} onChange={e => setPrincipal(e.target.value)} placeholder="0.00" />
-            {errors.principalCents && <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4 }}>{errors.principalCents}</div>}
+            {errors.principal && <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 4 }}>{errors.principal}</div>}
           </div>
           <div className="field" style={{ width: 100 }}>
             <label>Interés (%)</label>
@@ -120,14 +119,14 @@ export function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSw
           <div className="preview">
             <div className="r"><span>Total a cobrar (capital + interés)</span><span className="num">{formatSoles(totalOwed)}</span></div>
             <div className="r"><span>Cuota base</span><span className="num">{formatSoles(schedule[0]?.amountCents ?? 0)}</span></div>
-            <div className="r"><span>Primera cuota vence</span><span className="num">{firstDueDate ? formatShort(firstDueDate) : ""}</span></div>
-            <div className="r"><span>Última cuota vence</span><span className="num">{lastDueDate ? formatShort(lastDueDate) : ""}</span></div>
+            <div className="r"><span>Primera cuota vence</span><span className="num">{firstDueDate ? formatShort(new Date(firstDueDate + "T00:00:00")) : ""}</span></div>
+            <div className="r"><span>Última cuota vence</span><span className="num">{lastDueDate ? formatShort(new Date(lastDueDate + "T00:00:00")) : ""}</span></div>
             
             <div style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Cronograma:</div>
             <div style={{ maxHeight: 200, overflowY: "auto", borderTop: "1px solid var(--line)", marginTop: 6, paddingTop: 6 }}>
               {schedule.map(s => (
                 <div key={s.index} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0" }}>
-                  <span>#{s.index} · {formatShort(s.dueDate)}</span>
+                  <span>#{s.index} · {formatShort(new Date(s.dueDate + "T00:00:00"))}</span>
                   <span className="num" style={{ fontWeight: 600 }}>{formatSoles(s.amountCents)}</span>
                 </div>
               ))}

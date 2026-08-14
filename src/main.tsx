@@ -23,16 +23,23 @@ if (import.meta.env.DEV) {
   seedIfEmpty();
 }
 
+import { ErrorBoundary } from "./ui/ErrorBoundary";
+import { ToastProvider } from "./ui/ToastContext";
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <OnlineProvider>
-      <SessionProvider>
-        <SyncProvider>
-          <AuthGate>
-            <App />
-          </AuthGate>
-        </SyncProvider>
-      </SessionProvider>
-    </OnlineProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <OnlineProvider>
+          <SessionProvider>
+            <SyncProvider>
+              <AuthGate>
+                <App />
+              </AuthGate>
+            </SyncProvider>
+          </SessionProvider>
+        </OnlineProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

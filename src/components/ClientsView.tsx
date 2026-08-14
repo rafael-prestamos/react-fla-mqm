@@ -1,8 +1,10 @@
 import { Plus, User, LogOut } from "lucide-react";
+import type { ReactNode } from "react";
 import { RatingChip } from "./Chips";
 import type { Client, Loan } from "../types/domain";
 
 interface Props {
+  header: ReactNode;
   clients: Client[];
   loans: Loan[];
   onOpenDetail: (clientId: string) => void;
@@ -11,11 +13,12 @@ interface Props {
   userEmail: string | undefined;
 }
 
-export function ClientsView({ clients, loans, onOpenDetail, onNewClient, onSignOut, userEmail }: Props) {
+export function ClientsView({ header, clients, loans, onOpenDetail, onNewClient, onSignOut, userEmail }: Props) {
   return (
     <>
       <div className="pf-head" style={{ paddingBottom: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {header}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 24, fontWeight: 700 }}>Clientes</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{clients.length} registrado{clients.length !== 1 && "s"}</div>

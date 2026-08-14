@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { LoanCard } from "./LoanCard";
 import type { Loan, Client, Installment } from "../types/domain";
 
 interface Props {
+  header: ReactNode;
   loans: Loan[];
   clients: Client[];
   installments: Installment[];
@@ -11,7 +12,7 @@ interface Props {
   onNewLoan: () => void;
 }
 
-export function LoansView({ loans, clients, installments, onPay, onNewLoan }: Props) {
+export function LoansView({ header, loans, clients, installments, onPay, onNewLoan }: Props) {
   const [showPaid, setShowPaid] = useState(false);
 
   const activeLoans = loans.filter(l => !l.isPaid);
@@ -20,7 +21,8 @@ export function LoansView({ loans, clients, installments, onPay, onNewLoan }: Pr
   return (
     <>
       <div className="pf-head" style={{ paddingBottom: 18 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {header}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 24, fontWeight: 700 }}>Préstamos</div>
             <div style={{ fontSize: 13, opacity: 0.8 }}>{activeLoans.length} activo{activeLoans.length !== 1 && "s"}</div>

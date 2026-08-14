@@ -6,6 +6,7 @@ import type { Client, Loan, Installment, Payment } from "../types/domain";
 import { Wallet, TrendingUp, Coins, Users, CalendarClock, AlertTriangle } from "lucide-react";
 
 interface Props {
+  header: ReactNode;
   clients: Client[];
   loans: Loan[];
   installments: Installment[];
@@ -22,7 +23,7 @@ function Stat({ icon, k, v }: { icon: ReactNode; k: string; v: string }) {
   );
 }
 
-export function TodayView({ clients, loans, installments, payments, onPay }: Props) {
+export function TodayView({ header, clients, loans, installments, payments, onPay }: Props) {
   const activeLoans = useMemo(() => loans.filter(l => !l.isPaid), [loans]);
 
   const pendingInstallments = useMemo(() => {
@@ -74,7 +75,8 @@ export function TodayView({ clients, loans, installments, payments, onPay }: Pro
   return (
     <>
       <div className="pf-head">
-        <div className="pf-cobranza-lbl">Debes cobrar hoy</div>
+        {header}
+        <div className="pf-cobranza-lbl" style={{ marginTop: 14 }}>Debes cobrar hoy</div>
         <div className="pf-cobranza num">{formatSoles(totalDueToday)}</div>
         <div className="pf-mini">
           <div><div className="k">Vencen hoy</div><div className="v num">{dueToday.length}</div></div>

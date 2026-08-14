@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { db } from "../db/database";
 import { rowToClient, rowToLoan, rowToPayment, type ClientRow, type LoanRow, type PaymentRow } from "./mappers";
 
@@ -14,6 +14,9 @@ export interface PullResult {
  * tienen updatedAt >= remoto (evita pisar cambios locales pendientes de push). 
  */
 export async function pullFromSupabase(): Promise<PullResult> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { clients: 0, loans: 0, payments: 0 };
+  }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     return { clients: 0, loans: 0, payments: 0 };

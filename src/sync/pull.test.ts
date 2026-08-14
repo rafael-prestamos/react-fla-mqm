@@ -1,8 +1,8 @@
+import "fake-indexeddb/auto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { pullFromSupabase } from "./pull";
 import { db } from "../db/database";
 import { supabase } from "../lib/supabase";
-import "fake-indexeddb/auto";
 import type { ClientRow } from "./mappers";
 
 vi.mock("../lib/supabase", () => {
@@ -11,6 +11,7 @@ vi.mock("../lib/supabase", () => {
       auth: { getSession: vi.fn() },
       from: vi.fn(),
     },
+    isSupabaseConfigured: true,
   };
 });
 
@@ -23,20 +24,20 @@ describe("pullFromSupabase", () => {
   });
 
   it("returns zeros if no session", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null }, error: null } as any);
+    vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: null }, error: null } as any);
     const res = await pullFromSupabase();
     expect(res).toEqual({ clients: 0, loans: 0, payments: 0 });
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase!.from).not.toHaveBeenCalled();
   });
 
   it("pulls with empty local db", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
+    vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
     
     const mockClients: ClientRow[] = [
       { id: "c1", owner_id: "u1", dni: "1", name: "A", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
     ];
 
-    vi.mocked(supabase.from).mockImplementation((table) => {
+    vi.mocked(supabase!.from).mockImplementation((table) => {
       if (table === "clients") return { select: vi.fn().mockResolvedValue({ data: mockClients, error: null }) } as any;
       return { select: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
     });
@@ -49,7 +50,7 @@ describe("pullFromSupabase", () => {
   });
 
   it("does not overwrite local if local is newer", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
+    vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
     
     // Local newer
     await db.clients.put({
@@ -65,7 +66,7 @@ describe("pullFromSupabase", () => {
       { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
     ];
 
-    vi.mocked(supabase.from).mockImplementation((table) => {
+    vi.mocked(supabase!.from).mockImplementation((table) => {
       if (table === "clients") return { select: vi.fn().mockResolvedValue({ data: mockClients, error: null }) } as any;
       return { select: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
     });
@@ -78,7 +79,7 @@ describe("pullFromSupabase", () => {
   });
 
   it("overwrites local if remote is newer", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
+    vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
     
     // Local older
     await db.clients.put({
@@ -94,7 +95,7 @@ describe("pullFromSupabase", () => {
       { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-02-01T00:00:00Z" }
     ];
 
-    vi.mocked(supabase.from).mockImplementation((table) => {
+    vi.mocked(supabase!.from).mockImplementation((table) => {
       if (table === "clients") return { select: vi.fn().mockResolvedValue({ data: mockClients, error: null }) } as any;
       return { select: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
     });

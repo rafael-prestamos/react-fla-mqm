@@ -41,13 +41,11 @@ export async function pushOutbox(): Promise<PushResult> {
   for (const entry of pending) {
     const table = entry.entity;
     let errorMessage: string | null = null;
-    let isAuthError = false;
 
     if (entry.op === "delete") {
       const { error } = await supabase.from(table).delete().eq("id", entry.entityId);
       if (error) {
         errorMessage = error.message;
-        isAuthError = error.code?.startsWith("PGRST") ?? false;
       }
     } else {
       let mappedRow: Record<string, unknown> = {};
@@ -62,7 +60,6 @@ export async function pushOutbox(): Promise<PushResult> {
       const { error } = await supabase.from(table).upsert(mappedRow);
       if (error) {
         errorMessage = error.message;
-        isAuthError = error.code?.startsWith("PGRST") ?? false;
       }
     }
 

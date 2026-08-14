@@ -1,17 +1,8 @@
-/**
- * Motor de sincronización — patrón Outbox.
- *
- * Cada cambio local se encola en db.outbox. Cuando hay conexión y sesión,
- * pushOutbox() empuja los pendientes a Supabase (upsert/delete) y los marca
- * como sincronizados. Estrategia de conflictos: last-write-wins por updatedAt.
- *
- * Nota de mapeo: el dominio usa camelCase; Postgres usa snake_case. El mapeo
- * concreto por entidad se implementa en Sprint 4 (junto al backup automático).
- */
-
 import { db, type OutboxOp, type SyncEntity } from "../db/database";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { nowIso } from "../lib/id";
+import { clientToRow, loanToRow, paymentToRow } from "./mappers";
+import type { Client, Loan, Payment } from "../types/domain";
 
 /** Encola una operación para sincronizar. Lo llaman los repositories. */
 export async function enqueue(
@@ -29,34 +20,64 @@ export function pendingOps(): Promise<OutboxOp[]> {
   return db.outbox.filter((entry) => !entry.syncedAt).toArray();
 }
 
-/** Empuja los pendientes a Supabase. Devuelve cuántas operaciones se sincronizaron. */
-export async function pushOutbox(): Promise<number> {
-  if (!isSupabaseConfigured || !supabase) return 0;
+export interface PushResult {
+  synced: number;
+  errors: number;
+  total: number;
+}
+
+/** Empuja los pendientes a Supabase utilizando mappers camelCase -> snake_case. */
+export async function pushOutbox(): Promise<PushResult> {
+  if (!isSupabaseConfigured || !supabase) return { synced: 0, errors: 0, total: 0 };
 
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return 0; // sin sesión no sincronizamos (Auth + RLS)
+  if (!data.session) return { synced: 0, errors: 0, total: 0 };
 
+  const ownerId = data.session.user.id;
   const pending = await pendingOps();
   let synced = 0;
+  let errorsCount = 0;
 
   for (const entry of pending) {
     const table = entry.entity;
     let errorMessage: string | null = null;
+    let isAuthError = false;
 
     if (entry.op === "delete") {
       const { error } = await supabase.from(table).delete().eq("id", entry.entityId);
-      errorMessage = error?.message ?? null;
+      if (error) {
+        errorMessage = error.message;
+        isAuthError = error.code?.startsWith("PGRST") ?? false;
+      }
     } else {
-      const { error } = await supabase.from(table).upsert(entry.payload as Record<string, unknown>);
-      errorMessage = error?.message ?? null;
+      let mappedRow: Record<string, unknown> = {};
+      if (table === "clients") {
+        mappedRow = { ...clientToRow(entry.payload as Client), owner_id: ownerId };
+      } else if (table === "loans") {
+        mappedRow = { ...loanToRow(entry.payload as Loan), owner_id: ownerId };
+      } else if (table === "payments") {
+        mappedRow = { ...paymentToRow(entry.payload as Payment), owner_id: ownerId };
+      }
+
+      const { error } = await supabase.from(table).upsert(mappedRow);
+      if (error) {
+        errorMessage = error.message;
+        isAuthError = error.code?.startsWith("PGRST") ?? false;
+      }
     }
 
-    if (errorMessage) break; // reintenta en la próxima pasada; conservamos el orden
+    if (errorMessage) {
+      errorsCount++;
+      // Rompe el loop ante errores para conservar el orden estricto, 
+      // especialmente importante para PGRST de auth/RLS.
+      break;
+    }
+    
     if (entry.id !== undefined) {
       await db.outbox.update(entry.id, { syncedAt: nowIso() });
     }
-    synced += 1;
+    synced++;
   }
 
-  return synced;
+  return { synced, errors: errorsCount, total: pending.length };
 }

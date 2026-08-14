@@ -1,135 +1,83 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyPayment } from "./loanPayment";
-import type { Loan } from "../types/domain";
+import type { Installment } from "../types/domain";
+import * as loanRules from "./loanRules";
 
-// ⚠️ La regla de interés por mora aún está pendiente de confirmación verbal con la clienta (ver DECISIONS §5).
-// Los tests que involucran mora asumen LATE_INTEREST_ENABLED=true en el entorno de pruebas, o asumen que la
-// derivación del loan lo está incluyendo correctamente.
+describe("applyPayment", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-describe("loanPayment", () => {
-  const baseLoan: Loan = {
-    id: "l1",
-    clientId: "c1",
-    principalCents: 100000,
-    rate: 0.2,
-    termDays: 30,
-    disbursedAt: "2025-01-01T00:00:00.000Z",
-    paidOffCents: 0,
-    renewalCount: 0,
-    isPaid: false,
-    createdAt: "2025-01-01T00:00:00.000Z",
-    updatedAt: "2025-01-01T00:00:00.000Z",
+  const baseInst: Installment = {
+    id: "i1",
+    loanId: "l1",
+    index: 1,
+    dueDate: "2024-01-10",
+    amountCents: 10000,
+    paidCents: 0,
+    status: "pending",
+    paidAt: null,
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01"
   };
 
-  it("1. partial al día (sin mora)", () => {
-    // día 14: no mora
-    const reference = new Date("2025-01-15T00:00:00Z");
+  it("throws if amountCents is 0", () => {
+    expect(() => applyPayment({ installment: baseInst, amountCents: 0, method: "cash" })).toThrow(RangeError);
+  });
+
+  it("throws if amountCents is negative", () => {
+    expect(() => applyPayment({ installment: baseInst, amountCents: -100, method: "cash" })).toThrow(RangeError);
+  });
+
+  it("throws if amountCents is not integer", () => {
+    expect(() => applyPayment({ installment: baseInst, amountCents: 100.5, method: "cash" })).toThrow(RangeError);
+  });
+
+  it("throws if amountCents exceeds total owed", () => {
+    expect(() => applyPayment({ installment: baseInst, amountCents: 10001, method: "cash" })).toThrowError(/excede lo debido/);
+  });
+
+  it("applies exact full payment", () => {
+    const res = applyPayment({ installment: baseInst, amountCents: 10000, method: "cash", reference: new Date("2024-01-10T12:00:00Z") });
+    expect(res.updatedInstallment.paidCents).toBe(10000);
+    expect(res.updatedInstallment.status).toBe("paid");
+    expect(res.updatedInstallment.paidAt).toBe("2024-01-10T12:00:00.000Z");
     
-    // abono 5000
-    const res1 = applyPayment({ loan: baseLoan, type: "partial", amountCents: 5000, method: "cash", reference });
-    expect(res1.paymentRecord.interestPaidCents).toBe(5000);
-    expect(res1.paymentRecord.principalPaidCents).toBe(0);
-    expect(res1.updatedLoan.paidOffCents).toBe(5000);
-    expect(res1.updatedLoan.isPaid).toBe(false);
-
-    // abono 25000
-    const res2 = applyPayment({ loan: baseLoan, type: "partial", amountCents: 25000, method: "cash", reference });
-    expect(res2.paymentRecord.interestPaidCents).toBe(20000);
-    expect(res2.paymentRecord.principalPaidCents).toBe(5000);
-    expect(res2.updatedLoan.paidOffCents).toBe(25000);
-    expect(res2.updatedLoan.isPaid).toBe(false);
+    expect(res.paymentRecord.amountCents).toBe(10000);
+    expect(res.paymentRecord.daysLate).toBe(0);
+    expect(res.paymentRecord.method).toBe("cash");
+    expect(res.paymentRecord.installmentId).toBe("i1");
   });
 
-  it("2. partial con abono previo", () => {
-    const loanWithPaid = { ...baseLoan, paidOffCents: 10000 };
-    const reference = new Date("2025-01-15T00:00:00Z");
+  it("applies partial payment", () => {
+    const res = applyPayment({ installment: baseInst, amountCents: 4000, method: "digital", reference: new Date("2024-01-10T12:00:00Z") });
+    expect(res.updatedInstallment.paidCents).toBe(4000);
+    expect(res.updatedInstallment.status).toBe("pending");
+    expect(res.updatedInstallment.paidAt).toBeNull();
 
-    // abono 15000
-    const res = applyPayment({ loan: loanWithPaid, type: "partial", amountCents: 15000, method: "cash", reference });
-    expect(res.paymentRecord.interestPaidCents).toBe(10000); // 20k - 10k previos = 10k pendientes
-    expect(res.paymentRecord.principalPaidCents).toBe(5000);
-    expect(res.updatedLoan.paidOffCents).toBe(25000);
-    expect(res.updatedLoan.isPaid).toBe(false);
+    expect(res.paymentRecord.amountCents).toBe(4000);
   });
 
-  it("3. partial que liquida", () => {
-    const loanWithPaid = { ...baseLoan, paidOffCents: 100000 }; // 100k
-    const reference = new Date("2025-01-31T00:00:00Z");
-
-    // Total debt: 120k (100k + 20k). Paid: 100k. Balance: 20k.
-    const res = applyPayment({ loan: loanWithPaid, type: "partial", amountCents: 20000, method: "cash", reference });
-    expect(res.updatedLoan.paidOffCents).toBe(120000);
-    expect(res.updatedLoan.isPaid).toBe(true);
-  });
-
-  it("4. partial inválido", () => {
-    const reference = new Date("2025-01-15T00:00:00Z");
-    expect(() => applyPayment({ loan: baseLoan, type: "partial", amountCents: 0, method: "cash", reference }))
-      .toThrowError(/amountCents debe ser > 0/);
-    expect(() => applyPayment({ loan: baseLoan, type: "partial", amountCents: 200000, method: "cash", reference }))
-      .toThrowError(/El abono excede el saldo/);
-  });
-
-  it("5. interest sin mora", () => {
-    const reference = new Date("2025-01-31T00:00:00Z");
-    const res = applyPayment({ loan: baseLoan, type: "interest", amountCents: 0, method: "cash", reference }); // amountCents ignored
-    expect(res.paymentRecord.amountCents).toBe(20000);
-    expect(res.paymentRecord.interestPaidCents).toBe(20000);
-    expect(res.paymentRecord.principalPaidCents).toBe(0);
-    expect(res.updatedLoan.renewalCount).toBe(1);
-    expect(res.updatedLoan.paidOffCents).toBe(0);
-    // Vencimiento era 2025-01-31, así que disbursedAt debe ser esa misma fecha
-    expect(res.updatedLoan.disbursedAt).toMatch(/^2025-01-31/);
-    expect(res.updatedLoan.isPaid).toBe(false);
-  });
-
-  it("6. interest con mora", () => {
-    // 2025-02-15 = 15 días de atraso sobre 2025-01-31.
-    // periodos de atraso = 1 => 20k de mora. Total interés: 40k.
-    const reference = new Date("2025-02-15T00:00:00Z");
-    const res = applyPayment({ loan: baseLoan, type: "interest", amountCents: 0, method: "cash", reference });
-    expect(res.paymentRecord.amountCents).toBe(40000);
-    expect(res.paymentRecord.interestPaidCents).toBe(40000);
-    expect(res.paymentRecord.principalPaidCents).toBe(0);
-    expect(res.updatedLoan.renewalCount).toBe(1);
-    expect(res.updatedLoan.paidOffCents).toBe(0);
-    // Vencimiento original era 2025-01-31, así que la nueva disbursedAt será esa fecha para reiniciar el ciclo ahí
-    expect(res.updatedLoan.disbursedAt).toMatch(/^2025-01-31/);
-  });
-
-  it("7. full sin mora", () => {
-    const reference = new Date("2025-01-31T00:00:00Z");
-    const res = applyPayment({ loan: baseLoan, type: "full", amountCents: 0, method: "cash", reference });
-    expect(res.paymentRecord.amountCents).toBe(120000);
-    expect(res.paymentRecord.interestPaidCents).toBe(20000);
-    expect(res.paymentRecord.principalPaidCents).toBe(100000);
-    expect(res.updatedLoan.isPaid).toBe(true);
-    expect(res.updatedLoan.paidOffCents).toBe(120000);
-  });
-
-  it("8. full con abono previo", () => {
-    const loanWithPaid = { ...baseLoan, paidOffCents: 15000 };
-    const reference = new Date("2025-01-31T00:00:00Z");
-    const res = applyPayment({ loan: loanWithPaid, type: "full", amountCents: 0, method: "cash", reference });
+  it("applies full payment including late interest", () => {
+    // @ts-ignore
+    vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
+    // 40 days late -> 2 late periods -> 20000 interest + 10000 base = 30000 total
+    const res = applyPayment({ installment: baseInst, amountCents: 30000, method: "cash", reference: new Date("2024-02-19T12:00:00Z") });
     
-    // Balance total es 120k - 15k = 105k
-    expect(res.paymentRecord.amountCents).toBe(105000);
-    // Abono previo de 15k ya cubrió parte de los 20k de interés
-    expect(res.paymentRecord.interestPaidCents).toBe(5000);
-    expect(res.paymentRecord.principalPaidCents).toBe(100000);
-    expect(res.updatedLoan.isPaid).toBe(true);
-    expect(res.updatedLoan.paidOffCents).toBe(120000);
+    expect(res.updatedInstallment.paidCents).toBe(30000);
+    expect(res.updatedInstallment.status).toBe("paid");
+    expect(res.paymentRecord.amountCents).toBe(30000);
+    expect(res.paymentRecord.daysLate).toBe(40);
   });
 
-  it("9. full con mora", () => {
-    const reference = new Date("2025-02-15T00:00:00Z");
-    const res = applyPayment({ loan: baseLoan, type: "full", amountCents: 0, method: "cash", reference });
+  it("applies partial payment when late interest is present but not fully paid", () => {
+    // @ts-ignore
+    vi.spyOn(loanRules, "LATE_INTEREST_ENABLED", "get").mockReturnValue(true);
+    // 30000 total, pays 15000
+    const res = applyPayment({ installment: baseInst, amountCents: 15000, method: "cash", reference: new Date("2024-02-19T12:00:00Z") });
     
-    // Interés total: 40k. Balance: 140k
-    expect(res.paymentRecord.amountCents).toBe(140000);
-    expect(res.paymentRecord.interestPaidCents).toBe(40000);
-    expect(res.paymentRecord.principalPaidCents).toBe(100000);
-    expect(res.updatedLoan.isPaid).toBe(true);
-    expect(res.updatedLoan.paidOffCents).toBe(140000);
+    expect(res.updatedInstallment.paidCents).toBe(15000);
+    expect(res.updatedInstallment.status).toBe("pending");
+    expect(res.updatedInstallment.paidAt).toBeNull();
   });
 });

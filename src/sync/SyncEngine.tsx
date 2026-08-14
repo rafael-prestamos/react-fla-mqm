@@ -6,6 +6,7 @@ import { pushOutbox } from "./outbox";
 import { pullFromSupabase } from "./pull";
 import { useOnline } from "./OnlineContext";
 import { useSession } from "../auth/SessionContext";
+import { useToast } from "../ui/ToastContext";
 
 interface SyncState {
   status: "synced" | "syncing" | "offline" | "error";
@@ -26,6 +27,7 @@ const SyncContext = createContext<SyncState & { forcePush: () => Promise<void>; 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { online } = useOnline();
   const { session } = useSession();
+  const toast = useToast();
   
   const pendingCount = useLiveQuery(() => db.outbox.filter((e) => !e.syncedAt).count()) ?? 0;
   
@@ -37,6 +39,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const pushRunningRef = useRef(false);
   const needsRerunRef = useRef(false);
   
+  const lastWasErrorRef = useRef(false);
+
+  const handleSuccess = () => {
+    if (lastWasErrorRef.current) {
+      toast.success("Sincronización restaurada");
+      lastWasErrorRef.current = false;
+    }
+  };
+
+  const handleError = (e: unknown, msg: string) => {
+    setLastError(e instanceof Error ? e.message : msg);
+    if (!lastWasErrorRef.current) {
+      toast.error("Error al sincronizar");
+      lastWasErrorRef.current = true;
+    }
+  };
+
   const forcePush = async () => {
     if (!online || !session) return;
     if (pushRunningRef.current) {
@@ -51,12 +70,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       const result = await pushOutbox();
       if (result.errors > 0) {
-        setLastError("Error al enviar algunos cambios");
+        handleError(null, "Error al enviar algunos cambios");
       } else if (result.synced > 0) {
         setLastSyncAt(new Date().toISOString());
+        handleSuccess();
+      } else {
+        handleSuccess(); // Even if 0 synced, we succeeded
       }
     } catch (e) {
-      setLastError(e instanceof Error ? e.message : "Error de sincronización");
+      handleError(e, "Error de sincronización");
     } finally {
       pushRunningRef.current = false;
       setIsPushing(false);
@@ -75,8 +97,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       await pullFromSupabase();
       setLastSyncAt(new Date().toISOString());
+      handleSuccess();
     } catch (e) {
-      setLastError(e instanceof Error ? e.message : "Error descargando datos");
+      handleError(e, "Error descargando datos");
     } finally {
       setIsPulling(false);
     }

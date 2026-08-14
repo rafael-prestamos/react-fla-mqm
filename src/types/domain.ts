@@ -21,6 +21,8 @@ export interface Client {
   dni: string;
   name: string;
   phone: string;
+  rating: ClientRating;              // "good" | "slow" | "bad" — cacheado
+  maxDaysLateHistorical: number;     // máximo atraso alguna vez alcanzado (monótono ascendente)
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }

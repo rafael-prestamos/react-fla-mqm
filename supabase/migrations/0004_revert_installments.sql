@@ -4,9 +4,10 @@
 -- Wipe seguro: en la nueva realidad no hay data que preservar.
 truncate table public.payments, public.installments, public.loans, public.clients cascade;
 
--- Drop tabla installments (con policy)
+-- Primero quitar la FK de payments a installments (si existe), luego dropear installments con CASCADE por si quedan residuos.
+alter table public.payments drop constraint if exists payments_installment_id_fkey;
 drop policy if exists "installments_owner" on public.installments;
-drop table if exists public.installments;
+drop table if exists public.installments cascade;
 
 -- Restaurar columnas de loans del modelo pago-único
 alter table public.loans

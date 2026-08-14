@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Wifi, Coins, User, PawPrint,
+  Users, Home, WifiOff, Wifi, Coins, User, PawPrint, Check, RefreshCw
 } from "lucide-react";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, classifyByMaxDaysLate, type LoanDerived, type LoanStatus } from "./domain/loanRules";
@@ -15,6 +15,7 @@ import { validateClientInput, type ClientInput, type ClientErrors } from "./doma
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
 import { useSession } from "./auth/SessionContext";
+import { useSync } from "./sync/SyncEngine";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -132,12 +133,12 @@ interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRa
 /* ---------- app ---------- */
 export default function App() {
   const { session, signOut } = useSession();
+  const sync = useSync();
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
-  const [offline, setOffline] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
@@ -228,9 +229,9 @@ export default function App() {
 
   return (
     <div className="pf-root">
-      <style>{CSS}</style>
+      <style>{CSS + "\n@keyframes spin { 100% { transform: rotate(360deg); } }"}</style>
       <div className="pf-shell">
-        {offline && (
+        {sync.status === "offline" && (
           <div className="offbar">
             <WifiOff size={14} /> Sin conexión · los cambios se guardan aquí y se sincronizan luego
           </div>
@@ -239,14 +240,26 @@ export default function App() {
         <div className="pf-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div className="pf-brand"><PawPrint size={18} /> Fla MpM</div>
-            <button
-              onClick={() => setOffline((o) => !o)}
-              style={{ background: "rgba(255,255,255,.14)", border: "none", color: "var(--cream)",
-                borderRadius: 9, padding: "6px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 5, fontFamily: "inherit" }}
-            >
-              {offline ? (<><WifiOff size={13} />Offline</>) : (<><Wifi size={13} />En línea</>)}
-            </button>
+            {sync.status === "synced" && (
+              <div style={{ background: "var(--good-soft)", color: "var(--good)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <Check size={13} /> Al día
+              </div>
+            )}
+            {sync.status === "syncing" && (
+              <div style={{ background: "var(--warn-soft)", color: "var(--warn)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> Sincronizando…
+              </div>
+            )}
+            {sync.status === "offline" && (
+              <div style={{ background: "var(--card)", color: "var(--muted)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <WifiOff size={13} /> Offline · {sync.pendingCount} pendiente{sync.pendingCount !== 1 && "s"}
+              </div>
+            )}
+            {sync.status === "error" && (
+              <button onClick={() => sync.forcePush()} style={{ background: "var(--bad-soft)", border: "none", color: "var(--bad)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontFamily: "inherit" }}>
+                <AlertTriangle size={13} /> Error de sync
+              </button>
+            )}
           </div>
           <div className="pf-hello">Buen día · {formatLong(startOfToday())} · 7:00 a.m.</div>
           <div className="pf-cobranza-lbl">Debes cobrar hoy</div>

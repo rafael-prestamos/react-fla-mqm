@@ -1,79 +1,40 @@
 import { describe, it, expect } from "vitest";
-import {
-  clientToRow,
-  rowToClient,
-  loanToRow,
-  rowToLoan,
-  paymentToRow,
-  rowToPayment,
-  type LoanRow,
-} from "./mappers";
-import type { Client, Loan, Payment } from "../types/domain";
+import { clientToRow, rowToClient, loanToRow, rowToLoan, installmentToRow, rowToInstallment, paymentToRow, rowToPayment } from "./mappers";
+import type { Client, Loan, Installment, Payment } from "../types/domain";
 
-describe("sync mappers", () => {
-  it("client round-trip", () => {
-    const domain: Client = {
-      id: "c1",
-      dni: "12345678",
-      name: "Juan",
-      phone: "999999999",
-      createdAt: "2024-01-01T00:00:00.000Z",
-      updatedAt: "2024-01-01T00:00:00.000Z",
+describe("mappers", () => {
+  it("Client round-trip", () => {
+    const c: Client = {
+      id: "1", dni: "1", name: "A", phone: "1", createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z"
     };
-    const row = clientToRow(domain);
-    const back = rowToClient({ ...row, owner_id: "user1" });
-    expect(back).toEqual(domain);
+    const row = clientToRow(c);
+    expect(rowToClient(row as any)).toEqual(c);
   });
 
-  it("loan round-trip with isPaid=true", () => {
-    const domain: Loan = {
-      id: "l1",
-      clientId: "c1",
-      principalCents: 100000,
-      rate: 0.2,
-      termDays: 30,
-      disbursedAt: "2024-01-01T00:00:00.000Z",
-      paidOffCents: 120000,
-      renewalCount: 1,
-      isPaid: true,
-      createdAt: "2024-01-01T00:00:00.000Z",
-      updatedAt: "2024-02-01T00:00:00.000Z",
+  it("Loan round-trip", () => {
+    const l: Loan = {
+      id: "1", clientId: "c1", principalCents: 1000, rate: 0.2, installmentCount: 1, frequency: "monthly",
+      disbursedAt: "2024-01-01", isPaid: false, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z"
     };
-    const row = loanToRow(domain);
-    const back = rowToLoan({ ...row, owner_id: "user1" });
-    expect(back).toEqual(domain);
+    const row = loanToRow(l);
+    expect(rowToLoan(row as any)).toEqual(l);
   });
 
-  it("payment round-trip", () => {
-    const domain: Payment = {
-      id: "p1",
-      loanId: "l1",
-      type: "full",
-      amountCents: 120000,
-      method: "cash",
-      daysLate: 5,
-      paidAt: "2024-02-01T00:00:00.000Z",
+  it("Installment round-trip", () => {
+    const i: Installment = {
+      id: "1", loanId: "l1", index: 1, dueDate: "2024-01-31", amountCents: 1000, paidCents: 0,
+      status: "pending", paidAt: null, createdAt: "2024-01-01T00:00:00Z", updatedAt: "2024-01-01T00:00:00Z"
     };
-    const row = paymentToRow(domain);
-    const back = rowToPayment({ ...row, owner_id: "user1" });
-    expect(back).toEqual(domain);
+    const row = installmentToRow(i);
+    expect(rowToInstallment(row as any)).toEqual(i);
   });
 
-  it("loan throws on invalid term_days", () => {
-    const invalidRow: LoanRow = {
-      id: "l2",
-      owner_id: "user1",
-      client_id: "c1",
-      principal_cents: 100000,
-      rate: 0.2,
-      term_days: 15, // invalid
-      disbursed_at: "2024-01-01T00:00:00.000Z",
-      paid_off_cents: 0,
-      renewal_count: 0,
-      is_paid: false,
-      created_at: "2024-01-01T00:00:00.000Z",
-      updated_at: "2024-01-01T00:00:00.000Z",
+  it("Payment round-trip", () => {
+    const p: Payment = {
+      id: "1", loanId: "l1", installmentId: "i1", amountCents: 1000, method: "cash",
+      daysLate: 0, paidAt: "2024-01-01T00:00:00Z"
     };
-    expect(() => rowToLoan(invalidRow)).toThrowError("term_days inválido en fila: l2");
+    const row = paymentToRow(p);
+    expect(rowToPayment(row as any)).toEqual(p);
   });
 });

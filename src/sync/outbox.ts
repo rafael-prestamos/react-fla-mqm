@@ -1,8 +1,8 @@
 import { db, type OutboxOp, type SyncEntity } from "../db/database";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { nowIso } from "../lib/id";
-import { clientToRow, loanToRow, paymentToRow } from "./mappers";
-import type { Client, Loan, Payment } from "../types/domain";
+import { clientToRow, loanToRow, paymentToRow, installmentToRow } from "./mappers";
+import type { Client, Loan, Payment, Installment } from "../types/domain";
 
 /** Encola una operación para sincronizar. Lo llaman los repositories. */
 export async function enqueue(
@@ -53,6 +53,8 @@ export async function pushOutbox(): Promise<PushResult> {
         mappedRow = { ...clientToRow(entry.payload as Client), owner_id: ownerId };
       } else if (table === "loans") {
         mappedRow = { ...loanToRow(entry.payload as Loan), owner_id: ownerId };
+      } else if (table === "installments") {
+        mappedRow = { ...installmentToRow(entry.payload as Installment), owner_id: ownerId };
       } else if (table === "payments") {
         mappedRow = { ...paymentToRow(entry.payload as Payment), owner_id: ownerId };
       }

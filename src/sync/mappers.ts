@@ -1,4 +1,4 @@
-import type { Client, Loan, Payment, LoanTerm } from "../types/domain";
+import type { Client, Loan, Payment, Installment, InstallmentFrequency, InstallmentStatus, PaymentMethod } from "../types/domain";
 
 export interface ClientRow {
   id: string;
@@ -16,11 +16,24 @@ export interface LoanRow {
   client_id: string;
   principal_cents: number;
   rate: number;
-  term_days: number;
+  installment_count: number;
+  frequency: string;
   disbursed_at: string;
-  paid_off_cents: number;
-  renewal_count: number;
   is_paid: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InstallmentRow {
+  id: string;
+  owner_id: string;
+  loan_id: string;
+  index: number;
+  due_date: string;
+  amount_cents: number;
+  paid_cents: number;
+  status: string;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,9 +42,9 @@ export interface PaymentRow {
   id: string;
   owner_id: string;
   loan_id: string;
-  type: "full" | "interest" | "partial";
+  installment_id: string;
   amount_cents: number;
-  method: "cash" | "digital";
+  method: string;
   days_late: number;
   paid_at: string;
 }
@@ -64,10 +77,9 @@ export function loanToRow(l: Loan): Omit<LoanRow, "owner_id"> {
     client_id: l.clientId,
     principal_cents: l.principalCents,
     rate: l.rate,
-    term_days: l.termDays,
+    installment_count: l.installmentCount,
+    frequency: l.frequency,
     disbursed_at: l.disbursedAt,
-    paid_off_cents: l.paidOffCents,
-    renewal_count: l.renewalCount,
     is_paid: l.isPaid,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
@@ -75,19 +87,45 @@ export function loanToRow(l: Loan): Omit<LoanRow, "owner_id"> {
 }
 
 export function rowToLoan(r: LoanRow): Loan {
-  if (r.term_days !== 25 && r.term_days !== 28 && r.term_days !== 30) {
-    throw new Error("term_days inválido en fila: " + r.id);
-  }
   return {
     id: r.id,
     clientId: r.client_id,
     principalCents: r.principal_cents,
     rate: Number(r.rate),
-    termDays: r.term_days as LoanTerm,
+    installmentCount: r.installment_count,
+    frequency: r.frequency as InstallmentFrequency,
     disbursedAt: r.disbursed_at,
-    paidOffCents: r.paid_off_cents,
-    renewalCount: r.renewal_count,
     isPaid: r.is_paid,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function installmentToRow(i: Installment): Omit<InstallmentRow, "owner_id"> {
+  return {
+    id: i.id,
+    loan_id: i.loanId,
+    index: i.index,
+    due_date: i.dueDate,
+    amount_cents: i.amountCents,
+    paid_cents: i.paidCents,
+    status: i.status,
+    paid_at: i.paidAt,
+    created_at: i.createdAt,
+    updated_at: i.updatedAt,
+  };
+}
+
+export function rowToInstallment(r: InstallmentRow): Installment {
+  return {
+    id: r.id,
+    loanId: r.loan_id,
+    index: r.index,
+    dueDate: r.due_date,
+    amountCents: r.amount_cents,
+    paidCents: r.paid_cents,
+    status: r.status as InstallmentStatus,
+    paidAt: r.paid_at,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -97,7 +135,7 @@ export function paymentToRow(p: Payment): Omit<PaymentRow, "owner_id"> {
   return {
     id: p.id,
     loan_id: p.loanId,
-    type: p.type,
+    installment_id: p.installmentId,
     amount_cents: p.amountCents,
     method: p.method,
     days_late: p.daysLate,
@@ -109,9 +147,9 @@ export function rowToPayment(r: PaymentRow): Payment {
   return {
     id: r.id,
     loanId: r.loan_id,
-    type: r.type,
+    installmentId: r.installment_id,
     amountCents: r.amount_cents,
-    method: r.method,
+    method: r.method as PaymentMethod,
     daysLate: r.days_late,
     paidAt: r.paid_at,
   };

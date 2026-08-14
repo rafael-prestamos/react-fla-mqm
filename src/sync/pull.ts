@@ -1,76 +1,91 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { db } from "../db/database";
-import { rowToClient, rowToLoan, rowToPayment, type ClientRow, type LoanRow, type PaymentRow } from "./mappers";
+import { 
+  rowToClient, rowToLoan, rowToInstallment, rowToPayment, 
+  type ClientRow, type LoanRow, type InstallmentRow, type PaymentRow 
+} from "./mappers";
 
 export interface PullResult {
   clients: number;
   loans: number;
+  installments: number;
   payments: number;
 }
 
-/** 
- * Descarga todas las filas del usuario desde Supabase y las mergea a Dexie
- * con estrategia last-write-wins por updatedAt. Ignora filas locales que ya
- * tienen updatedAt >= remoto (evita pisar cambios locales pendientes de push). 
- */
 export async function pullFromSupabase(): Promise<PullResult> {
   if (!isSupabaseConfigured || !supabase) {
-    return { clients: 0, loans: 0, payments: 0 };
+    return { clients: 0, loans: 0, installments: 0, payments: 0 };
   }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    return { clients: 0, loans: 0, payments: 0 };
+    return { clients: 0, loans: 0, installments: 0, payments: 0 };
   }
 
-  const [clientsRes, loansRes, paymentsRes] = await Promise.all([
-    supabase.from("clients").select("*"),
-    supabase.from("loans").select("*"),
-    supabase.from("payments").select("*"),
-  ]);
+  const { data: clientsData, error: ce } = await supabase.from("clients").select("*");
+  const { data: loansData, error: le } = await supabase.from("loans").select("*");
+  const { data: installmentsData, error: ie } = await supabase.from("installments").select("*");
+  const { data: paymentsData, error: pe } = await supabase.from("payments").select("*");
 
-  if (clientsRes.error) throw new Error(clientsRes.error.message);
-  if (loansRes.error) throw new Error(loansRes.error.message);
-  if (paymentsRes.error) throw new Error(paymentsRes.error.message);
+  if (ce || le || ie || pe) {
+    console.error("Error en pull", { ce, le, ie, pe });
+    return { clients: 0, loans: 0, installments: 0, payments: 0 };
+  }
 
-  let clientsCount = 0;
-  let loansCount = 0;
-  let paymentsCount = 0;
+  let clientsSynced = 0;
+  let loansSynced = 0;
+  let installmentsSynced = 0;
+  let paymentsSynced = 0;
 
-  await db.transaction("rw", db.clients, db.loans, db.payments, async () => {
+  await db.transaction("rw", db.clients, db.loans, db.installments, db.payments, async () => {
     // Clients
-    for (const r of (clientsRes.data || []) as ClientRow[]) {
-      const remote = rowToClient(r);
-      const local = await db.clients.get(remote.id);
-      if (!local || new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
-        await db.clients.put(remote);
-        clientsCount++;
+    if (clientsData && clientsData.length > 0) {
+      for (const row of clientsData as ClientRow[]) {
+        const local = await db.clients.get(row.id);
+        if (!local || new Date(row.updated_at) > new Date(local.updatedAt)) {
+          await db.clients.put(rowToClient(row));
+          clientsSynced++;
+        }
       }
     }
 
     // Loans
-    for (const r of (loansRes.data || []) as LoanRow[]) {
-      try {
-        const remote = rowToLoan(r);
-        const local = await db.loans.get(remote.id);
-        if (!local || new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
-          await db.loans.put(remote);
-          loansCount++;
+    if (loansData && loansData.length > 0) {
+      for (const row of loansData as LoanRow[]) {
+        const local = await db.loans.get(row.id);
+        if (!local || new Date(row.updated_at) > new Date(local.updatedAt)) {
+          await db.loans.put(rowToLoan(row));
+          loansSynced++;
         }
-      } catch (e) {
-        console.warn(e);
+      }
+    }
+
+    // Installments
+    if (installmentsData && installmentsData.length > 0) {
+      for (const row of installmentsData as InstallmentRow[]) {
+        const local = await db.installments.get(row.id);
+        if (!local || new Date(row.updated_at) > new Date(local.updatedAt)) {
+          await db.installments.put(rowToInstallment(row));
+          installmentsSynced++;
+        }
       }
     }
 
     // Payments
-    for (const r of (paymentsRes.data || []) as PaymentRow[]) {
-      const remote = rowToPayment(r);
-      const local = await db.payments.get(remote.id);
-      if (!local) {
-        await db.payments.put(remote);
-        paymentsCount++;
+    if (paymentsData && paymentsData.length > 0) {
+      for (const row of paymentsData as PaymentRow[]) {
+        const local = await db.payments.get(row.id);
+        if (!local || new Date(row.paid_at) > new Date(local.paidAt)) {
+          await db.payments.put(rowToPayment(row));
+          paymentsSynced++;
+        }
       }
     }
   });
 
-  return { clients: clientsCount, loans: loansCount, payments: paymentsCount };
+  return { 
+    clients: clientsSynced, 
+    loans: loansSynced, 
+    installments: installmentsSynced, 
+    payments: paymentsSynced 
+  };
 }

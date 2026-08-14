@@ -13,6 +13,7 @@ interface Props {
 }
 
 export function PaymentSheet({ installment, loan, client, onClose, onSubmit }: Props) {
+  if (!installment) return null;
   const d = deriveInstallment(installment);
   const owed = d.totalOwedCents - installment.paidCents;
 

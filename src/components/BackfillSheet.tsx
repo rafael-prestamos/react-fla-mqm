@@ -30,7 +30,16 @@ export function BackfillSheet({ clients, onClose, onSubmit, onSwitchToNew }: Pro
   const rate = (parseFloat(ratePct) || 0) / 100;
   
   const schedule = useMemo(() => {
-    if (!principalCents || !installmentCount || !disbursedAt) return [];
+    const inputComplete =
+      principalCents > 0 &&
+      rate >= 0 &&
+      rate <= 1 &&
+      Number.isInteger(installmentCount) &&
+      installmentCount >= 1 &&
+      installmentCount <= 60 &&
+      !!disbursedAt;
+      
+    if (!inputComplete) return [];
     try {
       return buildSchedule({
         loanId: "preview",

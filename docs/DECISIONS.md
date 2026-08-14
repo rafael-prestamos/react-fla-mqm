@@ -59,6 +59,11 @@ Pasados los 7 días corre **1 interés adicional por cada 30 días** de atraso
 `src/domain/loanRules.ts`. **Pendiente de CONFIRMACIÓN VERBAL con la clienta
 antes de activarla en firme en Sprint 3.**
 
+### Sprint 2a: Modelo de pagos
+- **Orden de abonos (partial):** Primero cubren el interés pendiente del ciclo actual. El sobrante reduce el capital (saldo).
+- **Semántica de renovación (interest):** El pago de "solo interés" inicia un nuevo ciclo cuya fecha de entrega (`disbursedAt`) es idéntica a la fecha de vencimiento anterior, corriendo el plazo hacia adelante.
+- **Transacción única:** La aplicación de un pago muta el `loan`, inserta el `payment` y encola en `outbox` dentro de una única transacción ACID de Dexie (`db.transaction`).
+
 ## 6. Diseño / marca
 
 - **Color principal: azul marino.** Tokens: `#16325C` principal, `#1F406A` claro,

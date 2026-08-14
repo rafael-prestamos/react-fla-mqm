@@ -1,12 +1,7 @@
-/**
- * Repository de pagos. Guarda el historial de cada movimiento (total, interés, abono)
- * que luego alimenta la clasificación del cliente y el panel de cobranzas.
- */
-
 import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
-import type { Payment, PaymentMethod, PaymentType } from "../types/domain";
+import type { Payment, PaymentMethod } from "../types/domain";
 
 export const paymentsRepo = {
   all(): Promise<Payment[]> {
@@ -17,10 +12,9 @@ export const paymentsRepo = {
     return db.payments.where("loanId").equals(loanId).toArray();
   },
 
-  /** Registra un pago en el historial. */
   async create(input: {
     loanId: string;
-    type: PaymentType;
+    installmentId: string;
     amountCents: number;
     method: PaymentMethod;
     daysLate: number;
@@ -28,7 +22,7 @@ export const paymentsRepo = {
     const payment: Payment = {
       id: newId(),
       loanId: input.loanId,
-      type: input.type,
+      installmentId: input.installmentId,
       amountCents: input.amountCents,
       method: input.method,
       daysLate: input.daysLate,

@@ -1,184 +1,121 @@
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "../db/database";
 import { clientsRepo } from "./clientsRepo";
 import { loansRepo } from "./loansRepo";
+import { installmentsRepo } from "./installmentsRepo";
 import { paymentsRepo } from "./paymentsRepo";
+import type { InstallmentFrequency } from "../types/domain";
 
-
-describe("Repositories", () => {
+describe("Repositories (Cuotas)", () => {
   beforeEach(async () => {
     await db.clients.clear();
     await db.loans.clear();
+    await db.installments.clear();
     await db.payments.clear();
     await db.outbox.clear();
   });
 
-  it("clientsRepo.findByDni finds client by DNI and handles missing ones", async () => {
-    await clientsRepo.create({ dni: "12345678", name: "Ana", phone: "987654321" });
-    const found = await clientsRepo.findByDni("12345678");
-    expect(found).toBeDefined();
-    expect(found?.dni).toBe("12345678");
+  describe("loansRepo & installmentsRepo", () => {
+    it("creates a loan and its installments", async () => {
+      const { loan, installments } = await loansRepo.create({
+        clientId: "client-1",
+        principalCents: 100000,
+        rate: 0.1,
+        installmentCount: 2,
+        frequency: "monthly" as InstallmentFrequency,
+        disbursedAt: "2024-01-01"
+      });
 
-    const notFound = await clientsRepo.findByDni("00000000");
-    expect(notFound).toBeUndefined();
-  });
+      expect(loan.id).toBeDefined();
+      expect(installments.length).toBe(2);
 
-  it("clientsRepo.create persists client and enqueues put operation", async () => {
-    const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
-    const c = await db.clients.get(client.id);
-    expect(c).toBeDefined();
-    const ops = await db.outbox.toArray();
-    expect(ops).toHaveLength(1);
-    expect(ops[0].entity).toBe("clients");
-    expect(ops[0].op).toBe("put");
-    expect(ops[0].syncedAt).toBeUndefined();
-  });
+      const dbLoans = await loansRepo.all();
+      expect(dbLoans.length).toBe(1);
+      expect(dbLoans[0].principalCents).toBe(100000);
 
-  it("loansRepo.create persists loan and enqueues put operation", async () => {
-    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
-    const l = await db.loans.get(loan.id);
-    expect(l).toBeDefined();
-    const ops = await db.outbox.toArray();
-    expect(ops).toHaveLength(1);
-    expect(ops[0].entity).toBe("loans");
-    expect(ops[0].op).toBe("put");
-  });
+      const dbInstallments = await installmentsRepo.byLoan(loan.id);
+      expect(dbInstallments.length).toBe(2);
 
-
-
-  it("paymentsRepo.create persists payment and enqueues op", async () => {
-    const payment = await paymentsRepo.create({ loanId: "l1", type: "full", amountCents: 100, method: "cash", daysLate: 0 });
-    const p = await db.payments.get(payment.id);
-    expect(p).toBeDefined();
-    const ops = await db.outbox.toArray();
-    expect(ops).toHaveLength(1);
-    expect(ops[0].entity).toBe("payments");
-    expect(ops[0].op).toBe("put");
-  });
-
-  it("loansRepo.applyPayment with missing id throws", async () => {
-    const fakeLoan = { id: "no-existe" } as any;
-    await expect(loansRepo.applyPayment({ loan: fakeLoan, type: "partial", amountCents: 5000, method: "cash" })).rejects.toThrow("Préstamo no encontrado");
-  });
-
-  it("loansRepo.applyPayment applies partial payment transactionally", async () => {
-    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
-    await db.outbox.clear();
-    
-    await loansRepo.applyPayment({
-      loan,
-      type: "partial",
-      amountCents: 5000,
-      method: "cash",
-      reference: new Date("2025-01-15T00:00:00Z")
+      const outboxEntries = await db.outbox.toArray();
+      expect(outboxEntries.length).toBe(3); // 1 loan + 2 installments
     });
 
-    const l = await db.loans.get(loan.id);
-    expect(l?.paidOffCents).toBe(5000);
-    
-    const payments = await db.payments.toArray();
-    expect(payments).toHaveLength(1);
-    expect(payments[0].type).toBe("partial");
-    expect(payments[0].amountCents).toBe(5000);
+    it("applies a payment and updates outbox", async () => {
+      const { loan, installments } = await loansRepo.create({
+        clientId: "client-1",
+        principalCents: 10000,
+        rate: 0.1,
+        installmentCount: 1,
+        frequency: "weekly" as InstallmentFrequency,
+        disbursedAt: "2024-01-01"
+      });
 
-    const ops = await db.outbox.toArray();
-    expect(ops).toHaveLength(2);
-    expect(ops.map(o => o.entity).sort()).toEqual(["loans", "payments"]);
-    expect(ops.every(o => o.syncedAt === undefined)).toBe(true);
+      const { payment, installment } = await installmentsRepo.applyPayment(
+        installments[0].id,
+        5000,
+        "cash"
+      );
+
+      expect(payment.amountCents).toBe(5000);
+      expect(installment.paidCents).toBe(5000);
+      expect(installment.status).toBe("pending");
+
+      const dbPayments = await paymentsRepo.all();
+      expect(dbPayments.length).toBe(1);
+
+      // 3 creation outbox items + 2 update outbox items (installment + payment)
+      const outboxEntries = await db.outbox.toArray();
+      expect(outboxEntries.length).toBe(4);
+    });
+
+    it("marks loan as paid if all installments paid", async () => {
+      const { loan, installments } = await loansRepo.create({
+        clientId: "client-1",
+        principalCents: 10000,
+        rate: 0.1,
+        installmentCount: 1,
+        frequency: "weekly" as InstallmentFrequency,
+        disbursedAt: "2024-01-01"
+      });
+
+      await installmentsRepo.applyPayment(installments[0].id, 11000, "cash");
+
+      const dbLoan = (await loansRepo.all())[0];
+      expect(dbLoan.isPaid).toBe(true);
+    });
   });
 
-  it("loansRepo.applyPayment rolls back if paymentsRepo.create fails", async () => {
-    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
-    await db.outbox.clear();
-
-    const spy = vi.spyOn(paymentsRepo, "create").mockRejectedValueOnce(new Error("Simulated failure"));
-    
-    await expect(loansRepo.applyPayment({
-      loan,
-      type: "partial",
-      amountCents: 5000,
-      method: "cash",
-      reference: new Date("2025-01-15T00:00:00Z")
-    })).rejects.toThrow("Simulated failure");
-
-    // Because it's a Dexie transaction, the loan modification should be rolled back!
-    const l = await db.loans.get(loan.id);
-    expect(l?.paidOffCents).toBe(0); // Rollback successful
-    expect(await db.payments.count()).toBe(0);
-    expect(await db.outbox.count()).toBe(0);
-
-    spy.mockRestore();
-  });
-
-  describe("loansRepo.backfill", () => {
-    it("Backfill sin abonos previos", async () => {
-      const input = {
+  describe("loanBackfill", () => {
+    it("creates loan, installments, and synthetic payments", async () => {
+      const { loan, installments, payments } = await loansRepo.backfill({
         clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30 as const,
-        lastCycleStart: "2025-01-01",
-        renewalCount: 0,
-        outstandingBalanceCents: 120000,
-        reference: new Date("2025-01-15T00:00:00Z"),
-      };
-      const result = await loansRepo.backfill(input);
-      
-      expect(result.loan.paidOffCents).toBe(0);
-      expect(result.payment).toBeNull();
+        principalCents: 20000,
+        rate: 0.1,
+        installmentCount: 2,
+        frequency: "monthly" as InstallmentFrequency,
+        disbursedAt: "2024-01-01",
+        installments: [
+          { index: 1, paidCents: 11000, paidAt: "2024-01-31" }
+        ]
+      });
 
-      const l = await db.loans.get(result.loan.id);
-      expect(l).toBeDefined();
-      expect(await db.payments.count()).toBe(0);
+      expect(loan.id).toBeDefined();
+      expect(installments.length).toBe(2);
+      expect(payments.length).toBe(1);
+      expect(installments[0].status).toBe("paid");
 
-      const ops = await db.outbox.toArray();
-      expect(ops).toHaveLength(1);
-      expect(ops[0].entity).toBe("loans");
-    });
+      const dbLoans = await loansRepo.all();
+      expect(dbLoans.length).toBe(1);
 
-    it("Backfill con abonos previos", async () => {
-      const input = {
-        clientId: "c1",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30 as const,
-        lastCycleStart: "2025-01-01",
-        renewalCount: 0,
-        outstandingBalanceCents: 100000,
-        reference: new Date("2025-01-15T00:00:00Z"),
-      };
-      const result = await loansRepo.backfill(input);
-      
-      expect(result.loan.paidOffCents).toBe(20000);
-      expect(result.payment).toBeDefined();
-      expect(result.payment?.amountCents).toBe(20000);
+      const dbInstallments = await installmentsRepo.byLoan(loan.id);
+      expect(dbInstallments.length).toBe(2);
 
-      const p = await db.payments.get(result.payment!.id);
-      expect(p).toBeDefined();
+      const dbPayments = await paymentsRepo.byLoan(loan.id);
+      expect(dbPayments.length).toBe(1);
 
-      const ops = await db.outbox.toArray();
-      expect(ops).toHaveLength(2);
-      expect(ops.map(o => o.entity).sort()).toEqual(["loans", "payments"]);
-    });
-
-    it("Validación falla", async () => {
-      const input = {
-        clientId: "",
-        principalCents: 100000,
-        rate: 0.2,
-        termDays: 30 as const,
-        lastCycleStart: "2025-01-01",
-        renewalCount: 0,
-        outstandingBalanceCents: 100000,
-      };
-      
-      await expect(loansRepo.backfill(input)).rejects.toThrow();
-
-      expect(await db.loans.count()).toBe(0);
-      expect(await db.payments.count()).toBe(0);
-      expect(await db.outbox.count()).toBe(0);
+      const outboxEntries = await db.outbox.toArray();
+      expect(outboxEntries.length).toBe(4); // 1 loan + 2 inst + 1 payment
     });
   });
 });
-

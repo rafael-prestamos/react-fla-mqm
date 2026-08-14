@@ -1,20 +1,10 @@
-/**
- * Repository de préstamos.
- * Encapsula las mutaciones de negocio (crear, abonar, renovar, marcar pagado)
- * y las encola en el outbox para sync.
- */
-
 import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
-import { newId, nowIso } from "../lib/id";
-import { toIsoDate, startOfToday } from "../lib/dates";
-import type { Loan, LoanTerm } from "../types/domain";
-import { applyPayment, type ApplyPaymentInput, type ApplyPaymentResult } from "../domain/loanPayment";
-import { paymentsRepo } from "./paymentsRepo";
+import { newId } from "../lib/id";
+import type { Loan, Installment, Payment } from "../types/domain";
+import { buildSchedule } from "../domain/installmentSchedule";
+import { validateLoanInput, type LoanInput } from "../domain/loanValidation";
 import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from "../domain/loanBackfill";
-import type { Payment } from "../types/domain";
-
-
 
 export const loansRepo = {
   all(): Promise<Loan[]> {
@@ -22,86 +12,89 @@ export const loansRepo = {
   },
 
   active(): Promise<Loan[]> {
-    return db.loans.filter((loan) => !loan.isPaid).toArray();
+    return db.loans.filter(loan => !loan.isPaid).toArray();
   },
 
   byClient(clientId: string): Promise<Loan[]> {
     return db.loans.where("clientId").equals(clientId).toArray();
   },
 
-  /** Crea un préstamo entregado hoy. */
-  async create(input: {
-    clientId: string;
-    principalCents: number;
-    rate: number;
-    termDays: LoanTerm;
-  }): Promise<Loan> {
-    const timestamp = nowIso();
+  async create(input: LoanInput & { disbursedAt: string }): Promise<{ loan: Loan; installments: Installment[] }> {
+    const { ok, errors } = validateLoanInput(input);
+    if (!ok) {
+      throw new Error(Object.values(errors).join(", "));
+    }
+
+    const loanId = newId();
     const loan: Loan = {
-      id: newId(),
+      id: loanId,
       clientId: input.clientId,
       principalCents: input.principalCents,
       rate: input.rate,
-      termDays: input.termDays,
-      disbursedAt: toIsoDate(startOfToday()),
-      paidOffCents: 0,
-      renewalCount: 0,
+      installmentCount: input.installmentCount,
+      frequency: input.frequency,
+      disbursedAt: input.disbursedAt,
       isPaid: false,
-      createdAt: timestamp,
-      updatedAt: timestamp,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
-    await db.loans.put(loan);
-    await enqueue("loans", loan.id, "put", loan);
-    return loan;
-  },
 
-
-
-  async applyPayment(input: ApplyPaymentInput): Promise<ApplyPaymentResult> {
-    const current = await db.loans.get(input.loan.id);
-    if (!current) throw new Error("Préstamo no encontrado");
-    
-    const result = applyPayment({ ...input, loan: current });
-    
-    await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
-      await db.loans.put(result.updatedLoan);
-      await enqueue("loans", result.updatedLoan.id, "put", result.updatedLoan);
-      
-      await paymentsRepo.create({
-        loanId: result.updatedLoan.id,
-        type: result.paymentRecord.type,
-        amountCents: result.paymentRecord.amountCents,
-        method: result.paymentRecord.method,
-        daysLate: result.paymentRecord.daysLate,
-      });
+    const installments = buildSchedule({
+      ...input,
+      loanId,
+      disbursedAt: input.disbursedAt
     });
 
-    return result;
+    await db.transaction("rw", db.loans, db.installments, db.outbox, async () => {
+      await db.loans.put(loan);
+      await enqueue("loans", loan.id, "put", loan);
+
+      for (const inst of installments) {
+        await db.installments.put(inst);
+        await enqueue("installments", inst.id, "put", inst);
+      }
+    });
+
+    return { loan, installments };
   },
 
-  async backfill(input: LoanBackfillInput): Promise<{ loan: Loan; payment: Payment | null }> {
+  async backfill(input: LoanBackfillInput): Promise<{ loan: Loan; installments: Installment[]; payments: Payment[] }> {
     const { ok, errors } = validateLoanBackfillInput(input);
     if (!ok) {
       throw new Error(Object.values(errors).join(", "));
     }
 
-    const { loan: draftLoan, syntheticPayment: draftPayment } = buildLoanBackfill(input, new Date(nowIso()));
+    const { loan: draftLoan, installments, syntheticPayments } = buildLoanBackfill(input);
 
     const finalLoan: Loan = { ...draftLoan, id: newId() };
-    const finalPayment: Payment | null = draftPayment
-      ? { ...draftPayment, id: newId(), loanId: finalLoan.id }
-      : null;
+    const finalInstallments = installments.map(i => ({ ...i, id: newId(), loanId: finalLoan.id }));
+    const finalPayments = syntheticPayments.map((p, idx) => ({ 
+      ...p, 
+      id: newId(), 
+      loanId: finalLoan.id,
+      installmentId: finalInstallments[idx].id // map array length correctly since we only generate payments for paid installments
+    }));
 
-    await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
-      await db.loans.put(finalLoan);
-      await enqueue("loans", finalLoan.id, "put", finalLoan);
+    // Wait, the syntheticPayments are matched by cuota index in buildLoanBackfill.
+    // I need to properly map them. Let's rely on the IDs generated in buildLoanBackfill!
+    // buildLoanBackfill already generates valid UUIDs for loan, installments, and payments!
+    // We don't need to overwrite them.
+    
+    await db.transaction("rw", db.loans, db.installments, db.payments, db.outbox, async () => {
+      await db.loans.put(draftLoan);
+      await enqueue("loans", draftLoan.id, "put", draftLoan);
 
-      if (finalPayment) {
-        await db.payments.put(finalPayment);
-        await enqueue("payments", finalPayment.id, "put", finalPayment);
+      for (const inst of installments) {
+        await db.installments.put(inst);
+        await enqueue("installments", inst.id, "put", inst);
+      }
+
+      for (const payment of syntheticPayments) {
+        await db.payments.put(payment);
+        await enqueue("payments", payment.id, "put", payment);
       }
     });
 
-    return { loan: finalLoan, payment: finalPayment };
-  },
+    return { loan: draftLoan, installments, payments: syntheticPayments };
+  }
 };

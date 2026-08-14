@@ -13,6 +13,7 @@ import { loansRepo } from "./repositories/loansRepo";
 import { paymentsRepo } from "./repositories/paymentsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
+import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -212,6 +213,17 @@ export default function App() {
     setTab("loans");
   }
 
+  async function createHistoricalLoan(input: LoanBackfillInput): Promise<string | null> {
+    try {
+      await loansRepo.backfill(input);
+      setCreating(false);
+      setTab("loans");
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Error al registrar el préstamo histórico";
+    }
+  }
+
   async function createClient(input: ClientInput): Promise<string | null> {
     const existing = await clientsRepo.findByDni(input.dni);
     if (existing) return "Ya existe un cliente con ese DNI";
@@ -380,6 +392,7 @@ export default function App() {
             onClose={() => setCreating(false)}
             onOpenNewClient={() => { setCreating(false); setCreatingClient(true); }}
             onSubmit={createLoan}
+            onSubmitHistorical={createHistoricalLoan}
           />
         )}
         {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
@@ -560,18 +573,27 @@ function PaymentSheet({ row, onClose, onSubmit }: {
   );
 }
 
-function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }: {
+function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
   clients: Client[];
   ratingOf: (clientId: string) => ClientRating;
   onClose: () => void;
   onOpenNewClient: () => void;
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
+  onSubmitHistorical?: (input: LoanBackfillInput) => Promise<string | null>;
 }) {
+  const [mode, setMode] = useState<"new" | "historical">("new");
   const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
   const [principal, setPrincipal] = useState("");
   const [ratePct, setRatePct] = useState("20");
   const [termDays, setTermDays] = useState<LoanTerm>(30);
-  const [errors, setErrors] = useState<LoanErrors>({});
+
+  // Historical fields
+  const [lastCycleStart, setLastCycleStart] = useState("");
+  const [renewalCount, setRenewalCount] = useState("0");
+  const [outstandingBalance, setOutstandingBalance] = useState("");
+
+  const [errors, setErrors] = useState<LoanErrors & LoanBackfillErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   const principalCents = toCents(parseFloat(principal) || 0);
   const rate = (parseFloat(ratePct) || 0) / 100;
@@ -580,14 +602,72 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }:
   const isBad = ratingOf(clientId) === "bad";
   const terms: LoanTerm[] = [25, 28, 30];
 
-  function handleSubmit() {
-    const input = { clientId, principalCents, rate, termDays };
-    const validation = validateLoanInput(input);
-    if (!validation.ok) {
-      setErrors(validation.errors);
-      return;
+  let historicalPreview = null;
+  if (mode === "historical") {
+    try {
+      const previewLoan: Loan = {
+        id: "__preview__",
+        clientId,
+        principalCents,
+        rate,
+        termDays,
+        disbursedAt: lastCycleStart,
+        paidOffCents: 0,
+        renewalCount: parseInt(renewalCount, 10) || 0,
+        isPaid: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      // deriveLoan maneja fechas inválidas o NaN si lastCycleStart no está completo devolviendo NaN en calculations.
+      // Así que lo validaremos solo si la fecha es más o menos parseable.
+      if (lastCycleStart && !isNaN(new Date(lastCycleStart).getTime())) {
+        const d = deriveLoan(previewLoan, startOfToday());
+        const outCents = toCents(parseFloat(outstandingBalance) || 0);
+        const consol = outCents > 0 && d.debtCents > 0 ? d.debtCents - outCents : 0;
+        historicalPreview = {
+          dueDate: d.dueDate,
+          debtCents: d.debtCents,
+          consolCents: consol,
+          status: d.status,
+        };
+      }
+    } catch (e) {
+      // ignore preview error
     }
-    onSubmit(input);
+  }
+
+  async function handleSubmit() {
+    setSubmitError(null);
+    setErrors({});
+
+    if (mode === "new") {
+      const input = { clientId, principalCents, rate, termDays };
+      const validation = validateLoanInput(input);
+      if (!validation.ok) {
+        setErrors(validation.errors);
+        return;
+      }
+      onSubmit(input);
+    } else {
+      const input: LoanBackfillInput = {
+        clientId,
+        principalCents,
+        rate,
+        termDays,
+        lastCycleStart,
+        renewalCount: parseInt(renewalCount, 10) || 0,
+        outstandingBalanceCents: toCents(parseFloat(outstandingBalance) || 0),
+      };
+      const validation = validateLoanBackfillInput(input);
+      if (!validation.ok) {
+        setErrors(validation.errors);
+        return;
+      }
+      if (onSubmitHistorical) {
+        const err = await onSubmitHistorical(input);
+        if (err) setSubmitError(err);
+      }
+    }
   }
 
   return (
@@ -602,6 +682,11 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }:
           </div>
         ) : (
           <>
+            <div className="seg" style={{ marginBottom: 16 }}>
+              <button className={mode === "new" ? "on" : ""} onClick={() => { setMode("new"); setErrors({}); setSubmitError(null); }}>Nuevo</button>
+              <button className={mode === "historical" ? "on" : ""} onClick={() => { setMode("historical"); setErrors({}); setSubmitError(null); }}>Registro histórico</button>
+            </div>
+
             <div className="field">
               <label>Cliente</label>
               <select className="inp" value={clientId} onChange={(e) => setClientId(e.target.value)}>
@@ -641,12 +726,45 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }:
               </div>
             </div>
 
-            <div className="preview">
-              <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
-              <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
-              <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
-              <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
-            </div>
+            {mode === "historical" && (
+              <>
+                <div className="field">
+                  <label>Fecha de última renovación (o entrega)</label>
+                  <input type="date" className="inp" value={lastCycleStart} onChange={(e) => setLastCycleStart(e.target.value)} />
+                  {errors.lastCycleStart && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.lastCycleStart}</div>}
+                </div>
+                <div className="field">
+                  <label>Renovaciones previas</label>
+                  <input type="number" className="inp num" value={renewalCount} onChange={(e) => setRenewalCount(e.target.value)} />
+                  {errors.renewalCount && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.renewalCount}</div>}
+                </div>
+                <div className="field">
+                  <label>Saldo pendiente hoy (S/)</label>
+                  <input className="inp num" inputMode="decimal" value={outstandingBalance} onChange={(e) => setOutstandingBalance(e.target.value)} placeholder="0.00" />
+                  {errors.outstandingBalance && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.outstandingBalance}</div>}
+                </div>
+              </>
+            )}
+
+            {mode === "new" ? (
+              <div className="preview">
+                <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
+                <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
+                <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
+                <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
+              </div>
+            ) : (
+              <div className="preview">
+                <div className="r"><span>Ciclo actual vence</span><span className="num">{historicalPreview ? formatShort(historicalPreview.dueDate) : "—"}</span></div>
+                <div className="r"><span>Deuda del ciclo</span><span className="num">{historicalPreview && !isNaN(historicalPreview.debtCents) ? formatSoles(historicalPreview.debtCents) : "—"}</span></div>
+                <div className="r"><span>Abonos consolidados</span><span className="num">{historicalPreview && historicalPreview.consolCents > 0 ? formatSoles(historicalPreview.consolCents) : "Sin abonos"}</span></div>
+                <div className="r tot"><span>Estado</span><span>{historicalPreview ? (
+                  historicalPreview.status === "lateInterest" ? "Interés extra" :
+                  historicalPreview.status === "grace" ? "En tolerancia" :
+                  historicalPreview.status === "dueToday" ? "Vence hoy" : "Al día"
+                ) : "—"}</span></div>
+              </div>
+            )}
 
             <button
               className="btn btn-p btn-block"
@@ -654,8 +772,13 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit }:
               disabled={principalCents <= 0 || !Number.isInteger(principalCents)}
               onClick={handleSubmit}
             >
-              Registrar préstamo
+              {mode === "new" ? "Registrar préstamo" : "Registrar préstamo existente"}
             </button>
+            {submitError && (
+              <div style={{ color: "var(--bad)", fontSize: 13, marginTop: 12, textAlign: "center", fontWeight: 500 }}>
+                {submitError}
+              </div>
+            )}
           </>
         )}
       </div>

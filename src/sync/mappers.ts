@@ -1,4 +1,4 @@
-import type { Client, Loan, Payment, LoanTerm } from "../types/domain";
+import type { Client, Loan, Payment, LoanTerm, BusinessSettings } from "../types/domain";
 
 export interface ClientRow {
   id: string;
@@ -121,5 +121,40 @@ export function rowToPayment(r: PaymentRow): Payment {
     method: r.method,
     daysLate: r.days_late,
     paidAt: r.paid_at,
+  };
+}
+
+export interface SettingsRow {
+  id: string;
+  owner_id: string;
+  business_name: string;
+  phone: string;
+  yape: string;
+  bcp_soles: string;
+  bcp_interbank: string;
+  updated_at: string;
+}
+
+export function settingsToRow(s: BusinessSettings): Omit<SettingsRow, "owner_id"> {
+  return {
+    id: s.id,
+    business_name: s.businessName,
+    phone: s.phone,
+    yape: s.yape,
+    bcp_soles: s.bcpSoles,
+    bcp_interbank: s.bcpInterbank,
+    updated_at: s.updatedAt,
+  };
+}
+
+export function rowToSettings(r: SettingsRow): BusinessSettings {
+  return {
+    id: r.id,
+    businessName: r.business_name,
+    phone: r.phone,
+    yape: r.yape,
+    bcpSoles: r.bcp_soles,
+    bcpInterbank: r.bcp_interbank,
+    updatedAt: r.updated_at,
   };
 }

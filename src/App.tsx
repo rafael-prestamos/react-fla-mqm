@@ -53,7 +53,7 @@ const CSS = `
 .profile-sheet__header h2{margin:0;font-size:19px}.profile-sheet__header small{color:var(--muted)}.profile-sheet__header .x{margin-left:auto}
 .profile-sheet__sync{margin:20px 0 14px;padding:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:5px}
 .profile-sheet__status{font-size:13px;font-weight:700}.profile-sheet__status.online{color:var(--color-status-good)}.profile-sheet__status.offline{color:var(--color-status-bad)}
-.profile-sheet__sync small{color:var(--muted)}.profile-sheet__actions{display:flex;flex-direction:column;gap:9px}.profile-sheet__action{padding:12px;background:var(--navy-soft);color:var(--navy);font-size:14px}
+.profile-sheet__sync small{color:var(--muted)}.profile-sheet__actions{display:flex;flex-direction:column;gap:9px}.profile-sheet__action{padding:12px;background:var(--color-status-good-soft);color:var(--navy);font-size:14px}
 .profile-sheet__logout{background:var(--color-status-bad);color:#fff}
 .pf-hello{font-size:13px;opacity:.72;margin-top:14px;text-transform:capitalize}
 .pf-cobranza-lbl{font-size:12.5px;opacity:.78;margin-top:2px}

@@ -8,3 +8,6 @@ dist-ssr
 .DS_Store
 coverage
 .vercel
+
+# Archivos temporales de agentes / debug scripts
+run-cases.ts

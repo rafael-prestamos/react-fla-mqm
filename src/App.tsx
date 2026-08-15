@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
   Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw
@@ -17,6 +17,7 @@ import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErr
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
+import { recomputeAllRatings } from "./sync/ratingsSync";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -128,6 +129,8 @@ const STATUS_STYLE: Record<LoanStatus, StatusStyle> = {
   paid: { label: "Pagado", color: "var(--good)", bg: "var(--good-soft)", bar: "var(--good)" },
 };
 
+import { recomputeAllRatings } from "./sync/ratingsSync";
+
 /* ---------- modelos de vista ---------- */
 interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRating; }
 
@@ -140,34 +143,36 @@ export default function App() {
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
 
+  // Wire ratings update
+  import { useEffect } from "react"; // Wait, it's already imported at the top, let me fix this.
+
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
 
+  useEffect(() => {
+    if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
+    const t = setTimeout(() => {
+      void recomputeAllRatings();
+    }, 500);
+    return () => clearTimeout(t);
+  }, [loans, payments, clients]);
+
   const clientById = (id: string): Client =>
     clients.find((c) => c.id === id) ?? ({} as Client);
 
-  const maxDaysLateOf = (clientId: string): number => {
-    const fromLoans = loans
-      .filter((l) => l.clientId === clientId && !l.isPaid)
-      .map((l) => deriveLoan(l).daysLate);
-    const fromHistory = payments
-      .filter((p) => loans.some((l) => l.id === p.loanId && l.clientId === clientId))
-      .map((p) => p.daysLate);
-    return Math.max(0, ...fromLoans, ...fromHistory);
-  };
-  const ratingOf = (clientId: string): ClientRating =>
-    classifyByMaxDaysLate(maxDaysLateOf(clientId));
-
   const rows = useMemo<LoanRow[]>(
     () =>
-      loans.map((loan) => ({
-        loan,
-        d: deriveLoan(loan),
-        client: clientById(loan.clientId),
-        rating: ratingOf(loan.clientId),
-      })),
+      loans.map((loan) => {
+        const client = clientById(loan.clientId);
+        return {
+          loan,
+          d: deriveLoan(loan),
+          client,
+          rating: client.rating ?? "good",
+        };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [loans, payments, clients]
   );
@@ -356,7 +361,7 @@ export default function App() {
               ) : (
                 clients.map((c) => {
                   const theirs = rows.filter((r) => r.loan.clientId === c.id);
-                  const rating = ratingOf(c.id);
+                  const rating = c.rating ?? "good";
                   const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
                 return (
                   <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
@@ -424,7 +429,7 @@ export default function App() {
         {creating && (
           <NewLoanSheet
             clients={clients}
-            ratingOf={ratingOf}
+            
             onClose={() => setCreating(false)}
             onOpenNewClient={() => { setCreating(false); setCreatingClient(true); }}
             onSubmit={createLoan}
@@ -609,9 +614,8 @@ function PaymentSheet({ row, onClose, onSubmit }: {
   );
 }
 
-function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
+function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
   clients: Client[];
-  ratingOf: (clientId: string) => ClientRating;
   onClose: () => void;
   onOpenNewClient: () => void;
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
@@ -635,7 +639,8 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit, o
   const rate = (parseFloat(ratePct) || 0) / 100;
   const interestCents = Math.round(principalCents * rate);
   const totalCents = principalCents + interestCents;
-  const isBad = ratingOf(clientId) === "bad";
+  const client = clients.find(c => c.id === clientId);
+  const isBad = client?.rating === "bad";
   const terms: LoanTerm[] = [25, 28, 30];
 
   let historicalPreview = null;

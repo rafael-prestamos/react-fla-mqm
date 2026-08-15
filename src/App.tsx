@@ -18,6 +18,7 @@ import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { recomputeAllRatings } from "./sync/ratingsSync";
+import { collectedThisMonth } from "./domain/collections";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -108,8 +109,6 @@ const CSS = `
 .hist{font-size:12px;color:var(--muted);margin-top:8px;padding-left:2px}
 .hist .h{display:flex;justify-content:space-between;padding:3px 0}
 `;
-
-const COLLECTED_THIS_MONTH_CENTS = 340_000; // dato de ejemplo del panel
 
 /* ---------- etiquetas y colores (UI en español) ---------- */
 interface RatingStyle { label: string; color: string; bg: string; }
@@ -302,7 +301,7 @@ export default function App() {
               <div className="pf-stats">
                 <Stat icon={<Wallet size={13} />} k="Capital en la calle" v={formatSoles(capitalOut)} />
                 <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} />
-                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(COLLECTED_THIS_MONTH_CENTS)} />
+                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(collectedThisMonth(payments))} />
                 <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} />
               </div>
 

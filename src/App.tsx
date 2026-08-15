@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw
+  Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw, Settings
 } from "lucide-react";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
@@ -20,6 +20,7 @@ import { useToast } from "./ui/ToastContext";
 import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
+import { SettingsSheet } from "./components/SettingsSheet";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -146,6 +147,7 @@ export default function App() {
   const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
+  const [showingSettings, setShowingSettings] = useState(false);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -392,16 +394,22 @@ export default function App() {
                 );
               }))}
               
-              {session && (
-                <div style={{ marginTop: 24, textAlign: "center" }}>
-                  <button 
-                    onClick={() => signOut()} 
+              <div style={{ marginTop: 24, textAlign: "center", display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowingSettings(true)}
+                  style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <Settings size={14} /> Ajustes
+                </button>
+                {session && (
+                  <button
+                    onClick={() => signOut()}
                     style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
                   >
                     Cerrar sesión ({session.user?.email})
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </div>
@@ -441,6 +449,7 @@ export default function App() {
           />
         )}
         {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
+        {showingSettings && <SettingsSheet onClose={() => setShowingSettings(false)} />}
       </div>
     </div>
   );

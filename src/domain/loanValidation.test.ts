@@ -64,14 +64,58 @@ describe('validateLoanInput', () => {
     expect(resultTooHigh.errors.rate).toBe("Ingresa un interés válido");
   });
 
-  it('should return error if termDays is not 25, 28, or 30', () => {
-    const result = validateLoanInput({
+  it('acepta cualquier plazo entero en rango 1-365', () => {
+    const result1 = validateLoanInput({
       clientId: "c1",
       principalCents: 100000,
       rate: 0.2,
-      termDays: 20
+      termDays: 60
     });
-    expect(result.ok).toBe(false);
-    expect(result.errors.termDays).toBe("Plazo inválido");
+    expect(result1.ok).toBe(true);
+
+    const result2 = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: 0.2,
+      termDays: 1
+    });
+    expect(result2.ok).toBe(true);
+
+    const result3 = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: 0.2,
+      termDays: 365
+    });
+    expect(result3.ok).toBe(true);
+  });
+
+  it('rechaza plazo 0, 366 o no entero', () => {
+    const result0 = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: 0.2,
+      termDays: 0
+    });
+    expect(result0.ok).toBe(false);
+    expect(result0.errors.termDays).toBe("Debe ser un número entero entre 1 y 365");
+
+    const result366 = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: 0.2,
+      termDays: 366
+    });
+    expect(result366.ok).toBe(false);
+    expect(result366.errors.termDays).toBe("Debe ser un número entero entre 1 y 365");
+
+    const resultFloat = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: 0.2,
+      termDays: 15.5
+    });
+    expect(resultFloat.ok).toBe(false);
+    expect(resultFloat.errors.termDays).toBe("Debe ser un número entero entre 1 y 365");
   });
 });

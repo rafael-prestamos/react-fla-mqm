@@ -139,7 +139,8 @@ describe('loanBackfill', () => {
         clientId: "",
         principalCents: 0,
         rate: 1.5,
-        termDays: 20 as any,
+        termDays: 400 as any,
+
         lastCycleStart: "2025-01-20",
         renewalCount: -1,
         outstandingBalanceCents: 0,
@@ -151,7 +152,8 @@ describe('loanBackfill', () => {
       expect(errors.clientId).toBe("Selecciona un cliente");
       expect(errors.principal).toBe("Ingresa un capital válido");
       expect(errors.rate).toBe("Ingresa un interés válido");
-      expect(errors.termDays).toBe("Plazo inválido");
+      expect(errors.termDays).toBe("Debe ser un número entero entre 1 y 365");
+
       expect(errors.renewalCount).toBe("Número de renovaciones inválido");
       expect(errors.outstandingBalance).toBe("Saldo pendiente inválido");
     });

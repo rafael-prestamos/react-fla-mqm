@@ -4,7 +4,8 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 6a-3 completo (Nombres de clientes en UPPERCASE + Migración one-shot). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Sprint 6a-4 completo (Plazo flexible 1-365 días con presets 25/28/30). El siguiente paso es notificaciones push (Sprint 5b-2).
+
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -35,7 +36,8 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 
 **Reglas de Negocio (Resumen):**
 - **Interés simple**: (capital × tasa), no es compuesto.
-- **Plazos**: 25, 28 o 30 días.
+- **Plazos**: Libre entre 1 y 365 días enteros. Presets rápidos: 25, 28, 30 días (sprint 6a-4). Validación via `isValidLoanTerm` / `assertValidLoanTerm` en `src/domain/loanTerm.ts`.
+
 - **Tolerancia**: 7 días de gracia (atraso) sin penalidad.
 - **Renovación**: Opción por "solo interés" (inicia un nuevo ciclo).
 - **Abonos**: Abonos parciales reducen el saldo principal, cubriendo primero el interés pendiente. La renovación arranca un nuevo ciclo desde la fecha de vencimiento. Aplicar un pago es una transacción única (loan+payment+outbox).

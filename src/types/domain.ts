@@ -4,8 +4,10 @@
  * Los montos SIEMPRE se guardan como enteros en céntimos (evita errores de coma flotante).
  */
 
-/** Plazos permitidos del préstamo (en días). */
-export type LoanTerm = 25 | 28 | 30;
+/** Plazos del préstamo — entero en rango 1-365 días (sprint 6a-4: plazo libre con presets 25/28/30). */
+import type { LoanTerm } from "../domain/loanTerm";
+export type { LoanTerm };
+
 
 /** Cómo pagó el cliente. */
 export type PaymentMethod = "cash" | "digital"; // efectivo / virtual (Yape/Plin)

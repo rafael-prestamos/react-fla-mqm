@@ -1,3 +1,5 @@
+import { isValidLoanTerm } from "./loanTerm";
+
 export interface LoanInput {
   clientId: string;
   principalCents: number;
@@ -22,8 +24,9 @@ export function validateLoanInput(input: LoanInput): { ok: boolean; errors: Loan
     errors.rate = "Ingresa un interés válido";
   }
 
-  if (![25, 28, 30].includes(input.termDays)) {
-    errors.termDays = "Plazo inválido";
+  // Patrón: Domain Value Object — isValidLoanTerm valida rango 1-365 (sprint 6a-4)
+  if (!isValidLoanTerm(input.termDays)) {
+    errors.termDays = "Debe ser un número entero entre 1 y 365";
   }
 
   return {

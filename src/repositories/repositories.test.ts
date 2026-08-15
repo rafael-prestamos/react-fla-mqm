@@ -118,14 +118,47 @@ describe("Repositories", () => {
   });
 
   it("edits and cancels a payment while queries hide it", async () => {
-    const payment = await paymentsRepo.create({ loanId: "l1", type: "full", amountCents: 100, method: "cash", daysLate: 0 });
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "full", amountCents: 100, method: "cash", daysLate: 0 });
     await db.outbox.clear();
-    await paymentsRepo.update(payment.id, { amountCents: 200, method: "digital" });
+    await paymentsRepo.update(payment.id, { method: "digital" });
     expect((await db.payments.get(payment.id))?.editedAt).toBeTruthy();
+    expect((await db.payments.get(payment.id))?.amountCents).toBe(100);
+    expect((await db.payments.get(payment.id))?.method).toBe("digital");
     await paymentsRepo.cancel(payment.id, "duplicado");
     expect((await db.payments.get(payment.id))?.cancelledAt).toBeTruthy();
     expect(await paymentsRepo.all()).toHaveLength(0);
-    expect(await paymentsRepo.byLoan("l1")).toHaveLength(0);
+    expect(await paymentsRepo.byLoan(loan.id)).toHaveLength(0);
+  });
+
+  it("only cancels the latest active payment and rebuilds the loan state", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.payments.bulkPut([
+      { id: "old", loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0, paidAt: "2025-01-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+      { id: "latest", loanId: loan.id, type: "full", amountCents: 115000, method: "cash", daysLate: 0, paidAt: "2025-01-02T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+    ]);
+    await db.loans.update(loan.id, { paidOffCents: 120000, isPaid: true });
+
+    await expect(paymentsRepo.cancel("old")).rejects.toThrow("Solo se puede anular el último pago");
+    await paymentsRepo.cancel("latest");
+
+    const updatedLoan = await db.loans.get(loan.id);
+    expect(updatedLoan?.paidOffCents).toBe(5000);
+    expect(updatedLoan?.isPaid).toBe(false);
+  });
+
+  it("rebuilds renewal count and disbursed date when cancelling the latest renewal", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.loans.update(loan.id, { disbursedAt: "2025-03-02", renewalCount: 2 });
+    await db.payments.bulkPut([
+      { id: "renewal-old", loanId: loan.id, type: "interest", amountCents: 20000, method: "cash", daysLate: 0, paidAt: "2025-01-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+      { id: "renewal-latest", loanId: loan.id, type: "interest", amountCents: 20000, method: "cash", daysLate: 0, paidAt: "2025-02-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+    ]);
+
+    await paymentsRepo.cancel("renewal-latest");
+    const updatedLoan = await db.loans.get(loan.id);
+    expect(updatedLoan?.renewalCount).toBe(1);
+    expect(updatedLoan?.disbursedAt).toBe("2025-01-31");
   });
 
   it("loansRepo.applyPayment with missing id throws", async () => {

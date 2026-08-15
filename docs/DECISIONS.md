@@ -226,6 +226,13 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Fix colateral:** `rowToLoan` usa `isValidLoanTerm` en vez del listado hardcodeado 25/28/30, preservando plazos libres entre 1 y 365.
 - **Descartado:** hard delete (sin auditoría), log completo de valores anteriores (excesivo para el producto) y una sección visible de anulados (ruido visual).
 
+#### Hotfix 6a-8b: Restricciones de pago
+
+- **Editar pago:** solo permite cambiar el método (`cash` ↔ `digital`). El monto no es editable: ante un error debe anularse y registrarse de nuevo.
+- **Anular pago:** únicamente se permite el último pago activo del préstamo; para llegar a uno anterior se anulan primero los más recientes.
+- **Recálculo:** al anular se reconstruyen `paidOffCents`, `isPaid`, `renewalCount` y, cuando corresponde, `disbursedAt` a partir de los pagos activos restantes en orden cronológico.
+- **Justificación:** editar importes sin actualizar el préstamo dejaba saldos inconsistentes; anular pagos fuera de orden rompía la secuencia de renovaciones y abonos.
+
 ### Sprint 6a-7: Fix teclado móvil tapa input
 
 - **Problema:** en Android, el teclado flotante puede tapar el campo enfocado dentro de sheets con scroll.

@@ -262,7 +262,7 @@ export default function App() {
     return loansRepo.cancel(id, reason);
   }
 
-  async function handleEditPayment(id: string, patch: Partial<Pick<Payment, "amountCents" | "method">>) {
+  async function handleEditPayment(id: string, patch: Pick<Payment, "method">) {
     await paymentsRepo.update(id, patch);
   }
 

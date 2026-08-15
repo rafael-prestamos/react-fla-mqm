@@ -4,6 +4,8 @@ import { db } from "../db/database";
 import { clientsRepo } from "./clientsRepo";
 import { loansRepo } from "./loansRepo";
 import { paymentsRepo } from "./paymentsRepo";
+import { settingsRepo } from "./settingsRepo";
+import { ensureSettings } from "../db/ensureSettings";
 
 
 describe("Repositories", () => {
@@ -11,6 +13,7 @@ describe("Repositories", () => {
     await db.clients.clear();
     await db.loans.clear();
     await db.payments.clear();
+    await db.settings.clear();
     await db.outbox.clear();
   });
 
@@ -209,6 +212,32 @@ describe("Repositories", () => {
       expect(await db.loans.count()).toBe(0);
       expect(await db.payments.count()).toBe(0);
       expect(await db.outbox.count()).toBe(0);
+    });
+  });
+
+  describe("settingsRepo", () => {
+    it("get() returns undefined when there is no data", async () => {
+      const settings = await settingsRepo.get();
+      expect(settings).toBeUndefined();
+    });
+
+    it("update() after ensureSettings() applies the patch and bumps updatedAt", async () => {
+      await ensureSettings();
+      const before = await settingsRepo.get();
+
+      const updated = await settingsRepo.update({ phone: "999888777" });
+      expect(updated.phone).toBe("999888777");
+      expect(updated.updatedAt).not.toBe(before?.updatedAt);
+
+      const fetched = await settingsRepo.get();
+      expect(fetched?.phone).toBe("999888777");
+      expect(fetched?.updatedAt).toBe(updated.updatedAt);
+    });
+
+    it("update() without prior seeding throws", async () => {
+      await expect(settingsRepo.update({ phone: "1" })).rejects.toThrow(
+        "Settings no inicializado; ensureSettings() no corrió"
+      );
     });
   });
 });

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { pullFromSupabase } from "./pull";
 import { db } from "../db/database";
 import { supabase } from "../lib/supabase";
-import type { ClientRow } from "./mappers";
+import type { ClientRow, SettingsRow } from "./mappers";
 
 vi.mock("../lib/supabase", () => {
   return {
@@ -20,13 +20,14 @@ describe("pullFromSupabase", () => {
     await db.clients.clear();
     await db.loans.clear();
     await db.payments.clear();
+    await db.settings.clear();
     vi.resetAllMocks();
   });
 
   it("returns zeros if no session", async () => {
     vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: null }, error: null } as any);
     const res = await pullFromSupabase();
-    expect(res).toEqual({ clients: 0, loans: 0, payments: 0 });
+    expect(res).toEqual({ clients: 0, loans: 0, payments: 0, settings: 0 });
     expect(supabase!.from).not.toHaveBeenCalled();
   });
 
@@ -43,7 +44,7 @@ describe("pullFromSupabase", () => {
     });
 
     const res = await pullFromSupabase();
-    expect(res).toEqual({ clients: 1, loans: 0, payments: 0 });
+    expect(res).toEqual({ clients: 1, loans: 0, payments: 0, settings: 0 });
 
     const localClient = await db.clients.get("c1");
     expect(localClient?.name).toBe("A");
@@ -74,7 +75,7 @@ describe("pullFromSupabase", () => {
     });
 
     const res = await pullFromSupabase();
-    expect(res).toEqual({ clients: 0, loans: 0, payments: 0 });
+    expect(res).toEqual({ clients: 0, loans: 0, payments: 0, settings: 0 });
 
     const localClient = await db.clients.get("c1");
     expect(localClient?.name).toBe("Local Name");
@@ -105,11 +106,34 @@ describe("pullFromSupabase", () => {
     });
 
     const res = await pullFromSupabase();
-    expect(res).toEqual({ clients: 1, loans: 0, payments: 0 });
+    expect(res).toEqual({ clients: 1, loans: 0, payments: 0, settings: 0 });
 
     const localClient = await db.clients.get("c1");
     expect(localClient?.name).toBe("Remote Name");
     expect(localClient?.rating).toBe("bad");
     expect(localClient?.maxDaysLateHistorical).toBe(35);
+  });
+
+  it("pulls settings with last-write-wins by updatedAt", async () => {
+    vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
+
+    const mockSettings: SettingsRow[] = [
+      {
+        id: "singleton", owner_id: "u1", business_name: "Fla Remota", phone: "999999999",
+        yape: "999999999", bcp_soles: "111", bcp_interbank: "222", updated_at: "2024-02-01T00:00:00Z",
+      },
+    ];
+
+    vi.mocked(supabase!.from).mockImplementation((table) => {
+      if (table === "settings") return { select: vi.fn().mockResolvedValue({ data: mockSettings, error: null }) } as any;
+      return { select: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
+    });
+
+    const res = await pullFromSupabase();
+    expect(res).toEqual({ clients: 0, loans: 0, payments: 0, settings: 1 });
+
+    const localSettings = await db.settings.get("singleton");
+    expect(localSettings?.businessName).toBe("Fla Remota");
+    expect(localSettings?.phone).toBe("999999999");
   });
 });

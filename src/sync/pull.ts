@@ -1,11 +1,15 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { db } from "../db/database";
-import { rowToClient, rowToLoan, rowToPayment, type ClientRow, type LoanRow, type PaymentRow } from "./mappers";
+import {
+  rowToClient, rowToLoan, rowToPayment, rowToSettings,
+  type ClientRow, type LoanRow, type PaymentRow, type SettingsRow,
+} from "./mappers";
 
 export interface PullResult {
   clients: number;
   loans: number;
   payments: number;
+  settings: number;
 }
 
 /** 
@@ -15,28 +19,31 @@ export interface PullResult {
  */
 export async function pullFromSupabase(): Promise<PullResult> {
   if (!isSupabaseConfigured || !supabase) {
-    return { clients: 0, loans: 0, payments: 0 };
+    return { clients: 0, loans: 0, payments: 0, settings: 0 };
   }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    return { clients: 0, loans: 0, payments: 0 };
+    return { clients: 0, loans: 0, payments: 0, settings: 0 };
   }
 
-  const [clientsRes, loansRes, paymentsRes] = await Promise.all([
+  const [clientsRes, loansRes, paymentsRes, settingsRes] = await Promise.all([
     supabase.from("clients").select("*"),
     supabase.from("loans").select("*"),
     supabase.from("payments").select("*"),
+    supabase.from("settings").select("*"),
   ]);
 
   if (clientsRes.error) throw new Error(clientsRes.error.message);
   if (loansRes.error) throw new Error(loansRes.error.message);
   if (paymentsRes.error) throw new Error(paymentsRes.error.message);
+  if (settingsRes.error) throw new Error(settingsRes.error.message);
 
   let clientsCount = 0;
   let loansCount = 0;
   let paymentsCount = 0;
+  let settingsCount = 0;
 
-  await db.transaction("rw", db.clients, db.loans, db.payments, async () => {
+  await db.transaction("rw", db.clients, db.loans, db.payments, db.settings, async () => {
     // Clients
     for (const r of (clientsRes.data || []) as ClientRow[]) {
       const remote = rowToClient(r);
@@ -70,7 +77,17 @@ export async function pullFromSupabase(): Promise<PullResult> {
         paymentsCount++;
       }
     }
+
+    // Settings (last-write-wins por updatedAt)
+    for (const r of (settingsRes.data || []) as SettingsRow[]) {
+      const remote = rowToSettings(r);
+      const local = await db.settings.get(remote.id);
+      if (!local || new Date(remote.updatedAt).getTime() > new Date(local.updatedAt).getTime()) {
+        await db.settings.put(remote);
+        settingsCount++;
+      }
+    }
   });
 
-  return { clients: clientsCount, loans: loansCount, payments: paymentsCount };
+  return { clients: clientsCount, loans: loansCount, payments: paymentsCount, settings: settingsCount };
 }

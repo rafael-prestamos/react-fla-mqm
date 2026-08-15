@@ -1,3 +1,5 @@
+Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md en la raíz.
+
 # Fla MpM - Guía para IAs
 
 **Proyecto y Estado:**

@@ -18,4 +18,12 @@
   --bad-soft: #F6E1DD;
   --line: #E4E8F0; 
   --muted: #65728A;
+  
+  /* Status Colors (Sprint 6a-2) */
+  --color-status-good: #16325C;
+  --color-status-good-soft: #E7EAF0;
+  --color-status-slow: #F59E0B;
+  --color-status-slow-soft: #FEF5E7;
+  --color-status-bad: #DC2626;
+  --color-status-bad-soft: #FCE9E9;
 }

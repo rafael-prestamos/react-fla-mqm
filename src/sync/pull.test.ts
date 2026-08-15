@@ -120,7 +120,7 @@ describe("pullFromSupabase", () => {
     const mockSettings: SettingsRow[] = [
       {
         id: "singleton", owner_id: "u1", business_name: "Fla Remota", phone: "999999999",
-        yape: "999999999", bcp_soles: "111", bcp_interbank: "222", updated_at: "2024-02-01T00:00:00Z",
+        yape: "999999999", yape_holder: "Holder", bcp_soles: "111", bcp_soles_holder: "Holder", bcp_interbank: "222", bcp_interbank_holder: "Holder", updated_at: "2024-02-01T00:00:00Z",
       },
     ];
 

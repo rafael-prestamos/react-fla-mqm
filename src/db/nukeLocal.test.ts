@@ -26,7 +26,7 @@ describe("nukeLocalData", () => {
     });
     await db.loans.put({ id: "l1", clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30, disbursedAt: "", paidOffCents: 0, renewalCount: 0, isPaid: false, createdAt: "", updatedAt: "" });
     await db.payments.put({ id: "p1", loanId: "l1", type: "full", amountCents: 1000, method: "cash", daysLate: 0, paidAt: "" });
-    await db.settings.put({ id: "singleton", businessName: "Fla", phone: "1", yape: "1", bcpSoles: "1", bcpInterbank: "1", updatedAt: "2024" });
+    await db.settings.put({ id: "singleton", businessName: "Fla", phone: "1", yape: "1", yapeHolder: "1", bcpSoles: "1", bcpSolesHolder: "1", bcpInterbank: "1", bcpInterbankHolder: "1", updatedAt: "2024" });
     await db.outbox.put({ entity: "clients", entityId: "c1", op: "put", payload: {}, createdAt: "" });
 
     // Verify seeded data exists

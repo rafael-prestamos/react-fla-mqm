@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import "fake-indexeddb/auto";
 import { AppDatabase } from "./database";
 
@@ -12,8 +12,6 @@ describe("AppDatabase migrations", () => {
   });
 
   it("v4 migration sets default holders for legacy settings", async () => {
-    // 1. Create a DB up to version 3
-    const legacyDb = new AppDatabase();
     // Dexie upgrade framework can be tricky to test without actual version increment
     // Since we just define versions in the constructor, we can test that when we open the DB
     // the upgrade logic runs. However, since the database is created with version 4 in `new AppDatabase()`,

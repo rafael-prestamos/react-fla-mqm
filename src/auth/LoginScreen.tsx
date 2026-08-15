@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSession } from "./SessionContext";
-import { PawPrint } from "lucide-react";
+import { BrandLogo } from "../components/brand/BrandLogo";
 
 const CSS = `
 .login-root {
@@ -128,7 +128,7 @@ export function LoadingScreen({ message = "Cargando…" }: { message?: string })
       <style>{CSS}</style>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
         <div className="loading-mascot" style={{ color: "var(--cream)" }}>
-          <PawPrint size={48} />
+          <BrandLogo size={48} />
         </div>
         <div style={{ color: "var(--cream)", fontWeight: 500, fontSize: 14, letterSpacing: "0.02em" }}>
           {message}
@@ -163,7 +163,7 @@ export function LoginScreen() {
       <div className="login-card">
         <div className="login-header">
           <div className="login-icon-bg">
-            <PawPrint size={40} />
+            <BrandLogo size={40} />
           </div>
           <h1 className="login-brand">Fla MpM</h1>
           <p className="login-subtitle">Gestor de préstamos</p>

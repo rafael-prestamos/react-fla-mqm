@@ -8,8 +8,11 @@ describe("makeDefaultSettings", () => {
     expect(settings.businessName).toBe(DEFAULT_BUSINESS.businessName);
     expect(settings.phone).toBe(DEFAULT_BUSINESS.phone);
     expect(settings.yape).toBe(DEFAULT_BUSINESS.yape);
+    expect(settings.yapeHolder).toBe(DEFAULT_BUSINESS.yapeHolder);
     expect(settings.bcpSoles).toBe(DEFAULT_BUSINESS.bcpSoles);
+    expect(settings.bcpSolesHolder).toBe(DEFAULT_BUSINESS.bcpSolesHolder);
     expect(settings.bcpInterbank).toBe(DEFAULT_BUSINESS.bcpInterbank);
+    expect(settings.bcpInterbankHolder).toBe(DEFAULT_BUSINESS.bcpInterbankHolder);
   });
 
   it("returns a valid ISO updatedAt timestamp", () => {

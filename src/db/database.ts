@@ -5,10 +5,10 @@
  */
 
 import Dexie, { type Table } from "dexie";
-import type { Client, Loan, Payment } from "../types/domain";
+import type { Client, Loan, Payment, BusinessSettings } from "../types/domain";
 
 /** Nombre de tabla replicable en Supabase. */
-export type SyncEntity = "clients" | "loans" | "payments";
+export type SyncEntity = "clients" | "loans" | "payments" | "settings";
 
 /** Operación pendiente de sincronizar hacia Supabase. */
 export interface OutboxOp {
@@ -25,6 +25,7 @@ export class AppDatabase extends Dexie {
   clients!: Table<Client, string>;
   loans!: Table<Loan, string>;
   payments!: Table<Payment, string>;
+  settings!: Table<BusinessSettings, string>;
   outbox!: Table<OutboxOp, number>;
 
   constructor() {
@@ -45,6 +46,12 @@ export class AppDatabase extends Dexie {
         if (client.rating === undefined) client.rating = "good";
         if (client.maxDaysLateHistorical === undefined) client.maxDaysLateHistorical = 0;
       });
+    });
+
+    // v3: Tabla singleton de settings de negocio (para PDFs de recibos).
+    // No se siembra aquí; el sembrado lo hace ensureSettings() explícitamente.
+    this.version(3).stores({
+      settings: "id, updatedAt",
     });
   }
 }

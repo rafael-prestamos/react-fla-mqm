@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 6a-1 completo (Rebrand logo, assets generados y PWA manifest actualizado). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Sprint 6a-2 completo (Colores semáforo para estados de clientes y limpieza visual en pestaña Hoy). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -14,6 +14,7 @@ Estado actual: Sprint 6a-1 completo (Rebrand logo, assets generados y PWA manife
 - **Patrones de Diseño**:
   - **Repository**: Por entidad para interactuar con Dexie.
   - **Outbox**: Para la sincronización (sync) a Supabase (last-write-wins).
+  - **Design Tokens**: Para colores de estado (`src/config/theme.ts` y `--color-status-*` en CSS).
   - Provider/Context y Domain/Pure Functions.
 
 **Convenciones Obligatorias:**

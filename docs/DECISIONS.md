@@ -198,4 +198,7 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Decisión:** PNG como formato base (no SVG traced) por simplicidad y calidad suficiente, extraído de `assets/branding/logo-source-1024.png`.
 - **Assets:** Se generaron derivados para PWA (`pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png`), favicons (`favicon.ico`, `apple-touch-icon.png`) y uso interno (`logo.png`).
 - **Implementación UI:** Componente `BrandLogo` (`src/components/brand/BrandLogo.tsx`) como *single source of truth* para renderizar el logo en la app (Login, cabecera).
-- **PDFs:** Se importó el logo como asset estático en `PaymentReceiptPdf` y `StatementPdf`, manteniéndolos en chunks separados sin afectar el bundle principal.
+### Sprint 6a-2: Colores estado + limpieza Hoy
+
+- **Tokens de Color (Semáforo):** A pedido del cliente, se adoptó una paleta de semáforo pura (`good: navy #16325C`, `slow: amber #F59E0B`, `bad: red #DC2626`) implementada vía CSS variables en `theme.css`. Se crearon variantes `-soft` para fondos con baja opacidad en los badges de estado.
+- **Limpieza de "Hoy":** Se eliminó el conteo estadístico de "mal pagador" de la cabecera en la pestaña "Hoy" para evitar ruido y ansiedad visual diaria. El componente queda comentado por si se requiere en el futuro, pero la visualización permanente se delega a las vistas de historial y al listado general de clientes.

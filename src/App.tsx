@@ -119,9 +119,9 @@ const CSS = `
 /* ---------- etiquetas y colores (UI en español) ---------- */
 interface RatingStyle { label: string; color: string; bg: string; }
 const RATING_STYLE: Record<ClientRating, RatingStyle> = {
-  good: { label: "Buen pagador", color: "var(--good)", bg: "var(--good-soft)" },
-  slow: { label: "Se demora", color: "var(--warn)", bg: "var(--warn-soft)" },
-  bad: { label: "Mal pagador", color: "var(--bad)", bg: "var(--bad-soft)" },
+  good: { label: "Buen pagador", color: "var(--color-status-good)", bg: "var(--color-status-good-soft)" },
+  slow: { label: "Se demora", color: "var(--color-status-slow)", bg: "var(--color-status-slow-soft)" },
+  bad: { label: "Mal pagador", color: "var(--color-status-bad)", bg: "var(--color-status-bad-soft)" },
 };
 
 interface StatusStyle { label: string; color: string; bg: string; bar: string; }
@@ -186,13 +186,13 @@ export default function App() {
   );
 
   const activeRows = rows.filter((r) => !r.loan.isPaid);
-  const paidRows = rows.filter((r) => r.loan.isPaid);
+  const paidRows = rows.filter((r) => r.loan.isPaid).sort((a, b) => new Date(b.loan.createdAt).getTime() - new Date(a.loan.createdAt).getTime());
+  // const badCount = activeRows.filter((r) => r.d.daysLate > 7).length; 
   const dueToday = activeRows.filter((r) => r.d.daysLate === 0).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const overdue = activeRows.filter((r) => r.d.daysLate > 0).sort((a, b) => b.d.daysLate !== a.d.daysLate ? b.d.daysLate - a.d.daysLate : b.d.balanceCents - a.d.balanceCents);
   const dueSoon = activeRows.filter((r) => r.d.daysLate < 0 && r.d.daysLate >= -3).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const capitalOut = activeRows.reduce((s, r) => s + r.loan.principalCents, 0);
   const interestOut = activeRows.reduce((s, r) => s + r.d.interestCents + r.d.lateInterestCents, 0);
-  const badCount = activeRows.filter((r) => r.d.daysLate > 7).length;
 
   /* acciones */
   async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }): Promise<PaymentSubmitResult> {
@@ -303,7 +303,8 @@ export default function App() {
           <div className="pf-mini">
             <div><div className="k">Vencen hoy</div><div className="v num">{dueToday.length}</div></div>
             <div><div className="k">Atrasados</div><div className="v num">{overdue.length}</div></div>
-            <div><div className="k">Mal pagador</div><div className="v num">{badCount}</div></div>
+            {/* TODO: componente sin uso desde sprint 6a-2, evaluar borrar si sigue sin uso en 2 sprints
+            <div><div className="k">Mal pagador</div><div className="v num">{badCount}</div></div> */}
           </div>
         </div>
 

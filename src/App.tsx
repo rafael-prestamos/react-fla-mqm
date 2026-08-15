@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
   Users, Home, WifiOff, Coins, User, Check, RefreshCw
@@ -28,6 +28,7 @@ import { ProfileSheet } from "./components/ProfileSheet";
 import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
+import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -112,7 +113,7 @@ const CSS = `
 .field{margin-top:13px}
 .field label{font-size:12.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
 .inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;
-  padding:11px 12px;font-family:inherit;font-size:15px;color:var(--ink);outline:none}
+  padding:11px 12px;font-family:inherit;font-size:15px;color:var(--ink);outline:none;scroll-margin-bottom:120px}
 .inp:focus{border-color:var(--accent)}
 .seg{display:flex;gap:7px}
 .seg button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;
@@ -607,6 +608,8 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
   onSubmitHistorical?: (input: LoanBackfillInput) => Promise<string | null>;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(sheetRef);
   const [mode, setMode] = useState<"new" | "historical">("new");
   const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
   const [principal, setPrincipal] = useState("");
@@ -701,7 +704,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
 
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Nuevo préstamo <span className="x" onClick={onClose}><X size={17} /></span></h3>
 
         {clients.length === 0 ? (
@@ -843,6 +846,8 @@ function NewClientSheet({ onClose, onSubmit }: {
   onClose: () => void;
   onSubmit: (input: ClientInput) => Promise<string | null>;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(sheetRef);
   const [name, setName] = useState("");
   const [dni, setDni] = useState("");
   const [phone, setPhone] = useState("");
@@ -866,7 +871,7 @@ function NewClientSheet({ onClose, onSubmit }: {
 
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Nuevo cliente <span className="x" onClick={onClose}><X size={17} /></span></h3>
         
         <div className="field">

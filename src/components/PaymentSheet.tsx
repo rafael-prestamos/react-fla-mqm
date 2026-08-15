@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, Download, CheckCircle2 } from "lucide-react";
 import type { Client, Loan, Payment, PaymentMethod, PaymentType } from "../types/domain";
 import type { LoanDerived } from "../domain/loanRules";
@@ -9,6 +9,7 @@ import { downloadBlob } from "../lib/downloadBlob";
 import { sanitizeFilename } from "../lib/sanitizeFilename";
 import { paymentMethodLabel } from "../pdf/formatters";
 import { useToast } from "../ui/ToastContext";
+import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
 
 export interface PaymentSubmitResult {
   error: string | null;
@@ -25,6 +26,8 @@ interface Props {
 }
 
 export function PaymentSheet({ client, loan, derived: d, onClose, onSubmit }: Props) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(sheetRef);
   const toast = useToast();
   const [type, setType] = useState<PaymentType>("full");
   const [method, setMethod] = useState<PaymentMethod>("cash");
@@ -88,7 +91,7 @@ export function PaymentSheet({ client, loan, derived: d, onClose, onSubmit }: Pr
   if (registered) {
     return (
       <div className="ovl" onClick={onClose}>
-        <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "12px 0 4px" }}>
             <CheckCircle2 size={52} color="var(--good)" />
             <div style={{ fontSize: 17, fontWeight: 700, marginTop: 12 }}>Pago registrado ✓</div>
@@ -126,7 +129,7 @@ export function PaymentSheet({ client, loan, derived: d, onClose, onSubmit }: Pr
 
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Registrar pago <span className="x" onClick={onClose}><X size={17} /></span></h3>
         <div style={{ fontSize: 13, color: "var(--muted)" }}>{client.name} · saldo {formatSoles(d.balanceCents)}</div>
 

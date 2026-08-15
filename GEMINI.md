@@ -76,6 +76,9 @@ El logo principal se renderiza a través del componente `<BrandLogo />` (`src/co
 Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard`, solo activos) y `ClientDetailSheet` (por cada `!loan.isPaid`). Componente reutilizable: `WhatsappButton` (`src/components/WhatsappButton.tsx`). Lógica en `src/domain/whatsappReminder.ts` (`buildWhatsappUrl`, `buildReminderMessage`). Verde `#25D366` = excepción cromática documentada. Filtro: `!loan.isPaid`.
 
 
+**Teclado móvil (Sprint 6a-7):**
+`useKeyboardAwareInput` (`src/ui/useKeyboardAwareInput.ts`) escucha `visualViewport.resize` y centra el input/textarea/select enfocado dentro de su contenedor scrollable cuando se abre el teclado virtual. Se usa en NewLoanSheet, NewClientSheet, PaymentSheet, SettingsSheet y LoginScreen.
+
 **Perfil (Sprint 6a-6):**
 El avatar del header abre `ProfileSheet` desde cualquier pestaña. Consolida nombre del negocio, `APP_VERSION`, estado de sync (`useSync`), Ajustes y cierre de sesión confirmado (`useSession`). El flujo Ajustes cierra Perfil y abre el `SettingsSheet` existente; ya no hay acciones de Ajustes ni Cerrar sesión al final de Clientes.
 

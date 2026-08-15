@@ -216,6 +216,13 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
 - **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.
 
+### Sprint 6a-7: Fix teclado móvil tapa input
+
+- **Problema:** en Android, el teclado flotante puede tapar el campo enfocado dentro de sheets con scroll.
+- **Solución (Opción B):** `useKeyboardAwareInput` detecta la apertura mediante `visualViewport.resize`; si el control enfocado está dentro del contenedor, hace `scrollIntoView({ block: "center" })` tras un breve delay para que el layout termine de actualizarse.
+- **Aplicado en:** `NewLoanSheet`, `NewClientSheet`, `PaymentSheet`, `SettingsSheet` y `LoginScreen`. `ClientDetailSheet` y `ProfileSheet` no tienen inputs editables.
+- **Descartado:** Opción A (CSS puro, no confiable en modales Android) y Opción C (librería React Native, no aplica a PWA web).
+
 ### Sprint 6a-6: Sección Perfil
 
 - **Decisión UX (Opción A):** avatar persistente en el header en vez de una pestaña nueva; Perfil queda disponible desde Hoy, Préstamos y Clientes sin ocupar espacio en la navegación principal.

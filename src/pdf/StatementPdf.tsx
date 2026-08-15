@@ -224,9 +224,9 @@ export function StatementPdf({ business, client, loans, payments, reference = st
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Datos de contacto:</Text>
-          {business.yape && <Text>Yape/Plin: {business.yape}</Text>}
-          {business.bcpSoles && <Text>BCP Soles: {business.bcpSoles}</Text>}
-          {business.bcpInterbank && <Text>CCI interbancaria: {business.bcpInterbank}</Text>}
+          {business.yape && <Text>Yape/Plin: {business.yape}{business.yapeHolder?.trim() ? ` — ${business.yapeHolder.trim()}` : ""}</Text>}
+          {business.bcpSoles && <Text>BCP Soles: {business.bcpSoles}{business.bcpSolesHolder?.trim() ? ` — ${business.bcpSolesHolder.trim()}` : ""}</Text>}
+          {business.bcpInterbank && <Text>CCI interbancaria: {business.bcpInterbank}{business.bcpInterbankHolder?.trim() ? ` — ${business.bcpInterbankHolder.trim()}` : ""}</Text>}
           <Text>Contacto: {business.phone}</Text>
         </View>
 

@@ -128,7 +128,7 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Persistencia:** Se usa `localStorage` (`fla-mpm:lastOpenedDate`) por dispositivo. No se sincroniza, cada dispositivo tiene su propio registro.
 - **Zona Horaria:** Se introdujo `toLocalIsoDate` (que usa fechas locales del dispositivo) para el tracker de primera apertura, distinto a `toIsoDate` (UTC) usado para persistencia y base de datos.
 - **Hook:** `useDailyBrief` en `App.tsx` espera a que carguen los datos de Dexie, evalúa la condición y lanza el toast. Se asegura de marcar como abierto haya o no reporte.
-- **Hotfix:** el hook ahora espera a que loans/clients estén cargados antes de evaluar; usa useRef para evitar re-disparos en StrictMode y refresh; toLocalIsoDate en tracker.
+- **Hotfix:** el hook ahora espera a que loans/clients estén cargados antes de evaluar; usa useRef para evitar re-disparos en StrictMode y refresh; toLocalIsoDate en tracker. Toasts admiten opción persistent; el daily brief la usa para no perderse si Fla no mira la app en 4s.
 
 ### Sprint 5a-fix: titulares por cuenta
 

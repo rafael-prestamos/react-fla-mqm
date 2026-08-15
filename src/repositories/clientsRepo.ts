@@ -31,6 +31,8 @@ export const clientsRepo = {
       dni: input.dni.trim(),
       name: input.name.trim(),
       phone: input.phone.trim(),
+      rating: "good",
+      maxDaysLateHistorical: 0,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -44,6 +46,25 @@ export const clientsRepo = {
     const current = await db.clients.get(id);
     if (!current) return;
     const updated: Client = { ...current, ...patch, updatedAt: nowIso() };
+    await db.clients.put(updated);
+    await enqueue("clients", id, "put", updated);
+  },
+
+  /** Actualiza el rating de un cliente. maxDaysLate solo se actualiza si es mayor. */
+  async updateRating(id: string, rating: Client["rating"], maxDaysLate: number): Promise<void> {
+    const current = await db.clients.get(id);
+    if (!current) return;
+    const updatedMax = Math.max(current.maxDaysLateHistorical, maxDaysLate);
+    
+    // Si no cambió ni el rating ni el histórico, no hacemos nada (idempotente parcial en repo)
+    if (current.rating === rating && current.maxDaysLateHistorical === updatedMax) return;
+
+    const updated: Client = { 
+      ...current, 
+      rating, 
+      maxDaysLateHistorical: updatedMax, 
+      updatedAt: nowIso() 
+    };
     await db.clients.put(updated);
     await enqueue("clients", id, "put", updated);
   },

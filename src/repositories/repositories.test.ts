@@ -28,11 +28,42 @@ describe("Repositories", () => {
     const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
     const c = await db.clients.get(client.id);
     expect(c).toBeDefined();
+    expect(c?.rating).toBe("good");
+    expect(c?.maxDaysLateHistorical).toBe(0);
     const ops = await db.outbox.toArray();
     expect(ops).toHaveLength(1);
     expect(ops[0].entity).toBe("clients");
     expect(ops[0].op).toBe("put");
     expect(ops[0].syncedAt).toBeUndefined();
+  });
+
+  it("clientsRepo.updateRating updates rating and maxDaysLate monotonically", async () => {
+    const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
+    await db.outbox.clear();
+    
+    // 1. Sube el rating y maxDaysLate
+    await clientsRepo.updateRating(client.id, "slow", 10);
+    let c = await db.clients.get(client.id);
+    expect(c?.rating).toBe("slow");
+    expect(c?.maxDaysLateHistorical).toBe(10);
+    let ops = await db.outbox.toArray();
+    expect(ops).toHaveLength(1);
+
+    await db.outbox.clear();
+    // 2. Mantiene maxDaysLate si el nuevo es menor, pero actualiza rating (aunque en la regla de negocio rating nunca baja si maxDaysLate es alto, el repo solo guarda lo que le dicen)
+    await clientsRepo.updateRating(client.id, "good", 5);
+    c = await db.clients.get(client.id);
+    expect(c?.rating).toBe("good");
+    expect(c?.maxDaysLateHistorical).toBe(10);
+    ops = await db.outbox.toArray();
+    expect(ops).toHaveLength(1);
+
+    await db.outbox.clear();
+    // 3. Idempotencia: sin cambios no encola
+    await clientsRepo.updateRating(client.id, "good", 5);
+    c = await db.clients.get(client.id);
+    ops = await db.outbox.toArray();
+    expect(ops).toHaveLength(0);
   });
 
   it("loansRepo.create persists loan and enqueues put operation", async () => {

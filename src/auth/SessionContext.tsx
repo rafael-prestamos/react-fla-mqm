@@ -18,6 +18,7 @@ import { getLocalOwner, setLocalOwner, clearLocalOwner } from "../db/localOwners
 import { nukeLocalData } from "../db/nukeLocal";
 import { pullFromSupabase } from "../sync/pull";
 import { ensureSettings } from "../db/ensureSettings";
+import { migrateNamesToUpperV1 } from "../lib/migrations/migrateNamesToUpperV1";
 
 interface SessionContextValue {
   session: Session | null;
@@ -68,6 +69,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // ensureSettings después (siembra defaults solo si el usuario es nuevo).
         await pullFromSupabase();
         await ensureSettings();
+        const migRes = await migrateNamesToUpperV1();
+        if (!migRes.skipped) {
+          console.log("[Migration] namesToUpper v1:", migRes);
+        }
       } catch (e) {
         console.error("Error en pull inicial:", e);
         // Permitir reintentos? El flag se apaga y el sync background reintentará

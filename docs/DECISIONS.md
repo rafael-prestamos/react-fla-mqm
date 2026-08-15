@@ -202,3 +202,8 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 
 - **Tokens de Color (Semáforo):** A pedido del cliente, se adoptó una paleta de semáforo pura (`good: navy #16325C`, `slow: amber #F59E0B`, `bad: red #DC2626`) implementada vía CSS variables en `theme.css`. Se crearon variantes `-soft` para fondos con baja opacidad en los badges de estado.
 - **Limpieza de "Hoy":** Se eliminó el conteo estadístico de "mal pagador" de la cabecera en la pestaña "Hoy" para evitar ruido y ansiedad visual diaria. El componente queda comentado por si se requiere en el futuro, pero la visualización permanente se delega a las vistas de historial y al listado general de clientes.
+### Sprint 6a-3: Nombres UPPERCASE
+
+- **Estrategia (Opción C híbrida):** Los nombres de clientes se normalizan a UPPERCASE tanto al crear como al editar. Se implementó una migración one-shot (`namesMigratedToUpperV1`) con backup local que actualiza los registros en Dexie y hace un `.update` en Supabase para evitar sobrescribir otros campos.
+- **UI:** Se incluyó un input de búsqueda case-insensitive y se agregó un texto de previsualización (e.g. "Se guardará como: JUAN PÉREZ") debajo del input de creación de cliente.
+- **SQL / Consideración futura:** De momento la normalización se maneja 100% en el frontend con el helper `normalizeClientName`. Se considera un trigger SQL en Supabase como defensa futura pero no se requiere actualmente.

@@ -62,5 +62,6 @@ export interface BusinessSettings {
   bcpSolesHolder: string;        // titular BCP Soles
   bcpInterbank: string;          // CCI interbancaria BCP
   bcpInterbankHolder: string;    // titular CCI interbancaria BCP
+  namesMigratedToUpperV1?: boolean; // flag de migración one-shot sprint 6a-3
   updatedAt: string;             // ISO
 }

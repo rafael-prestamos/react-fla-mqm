@@ -15,6 +15,9 @@ export const DEFAULT_BUSINESS: Omit<BusinessSettings, "updatedAt"> = {
   bcpInterbankHolder: "Rafael Rojas",
 };
 
+/** Nombre de negocio reutilizable en la UI. */
+export const BUSINESS_NAME = DEFAULT_BUSINESS.businessName;
+
 /** Fábrica que devuelve un objeto listo para persistir. */
 export function makeDefaultSettings(): BusinessSettings {
   return { ...DEFAULT_BUSINESS, updatedAt: nowIso() };

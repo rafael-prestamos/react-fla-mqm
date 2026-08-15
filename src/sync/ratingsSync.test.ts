@@ -50,7 +50,7 @@ describe("recomputeAllRatings", () => {
     const res1 = await recomputeAllRatings(new Date());
     expect(res1.updated).toBe(0); // rating is already good, maxDays is 0
 
-    const loan = await loansRepo.create({ clientId: client.id, principalCents: 1000, rate: 0.2, termDays: 30 });
+    await loansRepo.create({ clientId: client.id, principalCents: 1000, rate: 0.2, termDays: 30 });
     const refDate = new Date();
     refDate.setDate(refDate.getDate() + 40); // 10 days late
 

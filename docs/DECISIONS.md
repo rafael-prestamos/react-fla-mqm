@@ -115,7 +115,32 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 3c:** Activación final de interés por mora (tras confirmación verbal de Fla).
 - **Sprint 4c-1:** Clasificación de clientes e historial en vista detalle. (Completado)
 - **Sprint 4c-2a:** Settings del negocio para PDFs de recibos. (Completado)
+- **Sprint 4c-2b:** Comprobante de pago y estado de cuenta en PDF. (Completado)
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.
+
+### Sprint 4c-2b: PDFs
+
+- **Librería:** `@react-pdf/renderer` (~450kb / ~1.26MB sin comprimir con sus
+  fuentes). Para no engordar el bundle inicial, **siempre** se importa con
+  dynamic `import()` en el momento en que el usuario toca "Descargar" — nunca
+  en el top-level de un archivo alcanzable estáticamente desde `App.tsx`.
+  Resultado verificado en build: el chunk principal creció ~6kB (566→572kB);
+  react-pdf y los componentes de PDF quedan en chunks lazy aparte
+  (`react-pdf.browser-*.js` ~1.26MB, `PaymentReceiptPdf-*.js` ~4kB,
+  `StatementPdf-*.js` ~7kB).
+- **Comprobante de pago** (`src/pdf/PaymentReceiptPdf.tsx`): se descarga desde
+  el estado "pago-registrado" de `PaymentSheet` tras un cobro exitoso —
+  `loansRepo.applyPayment` ahora devuelve también el `Payment` creado para
+  poder generarlo sin una segunda consulta.
+- **Estado de cuenta** (`src/pdf/StatementPdf.tsx`): se descarga desde
+  `ClientDetailSheet` (préstamos + pagos históricos del cliente, resumen y
+  saldo pendiente vía `deriveLoan`).
+- Ambos toman los datos del negocio de `settingsRepo.get()` (Sprint 4c-2a);
+  formato en español, tema navy consistente con la app.
+- **Helpers nuevos:** `src/lib/downloadBlob.ts` (dispara la descarga del Blob
+  en el browser) y `src/lib/sanitizeFilename.ts` (nombre de archivo seguro sin
+  acentos/espacios). Formateo de textos específico de PDFs en
+  `src/pdf/formatters.ts`.
 
 ### Sprint 4c-2a: Settings
 

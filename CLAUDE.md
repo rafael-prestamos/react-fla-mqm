@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 4c-2a completo (settings del negocio: nombre, celular, Yape/Plin y cuentas BCP, editables en Ajustes, listas para poblar los PDFs de recibos). El siguiente paso es el PDF de recibos en sí (4c-2b) o el Panel resumen y notificaciones (Sprint 4).
+Estado actual: Sprint 4c-2b completo (comprobante de pago y estado de cuenta en PDF, generados en el cliente con `@react-pdf/renderer` vía dynamic import). El siguiente paso es el Panel resumen y notificaciones (Sprint 4).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -51,10 +51,14 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 - `src/repositories`: Patrón repository para el acceso a datos.
 - `src/sync`: Lógica de sincronización Outbox.
 - `src/auth`: Autenticación y sesión.
+- `src/pdf`: Componentes de PDF (`@react-pdf/renderer`) y sus formatters — siempre importados dinámicamente desde el punto de uso.
 - **Fuente de Verdad**: `docs/DECISIONS.md` es la documentación canónica del proyecto.
 
 **Settings del negocio (Sprint 4c-2a):**
 Modelo singleton (`BusinessSettings`, `id: "singleton"`) en Dexie v3 (tabla `settings`) y Supabase (`supabase/migrations/0006_settings.sql`, RLS por `owner_id`). Defaults reales de Fla en `src/config/business.ts`. Bootstrap en `SessionContext`: **pull primero, `ensureSettings()` después** — así no se pisan settings ya sincronizados desde otro dispositivo. Editable en pantalla de Ajustes (`SettingsSheet`, accesible desde la pestaña Clientes). Ver detalle en `docs/DECISIONS.md`.
+
+**PDFs de comprobantes y estado de cuenta (Sprint 4c-2b):**
+`@react-pdf/renderer` **siempre** vía dynamic `import()` en el momento de la descarga (nunca import estático top-level fuera de `src/pdf/*`) — evita engordar el bundle inicial (~1.26MB queda en un chunk lazy aparte). Comprobante de pago (`PaymentReceiptPdf`) se descarga desde el estado "pago-registrado" de `PaymentSheet`; estado de cuenta (`StatementPdf`) desde `ClientDetailSheet`. Ambos usan `settingsRepo.get()` para los datos del negocio. Ver detalle en `docs/DECISIONS.md`.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

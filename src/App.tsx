@@ -21,6 +21,7 @@ import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -185,24 +186,27 @@ export default function App() {
   const badCount = activeRows.filter((r) => r.d.daysLate > 7).length;
 
   /* acciones */
-  async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }): Promise<string | null> {
+  async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }): Promise<PaymentSubmitResult> {
     const target = loans.find((l) => l.id === loanId);
-    if (!target) return "Préstamo no encontrado";
+    if (!target) return { error: "Préstamo no encontrado" };
 
     try {
-      await loansRepo.applyPayment({
+      const result = await loansRepo.applyPayment({
         loan: target,
         type: input.type,
         amountCents: input.amountCents,
         method: input.method,
       });
-      setPayingId(null);
       toast.success("Pago registrado");
-      return null;
+      return {
+        error: null,
+        payment: result.payment,
+        balanceCentsAfter: deriveLoan(result.updatedLoan).balanceCents,
+      };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
       toast.error(msg);
-      return msg;
+      return { error: msg };
     }
   }
 
@@ -425,7 +429,9 @@ export default function App() {
 
         {payingRow && (
           <PaymentSheet
-            row={payingRow}
+            client={payingRow.client}
+            loan={payingRow.loan}
+            derived={payingRow.d}
             onClose={() => setPayingId(null)}
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
           />
@@ -537,92 +543,6 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
         </div>
       </div>
       {!loan.isPaid && <button className="btn btn-p btn-block" onClick={onPay}>Registrar pago</button>}
-    </div>
-  );
-}
-
-function PaymentSheet({ row, onClose, onSubmit }: {
-  row: LoanRow;
-  onClose: () => void;
-  onSubmit: (input: { type: PaymentType; amountCents: number; method: PaymentMethod }) => Promise<string | null>;
-}) {
-  const { d, client } = row;
-  const [type, setType] = useState<PaymentType>("full");
-  const [method, setMethod] = useState<PaymentMethod>("cash");
-  const [amount, setAmount] = useState("");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const amountCents = toCents(parseFloat(amount) || 0);
-
-  const handleTypeChange = (newType: PaymentType) => {
-    setType(newType);
-    setSubmitError(null);
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmount(e.target.value);
-    setSubmitError(null);
-  };
-
-  const handleSubmit = async () => {
-    setSubmitError(null);
-    const err = await onSubmit({ type, amountCents, method });
-    if (err) setSubmitError(err);
-  };
-  return (
-    <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <h3>Registrar pago <span className="x" onClick={onClose}><X size={17} /></span></h3>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>{client.name} · saldo {formatSoles(d.balanceCents)}</div>
-
-        <div className="field">
-          <label>¿Qué pagó?</label>
-          <div className="seg">
-            <button className={type === "full" ? "on" : ""} onClick={() => handleTypeChange("full")}>Todo</button>
-            <button className={type === "interest" ? "on" : ""} onClick={() => handleTypeChange("interest")}>Solo interés</button>
-            <button className={type === "partial" ? "on" : ""} onClick={() => handleTypeChange("partial")}>Una parte</button>
-          </div>
-        </div>
-
-        {type === "interest" && (
-          <div className="preview">
-            <div className="r"><span>Cobra el interés</span><span className="num">{formatSoles(d.interestCents)}</span></div>
-            <div className="r"><span>Renueva {row.loan.termDays} días · nueva fecha</span>
-              <span className="num">{formatShort(addDays(d.dueDate, row.loan.termDays))}</span></div>
-          </div>
-        )}
-        {type === "partial" && (
-          <div className="field">
-            <label>¿Cuánto abonó? (S/)</label>
-            <input className="inp num" inputMode="decimal" value={amount} onChange={handleAmountChange} placeholder="0.00" />
-          </div>
-        )}
-
-        <div className="field">
-          <label>¿Cómo pagó?</label>
-          <div className="seg">
-            <button className={method === "cash" ? "on" : ""} onClick={() => setMethod("cash")}>Efectivo</button>
-            <button className={method === "digital" ? "on" : ""} onClick={() => setMethod("digital")}>Virtual (Yape/Plin)</button>
-          </div>
-        </div>
-
-        <button
-          className="btn btn-p btn-block"
-          style={{ marginTop: 18 }}
-          disabled={type === "partial" && amountCents <= 0}
-          onClick={handleSubmit}
-        >
-          {type === "full"
-            ? `Cobrar ${formatSoles(d.balanceCents)}`
-            : type === "interest"
-              ? "Cobrar interés y renovar"
-              : `Registrar abono ${amount ? formatSoles(amountCents) : ""}`}
-        </button>
-        {submitError && (
-          <div style={{ color: "var(--bad)", fontSize: 13, marginTop: 12, textAlign: "center", fontWeight: 500 }}>
-            {submitError}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

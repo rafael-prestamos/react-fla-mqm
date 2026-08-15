@@ -1,7 +1,12 @@
-import { X, User } from "lucide-react";
+import { useState } from "react";
+import { X, User, Download } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles } from "../lib/money";
-import { formatShort } from "../lib/dates";
+import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
+import { settingsRepo } from "../repositories/settingsRepo";
+import { downloadBlob } from "../lib/downloadBlob";
+import { sanitizeFilename } from "../lib/sanitizeFilename";
+import { useToast } from "../ui/ToastContext";
 
 interface Props {
   client: Client;
@@ -11,7 +16,34 @@ interface Props {
 }
 
 export function ClientDetailSheet({ client, loans, payments, onClose }: Props) {
+  const toast = useToast();
+  const [generatingStatement, setGeneratingStatement] = useState(false);
   const sortedLoans = [...loans].sort((a, b) => new Date(b.disbursedAt).getTime() - new Date(a.disbursedAt).getTime());
+
+  /** Patrón: dynamic import — @react-pdf/renderer (~450kb) solo se carga al tocar "Descargar". */
+  async function handleDownloadStatement() {
+    setGeneratingStatement(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { StatementPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../pdf/StatementPdf"),
+      ]);
+      const blob = await pdf(
+        <StatementPdf business={business} client={client} loans={loans} payments={payments} />
+      ).toBlob();
+      downloadBlob(blob, `EstadoDeCuenta_${sanitizeFilename(client.name)}_${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Estado de cuenta descargado");
+    } catch {
+      toast.error("No se pudo generar el estado de cuenta");
+    } finally {
+      setGeneratingStatement(false);
+    }
+  }
 
   return (
     <div className="ovl" onClick={onClose}>
@@ -30,6 +62,14 @@ export function ClientDetailSheet({ client, loans, payments, onClose }: Props) {
               <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>DNI {client.dni} · {client.phone}</div>
             </div>
           </div>
+
+          <button
+            className="btn btn-p btn-block"
+            disabled={generatingStatement}
+            onClick={handleDownloadStatement}
+          >
+            <Download size={16} /> {generatingStatement ? "Generando…" : "Descargar estado de cuenta"}
+          </button>
 
           <div className="pf-sect">Historial de préstamos</div>
           

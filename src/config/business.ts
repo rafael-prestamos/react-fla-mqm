@@ -8,8 +8,11 @@ export const DEFAULT_BUSINESS: Omit<BusinessSettings, "updatedAt"> = {
   businessName: "Fla",
   phone: "961655740",
   yape: "961655740",
+  yapeHolder: "Rafael Rojas",
   bcpSoles: "48018243654096",
+  bcpSolesHolder: "Rafael Rojas",
   bcpInterbank: "00248011824365409622",
+  bcpInterbankHolder: "Rafael Rojas",
 };
 
 /** Fábrica que devuelve un objeto listo para persistir. */

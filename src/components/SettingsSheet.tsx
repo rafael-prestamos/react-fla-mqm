@@ -5,6 +5,7 @@ import { settingsRepo } from "../repositories/settingsRepo";
 import { useToast } from "../ui/ToastContext";
 
 interface Props {
+  open: boolean;
   onClose: () => void;
 }
 
@@ -12,7 +13,7 @@ type EditableFields = Pick<BusinessSettings, "businessName" | "phone" | "yape" |
 
 const HELPER_TEXT = "Este dato aparece en los comprobantes que compartes con tus clientes.";
 
-export function SettingsSheet({ onClose }: Props) {
+export function SettingsSheet({ open, onClose }: Props) {
   const toast = useToast();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [initial, setInitial] = useState<EditableFields | null>(null);
@@ -68,6 +69,8 @@ export function SettingsSheet({ onClose }: Props) {
       setSaving(false);
     }
   }
+
+  if (!open) return null;
 
   return (
     <div className="ovl" onClick={onClose}>

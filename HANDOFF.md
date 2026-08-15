@@ -15,6 +15,9 @@ Producto usable end-to-end en `develop`, no desplegado a producción todavía. F
 ## Documentación autoritativa
 Consulta estos ANTES de tocar código:
 - `docs/DECISIONS.md` — fuente de verdad; contiene el modelo de negocio, decisiones de arquitectura por sprint, convenciones, invariantes y pendientes.
+- `docs/REQUIREMENTS.md` — historias de usuario e invariantes.
+- `docs/ARCHITECTURE.md` — arquitectura + diagramas Mermaid.
+- `docs/DATA_MODEL.md` — diccionario de datos.
 - `CLAUDE.md` y `GEMINI.md` — briefs para agentes de IA (contenido gemelo).
 - `CONTRIBUTING.md` — git flow: main = producción (auto deploy), develop = integración (CI, sin deploy), feature branches `feature/sprint-<n><letra>-<slug>` que salen de develop, PR a develop, self-merge con CI verde. Conventional Commits.
 

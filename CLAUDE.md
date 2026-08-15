@@ -54,7 +54,10 @@ El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/lo
 - `src/sync`: Lógica de sincronización Outbox.
 - `src/auth`: Autenticación y sesión.
 - `src/pdf`: Componentes de PDF (`@react-pdf/renderer`) y sus formatters — siempre importados dinámicamente desde el punto de uso.
-- **Fuente de Verdad**: `docs/DECISIONS.md` es la documentación canónica del proyecto.
+- **Fuente de Verdad principal**: `docs/DECISIONS.md`.
+- **Historias de Usuario e Invariantes**: `docs/REQUIREMENTS.md`.
+- **Arquitectura y Diagramas**: `docs/ARCHITECTURE.md`.
+- **Diccionario de Datos**: `docs/DATA_MODEL.md`.
 
 **Settings del negocio (Sprint 4c-2a):**
 Modelo singleton (`BusinessSettings`, `id: "singleton"`) en Dexie v3 (tabla `settings`) y Supabase (`supabase/migrations/0006_settings.sql`, RLS por `owner_id`). Defaults reales de Fla en `src/config/business.ts`. Bootstrap en `SessionContext`: **pull primero, `ensureSettings()` después** — así no se pisan settings ya sincronizados desde otro dispositivo. Editable en pantalla de Ajustes (`SettingsSheet`, accesible desde la pestaña Clientes). Ver detalle en `docs/DECISIONS.md`.

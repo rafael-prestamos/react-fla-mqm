@@ -117,7 +117,15 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 4c-2a:** Settings del negocio para PDFs de recibos. (Completado)
 - **Sprint 4c-2b:** Comprobante de pago y estado de cuenta en PDF. (Completado)
 - **Sprint 5a:** Recordatorio por WhatsApp desde pestaña Hoy ("tap-to-send" sin API, usando `wa.me`). (Completado)
+- **Sprint 5a-fix:** Titulares por cuenta (Yape, BCP Soles, BCP interbancaria). (Completado)
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.
+
+### Sprint 5a-fix: titulares por cuenta
+
+- Se agregaron 3 campos a `BusinessSettings` (`yapeHolder`, `bcpSolesHolder`, `bcpInterbankHolder`) con default "Rafael Rojas".
+- Migración Dexie v4 y SQL 0007 (idempotentes).
+- `ensureSettings` realiza backfill de titulares para filas legacy.
+- Reflejado en Ajustes UI, mensaje de WhatsApp y footers de PDFs.
 
 ### Sprint 5a: WhatsApp tap-to-send
 

@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 5a completo (botón recordatorio por WhatsApp "tap-to-send" usando wa.me en pestaña Hoy). El siguiente paso es el Panel resumen y notificaciones (Sprint 4).
+Estado actual: Sprint 5a-fix completo (titulares por cuenta en settings, reflejados en WhatsApp y PDFs). El siguiente paso es el Panel resumen y notificaciones (Sprint 4).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.

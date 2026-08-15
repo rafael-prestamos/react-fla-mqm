@@ -9,6 +9,8 @@ import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
 import { toIsoDate, startOfToday } from "../lib/dates";
 import type { Loan, LoanTerm } from "../types/domain";
+import { assertValidLoanTerm } from "../domain/loanTerm";
+
 import { applyPayment, type ApplyPaymentInput, type ApplyPaymentResult } from "../domain/loanPayment";
 import { paymentsRepo } from "./paymentsRepo";
 import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from "../domain/loanBackfill";
@@ -36,7 +38,10 @@ export const loansRepo = {
     rate: number;
     termDays: LoanTerm;
   }): Promise<Loan> {
+    // Patrón: Repository — defensa en profundidad: validar antes de persistir
+    assertValidLoanTerm(input.termDays);
     const timestamp = nowIso();
+
     const loan: Loan = {
       id: newId(),
       clientId: input.clientId,

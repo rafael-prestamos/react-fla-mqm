@@ -1,4 +1,6 @@
 import type { Loan, Payment, LoanTerm } from "../types/domain";
+import { isValidLoanTerm } from "./loanTerm";
+
 import { deriveLoan } from "./loanRules";
 import { startOfToday } from "../lib/dates";
 
@@ -6,7 +8,8 @@ export interface LoanBackfillInput {
   clientId: string;
   principalCents: number;         // capital original
   rate: number;                   // 0.20 = 20%
-  termDays: LoanTerm;             // 25 | 28 | 30
+  termDays: LoanTerm;             // entero 1-365 días (sprint 6a-4: libre, presets 25/28/30)
+
   lastCycleStart: string;         // "YYYY-MM-DD" — fecha de entrega si nunca renovó, o de la ÚLTIMA renovación
   renewalCount: number;           // >=0; default 0
   outstandingBalanceCents: number;// SALDO PENDIENTE HOY (lo que Fla tiene en su cuaderno). >0, <= deuda calculada del ciclo actual
@@ -41,10 +44,12 @@ export function validateLoanBackfillInput(
     errors.rate = "Ingresa un interés válido";
     ok = false;
   }
-  if (![25, 28, 30].includes(input.termDays)) {
-    errors.termDays = "Plazo inválido";
+  // Patrón: Domain Value Object — isValidLoanTerm valida rango 1-365 (sprint 6a-4)
+  if (!isValidLoanTerm(input.termDays)) {
+    errors.termDays = "Debe ser un número entero entre 1 y 365";
     ok = false;
   }
+
 
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(input.lastCycleStart)) {

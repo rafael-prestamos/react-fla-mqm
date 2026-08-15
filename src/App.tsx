@@ -15,6 +15,8 @@ import { paymentsRepo } from "./repositories/paymentsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
+import { LOAN_TERM_PRESETS } from "./domain/loanTerm";
+
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
@@ -115,7 +117,17 @@ const CSS = `
   font-size:12.5px;display:flex;gap:9px;margin-top:14px;align-items:flex-start}
 .hist{font-size:12px;color:var(--muted);margin-top:8px;padding-left:2px}
 .hist .h{display:flex;justify-content:space-between;padding:3px 0}
+/* Patrón: Compound input — plazo libre + presets (sprint 6a-4) */
+.term-input-wrap{display:flex;gap:7px;align-items:center}
+.term-input-wrap .inp{flex:1;min-width:0}
+.term-presets{display:flex;gap:5px;flex-shrink:0}
+.term-preset-btn{background:var(--card);border:1px solid var(--line);border-radius:9px;
+  padding:9px 10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  color:var(--muted);transition:background .15s,color .15s,border-color .15s}
+.term-preset-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.term-preset-btn:not(.active):hover{border-color:var(--accent);color:var(--ink)}
 `;
+
 
 /* ---------- etiquetas y colores (UI en español) ---------- */
 interface RatingStyle { label: string; color: string; bg: string; }
@@ -603,7 +615,9 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   const totalCents = principalCents + interestCents;
   const client = clients.find(c => c.id === clientId);
   const isBad = client?.rating === "bad";
-  const terms: LoanTerm[] = [25, 28, 30];
+  // Patrón: Domain Value Object — usar constantes del dominio en la UI
+  const terms = LOAN_TERM_PRESETS;
+
 
   let historicalPreview = null;
   if (mode === "historical") {
@@ -719,14 +733,38 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
                 {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
               </div>
               <div className="field" style={{ flex: 2 }}>
-                <label>Plazo</label>
-                <div className="seg">
-                  {terms.map((day) => (
-                    <button key={day} className={termDays === day ? "on" : ""} onClick={() => setTermDays(day)}>{day} días</button>
-                  ))}
+                <label>Plazo (días)</label>
+                {/* Patrón: Compound input — número libre + presets. Shortcuts respetan hábito de Fla. */}
+                <div className="term-input-wrap">
+                  <input
+                    className="inp num"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={365}
+                    step={1}
+                    value={termDays}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setTermDays(isNaN(v) ? 1 : v);
+                    }}
+                  />
+                  <div className="term-presets">
+                    {terms.map((day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`term-preset-btn${termDays === day ? " active" : ""}`}
+                        onClick={() => setTermDays(day)}
+                      >
+                        {day}d
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {errors.termDays && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.termDays}</div>}
               </div>
+
             </div>
 
             {mode === "historical" && (

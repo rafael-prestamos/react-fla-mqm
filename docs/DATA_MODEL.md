@@ -31,7 +31,8 @@ Fuente: `src/types/domain.ts`
 | clientId | string (UUID) | sí | FK a Client | |
 | principalCents | number (int) | sí | Capital prestado | > 0 |
 | rate | number | sí | Tasa por período | > 0 |
-| termDays | LoanTerm | sí | Plazo en días | 25, 28, 30 |
+| termDays | number (int, 1-365) | sí | Plazo en días. Libre: cualquier entero 1-365. Presets comunes: 25, 28, 30 (sprint 6a-4). | ≥ 1, ≤ 365, entero |
+
 | disbursedAt | string ISO | sí | Fecha de entrega (YYYY-MM-DD) | |
 | paidOffCents | number (int) | sí | Abonos acumulados | ≥ 0 |
 | renewalCount | number (int) | sí | Veces que renovó pagando solo interés | ≥ 0 |

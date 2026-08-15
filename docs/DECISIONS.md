@@ -202,8 +202,16 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 
 - **Tokens de Color (Semáforo):** A pedido del cliente, se adoptó una paleta de semáforo pura (`good: navy #16325C`, `slow: amber #F59E0B`, `bad: red #DC2626`) implementada vía CSS variables en `theme.css`. Se crearon variantes `-soft` para fondos con baja opacidad en los badges de estado.
 - **Limpieza de "Hoy":** Se eliminó el conteo estadístico de "mal pagador" de la cabecera en la pestaña "Hoy" para evitar ruido y ansiedad visual diaria. El componente queda comentado por si se requiere en el futuro, pero la visualización permanente se delega a las vistas de historial y al listado general de clientes.
-### Sprint 6a-3: Nombres UPPERCASE
-
 - **Estrategia (Opción C híbrida):** Los nombres de clientes se normalizan a UPPERCASE tanto al crear como al editar. Se implementó una migración one-shot (`namesMigratedToUpperV1`) con backup local que actualiza los registros en Dexie y hace un `.update` en Supabase para evitar sobrescribir otros campos.
 - **UI:** Se incluyó un input de búsqueda case-insensitive y se agregó un texto de previsualización (e.g. "Se guardará como: JUAN PÉREZ") debajo del input de creación de cliente.
 - **SQL / Consideración futura:** De momento la normalización se maneja 100% en el frontend con el helper `normalizeClientName`. Se considera un trigger SQL en Supabase como defensa futura pero no se requiere actualmente.
+
+### Sprint 6a-4: Plazo flexible de préstamo (1-365 días)
+
+- **Decisión:** Se cambió el tipo `LoanTerm` de un enum estricto `25 | 28 | 30` a `number` validado en rango `[1, 365]`. Esto habilita a Fla a ingresar cualquier plazo entero (ej. 45 días, 60 días) sin perder los atajos rápidos de sus plazos habituales.
+- **Rationale:** Fla necesita flexibilidad para acuerdos informales con plazos no estándar. El 90% de sus préstamos seguirán siendo 25/28/30 días, pero la restricción de enum bloqueaba casos edge.
+- **Sin migración de datos:** Los préstamos existentes tienen `termDays` ∈ {25, 28, 30}, todos dentro del nuevo rango [1, 365]. Solo se relaja la restricción, sin tocar datos persistidos.
+- **Value Object de dominio:** `src/domain/loanTerm.ts` implementa el patrón Value Object con `isValidLoanTerm()` y `assertValidLoanTerm()`. Constantes: `LOAN_TERM_MIN=1`, `LOAN_TERM_MAX=365`, `LOAN_TERM_PRESETS=[25,28,30]`.
+- **Defensa en profundidad:** Validación en tres capas — dominio (`isValidLoanTerm`), validador de formulario (`validateLoanInput`/`validateLoanBackfillInput`), y repository (`assertValidLoanTerm` antes del `put`).
+- **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
+- **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.

@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 6a-4 completo (Plazo flexible 1-365 días con presets 25/28/30). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Sprint 6a-5 completo (WhatsApp ubicuo: Hoy + Detalle Cliente + tab Préstamos). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 
 **Stack y Arquitectura:**
@@ -71,6 +71,10 @@ Modelo singleton (`BusinessSettings`, `id: "singleton"`) en Dexie v3 (tabla `set
 
 **Assets y Branding (Sprint 6a-1):**
 El logo principal se renderiza a través del componente `<BrandLogo />` (`src/components/brand/BrandLogo.tsx`). Los assets crudos viven en `src/assets/branding` y los derivados (favicons, PWA icons, etc.) en `public/` y `src/assets/logo.png`.
+
+**WhatsApp ubicuo (Sprint 6a-5):**
+Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard`, solo activos) y `ClientDetailSheet` (por cada `!loan.isPaid`). Componente reutilizable: `WhatsappButton` (`src/components/WhatsappButton.tsx`). Lógica en `src/domain/whatsappReminder.ts` (`buildWhatsappUrl`, `buildReminderMessage`). Verde `#25D366` = excepción cromática documentada. Filtro: `!loan.isPaid`.
+
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

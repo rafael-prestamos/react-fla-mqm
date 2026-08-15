@@ -50,3 +50,14 @@ export interface Payment {
   daysLate: number; // atraso al momento del pago (para historial/clasificación)
   paidAt: string; // ISO
 }
+
+/** Datos del negocio (para recibos/PDFs). Modelo singleton: una fila por usuario. */
+export interface BusinessSettings {
+  id: string;                    // singleton local: siempre "singleton"; owner_id filtra en Supabase
+  businessName: string;          // ej. "Fla" o razón social
+  phone: string;                 // celular de contacto (9 dígitos si es Perú, pero no forzar formato)
+  yape: string;                  // número Yape/Plin
+  bcpSoles: string;              // cuenta BCP Soles
+  bcpInterbank: string;          // CCI interbancaria BCP
+  updatedAt: string;             // ISO
+}

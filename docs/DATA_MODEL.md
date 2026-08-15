@@ -17,7 +17,7 @@ Fuente: `src/types/domain.ts`
 |---|---|---|---|---|
 | id | string (UUID) | sí | PK | |
 | dni | string | sí | 8 dígitos | `/^\d{8}$/` |
-| name | string | sí | Nombre visible del cliente | trim, length ≥ 2 |
+| name | string | sí | Nombre completo. **Siempre normalizado a UPPERCASE** post sprint 6a-3 (sin espacios extras y locale-aware `es-PE`). | trim, length ≥ 2 |
 | phone | string | sí | Celular | `/^9\d{8}$/` (Perú) |
 | rating | "good" \| "slow" \| "bad" | sí | Cacheado, monótono ascendente | nunca baja |
 | maxDaysLateHistorical | number (int) | sí | Máximo atraso alguna vez | ≥ 0, nunca disminuye |

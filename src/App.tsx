@@ -23,6 +23,7 @@ import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
 
@@ -157,6 +158,7 @@ export default function App() {
   const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [showingSettings, setShowingSettings] = useState(false);
 
   useEffect(() => {
@@ -368,10 +370,24 @@ export default function App() {
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Clientes</div>
                 <button className="btn btn-p" onClick={() => setCreatingClient(true)}><Plus size={16} /> Nuevo</button>
               </div>
+              
+              {clients.length > 0 && (
+                <div style={{ marginBottom: 16, padding: "0 2px" }}>
+                  <input 
+                    className="inp" 
+                    placeholder="Buscar cliente..." 
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                  />
+                </div>
+              )}
+
               {clients.length === 0 ? (
                 <div className="empty">Aún no tienes clientes. Agrega el primero para empezar.</div>
               ) : (
-                clients.map((c) => {
+                clients
+                  .filter(c => !clientSearch || clientNameMatches(c.name, clientSearch))
+                  .map((c) => {
                   const theirs = rows.filter((r) => r.loan.clientId === c.id);
                   const rating = c.rating ?? "good";
                   const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
@@ -806,6 +822,7 @@ function NewClientSheet({ onClose, onSubmit }: {
         <div className="field">
           <label>Nombre</label>
           <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana Torres" />
+          {name && <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>Se guardará como: {normalizeClientName(name)}</div>}
           {errors.name && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.name}</div>}
         </div>
 

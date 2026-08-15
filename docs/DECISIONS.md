@@ -114,4 +114,30 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 3b (Sync Bidireccional):** Mappers de BD, pull inicial por sesión, push automático reaccionario, y Sync UI en la cabecera. Estrategia last-write-wins. (Completado)
 - **Sprint 3c:** Activación final de interés por mora (tras confirmación verbal de Fla).
 - **Sprint 4c-1:** Clasificación de clientes e historial en vista detalle. (Completado)
+- **Sprint 4c-2a:** Settings del negocio para PDFs de recibos. (Completado)
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.
+
+### Sprint 4c-2a: Settings
+
+- **Modelo:** Singleton (`id: "singleton"`) tanto en Dexie como en Supabase — una
+  fila de `BusinessSettings` por usuario (`owner_id` en Supabase filtra por RLS).
+  Contiene nombre del negocio, celular, Yape/Plin, cuenta BCP Soles y CCI
+  interbancaria BCP; se usará para poblar los PDFs de recibos del Sprint 4c-2b.
+- **Defaults:** `src/config/business.ts` (`DEFAULT_BUSINESS` / `makeDefaultSettings()`)
+  trae los datos reales de Fla como arranque de fábrica. El usuario puede
+  editarlos en la pantalla de Ajustes; si nunca los edita, los PDFs usan estos.
+- **Bootstrap (orden crítico):** `pullFromSupabase()` primero, `ensureSettings()`
+  después, en `SessionContext`. Así, si el usuario ya tenía settings en Supabase
+  (de otro dispositivo), el pull los trae y `ensureSettings()` no los pisa —
+  solo siembra defaults cuando, tras el pull, no existe fila local.
+  `ensureSettings()` es idempotente: no reencola si la fila ya existe.
+- **Migración Dexie v3:** Nueva tabla `settings: "id, updatedAt"`. No siembra
+  datos en el upgrade (a diferencia del v1→v2 de rating); el sembrado es
+  responsabilidad explícita de `ensureSettings()` para respetar el ownership
+  post-login.
+- **Migración SQL:** `supabase/migrations/0006_settings.sql` — tabla `settings`
+  con RLS por `owner_id = auth.uid()`. Aplicación manual en el dashboard de
+  Supabase (no se ejecuta automáticamente).
+- **UI:** `SettingsSheet` (patrón sheet full-screen, mismo estilo que
+  `ClientDetailSheet`), accesible desde la pestaña Clientes junto al botón de
+  cerrar sesión. Carga vía `settingsRepo.get()`, guarda vía `settingsRepo.update()`.

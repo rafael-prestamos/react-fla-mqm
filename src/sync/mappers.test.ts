@@ -6,9 +6,11 @@ import {
   rowToLoan,
   paymentToRow,
   rowToPayment,
+  settingsToRow,
+  rowToSettings,
   type LoanRow,
 } from "./mappers";
-import type { Client, Loan, Payment } from "../types/domain";
+import type { Client, Loan, Payment, BusinessSettings } from "../types/domain";
 
 describe("sync mappers", () => {
   it("client round-trip", () => {
@@ -58,6 +60,21 @@ describe("sync mappers", () => {
     };
     const row = paymentToRow(domain);
     const back = rowToPayment({ ...row, owner_id: "user1" });
+    expect(back).toEqual(domain);
+  });
+
+  it("settings round-trip", () => {
+    const domain: BusinessSettings = {
+      id: "singleton",
+      businessName: "Fla",
+      phone: "961655740",
+      yape: "961655740",
+      bcpSoles: "48018243654096",
+      bcpInterbank: "00248011824365409622",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+    const row = settingsToRow(domain);
+    const back = rowToSettings({ ...row, owner_id: "user1" });
     expect(back).toEqual(domain);
   });
 

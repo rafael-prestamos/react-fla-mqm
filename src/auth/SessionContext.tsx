@@ -17,6 +17,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { getLocalOwner, setLocalOwner, clearLocalOwner } from "../db/localOwnership";
 import { nukeLocalData } from "../db/nukeLocal";
 import { pullFromSupabase } from "../sync/pull";
+import { ensureSettings } from "../db/ensureSettings";
 
 interface SessionContextValue {
   session: Session | null;
@@ -63,7 +64,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           await nukeLocalData();
           setLocalOwner(currentUserId);
         }
+        // Orden importante: pull primero (trae settings de otro dispositivo si existen),
+        // ensureSettings después (siembra defaults solo si el usuario es nuevo).
         await pullFromSupabase();
+        await ensureSettings();
       } catch (e) {
         console.error("Error en pull inicial:", e);
         // Permitir reintentos? El flag se apaga y el sync background reintentará

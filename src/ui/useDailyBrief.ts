@@ -52,7 +52,7 @@ export function useDailyBrief({ loans, clients }: Params): void {
 
     const message = buildDailyBriefMessage({ dueTodayCount, overdueCount, totalOwedCents });
     if (message) {
-      toast.info("🔔 " + message);
+      toast.info("🔔 " + message, { persistent: true });
     }
     // Siempre marcar (con o sin mensaje) para que "primera apertura del día" sea 1 disparo por día.
     markOpenedToday();

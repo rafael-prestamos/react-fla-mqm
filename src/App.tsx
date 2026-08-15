@@ -141,11 +141,15 @@ export default function App() {
   const { session, signOut } = useSession();
   const sync = useSync();
   const toast = useToast();
-  const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
-  const loans = useLiveQuery(() => loansRepo.all()) ?? [];
-  const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
+  const clientsRaw = useLiveQuery(() => clientsRepo.all());
+  const loansRaw = useLiveQuery(() => loansRepo.all());
+  const paymentsRaw = useLiveQuery(() => paymentsRepo.all());
 
-  useDailyBrief({ loans, clients });
+  const clients = clientsRaw ?? [];
+  const loans = loansRaw ?? [];
+  const payments = paymentsRaw ?? [];
+
+  useDailyBrief({ loans: loansRaw, clients: clientsRaw });
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);

@@ -36,6 +36,16 @@ export class AppDatabase extends Dexie {
       payments: "id, loanId, paidAt",
       outbox: "++id, entity, entityId, syncedAt",
     });
+
+    // v2: Cache de rating y maxDaysLateHistorical para los clientes
+    this.version(2).stores({
+      clients: "id, dni, name, updatedAt, rating, maxDaysLateHistorical",
+    }).upgrade(tx => {
+      return tx.table("clients").toCollection().modify(client => {
+        if (client.rating === undefined) client.rating = "good";
+        if (client.maxDaysLateHistorical === undefined) client.maxDaysLateHistorical = 0;
+      });
+    });
   }
 }
 

@@ -1,10 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
   Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw
 } from "lucide-react";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
-import { deriveLoan, classifyByMaxDaysLate, type LoanDerived, type LoanStatus } from "./domain/loanRules";
+import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
 import { formatShort, formatLong, addDays, startOfToday } from "./lib/dates";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -17,6 +17,9 @@ import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErr
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
+import { recomputeAllRatings } from "./sync/ratingsSync";
+import { collectedThisMonth } from "./domain/collections";
+import { ClientDetailSheet } from "./components/ClientDetailSheet";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -108,8 +111,6 @@ const CSS = `
 .hist .h{display:flex;justify-content:space-between;padding:3px 0}
 `;
 
-const COLLECTED_THIS_MONTH_CENTS = 340_000; // dato de ejemplo del panel
-
 /* ---------- etiquetas y colores (UI en español) ---------- */
 interface RatingStyle { label: string; color: string; bg: string; }
 const RATING_STYLE: Record<ClientRating, RatingStyle> = {
@@ -142,32 +143,32 @@ export default function App() {
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
+
+  useEffect(() => {
+    if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
+    const t = setTimeout(() => {
+      void recomputeAllRatings();
+    }, 500);
+    return () => clearTimeout(t);
+  }, [loans, payments, clients]);
 
   const clientById = (id: string): Client =>
     clients.find((c) => c.id === id) ?? ({} as Client);
 
-  const maxDaysLateOf = (clientId: string): number => {
-    const fromLoans = loans
-      .filter((l) => l.clientId === clientId && !l.isPaid)
-      .map((l) => deriveLoan(l).daysLate);
-    const fromHistory = payments
-      .filter((p) => loans.some((l) => l.id === p.loanId && l.clientId === clientId))
-      .map((p) => p.daysLate);
-    return Math.max(0, ...fromLoans, ...fromHistory);
-  };
-  const ratingOf = (clientId: string): ClientRating =>
-    classifyByMaxDaysLate(maxDaysLateOf(clientId));
-
   const rows = useMemo<LoanRow[]>(
     () =>
-      loans.map((loan) => ({
-        loan,
-        d: deriveLoan(loan),
-        client: clientById(loan.clientId),
-        rating: ratingOf(loan.clientId),
-      })),
+      loans.map((loan) => {
+        const client = clientById(loan.clientId);
+        return {
+          loan,
+          d: deriveLoan(loan),
+          client,
+          rating: client.rating ?? "good",
+        };
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [loans, payments, clients]
   );
@@ -297,7 +298,7 @@ export default function App() {
               <div className="pf-stats">
                 <Stat icon={<Wallet size={13} />} k="Capital en la calle" v={formatSoles(capitalOut)} />
                 <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} />
-                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(COLLECTED_THIS_MONTH_CENTS)} />
+                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(collectedThisMonth(payments))} />
                 <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} />
               </div>
 
@@ -356,10 +357,10 @@ export default function App() {
               ) : (
                 clients.map((c) => {
                   const theirs = rows.filter((r) => r.loan.clientId === c.id);
-                  const rating = ratingOf(c.id);
+                  const rating = c.rating ?? "good";
                   const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
                 return (
-                  <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                  <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8, cursor: "pointer" }} onClick={() => setViewingClient(c.id)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                       <div style={{ width: 38, height: 38, borderRadius: 11, background: "var(--paper)",
                         display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
@@ -421,10 +422,18 @@ export default function App() {
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
           />
         )}
+        {viewingClient && (
+          <ClientDetailSheet
+            client={clientById(viewingClient)}
+            loans={loans.filter(l => l.clientId === viewingClient)}
+            payments={payments.filter(p => loans.some(l => l.id === p.loanId && l.clientId === viewingClient))}
+            onClose={() => setViewingClient(null)}
+          />
+        )}
         {creating && (
           <NewLoanSheet
             clients={clients}
-            ratingOf={ratingOf}
+            
             onClose={() => setCreating(false)}
             onOpenNewClient={() => { setCreating(false); setCreatingClient(true); }}
             onSubmit={createLoan}
@@ -609,9 +618,8 @@ function PaymentSheet({ row, onClose, onSubmit }: {
   );
 }
 
-function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
+function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
   clients: Client[];
-  ratingOf: (clientId: string) => ClientRating;
   onClose: () => void;
   onOpenNewClient: () => void;
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
@@ -635,7 +643,8 @@ function NewLoanSheet({ clients, ratingOf, onClose, onOpenNewClient, onSubmit, o
   const rate = (parseFloat(ratePct) || 0) / 100;
   const interestCents = Math.round(principalCents * rate);
   const totalCents = principalCents + interestCents;
-  const isBad = ratingOf(clientId) === "bad";
+  const client = clients.find(c => c.id === clientId);
+  const isBad = client?.rating === "bad";
   const terms: LoanTerm[] = [25, 28, 30];
 
   let historicalPreview = null;

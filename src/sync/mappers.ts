@@ -6,9 +6,12 @@ export interface ClientRow {
   dni: string;
   name: string;
   phone: string;
+  rating: "good" | "slow" | "bad";
+  max_days_late_historical: number;
   created_at: string;
   updated_at: string;
 }
+
 
 export interface LoanRow {
   id: string;
@@ -42,6 +45,8 @@ export function clientToRow(c: Client): Omit<ClientRow, "owner_id"> {
     dni: c.dni,
     name: c.name,
     phone: c.phone,
+    rating: c.rating,
+    max_days_late_historical: c.maxDaysLateHistorical,
     created_at: c.createdAt,
     updated_at: c.updatedAt,
   };
@@ -53,6 +58,8 @@ export function rowToClient(r: ClientRow): Client {
     dni: r.dni,
     name: r.name,
     phone: r.phone,
+    rating: r.rating,
+    maxDaysLateHistorical: r.max_days_late_historical,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };

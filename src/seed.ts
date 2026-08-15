@@ -11,14 +11,14 @@ type ClientSeed = Omit<Client, "createdAt" | "updatedAt">;
 type LoanSeed = Omit<Loan, "createdAt" | "updatedAt">;
 
 const baseClients: ClientSeed[] = [
-  { id: "c1", dni: "41234567", name: "Shica Ramos", phone: "987654321" },
-  { id: "c2", dni: "42345678", name: "Elvia Quispe", phone: "986543210" },
-  { id: "c3", dni: "43456789", name: "Silvia Gutiérrez", phone: "985432109" },
-  { id: "c4", dni: "44567890", name: "Sharon Valderrama", phone: "984321098" },
-  { id: "c5", dni: "45678901", name: "Eli Gutiérrez", phone: "983210987" },
-  { id: "c6", dni: "46789012", name: "Jack Torres", phone: "982109876" },
-  { id: "c7", dni: "47890123", name: "Erickson Díaz", phone: "981098765" },
-  { id: "c8", dni: "48901234", name: "Danie Pinedo", phone: "980987654" },
+  { id: "c1", dni: "00000001", name: "Ana Martínez", phone: "987654321", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c2", dni: "00000002", name: "Beto Sánchez", phone: "987654322", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c3", dni: "00000003", name: "Carlos López", phone: "987654323", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c4", dni: "00000004", name: "Diana Gómez", phone: "987654324", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c5", dni: "00000005", name: "Elena Rojas", phone: "987654325", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c6", dni: "00000006", name: "Fernando Díaz", phone: "987654326", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c7", dni: "00000007", name: "Gabriela Ruiz", phone: "987654327", rating: "good", maxDaysLateHistorical: 0 },
+  { id: "c8", dni: "00000008", name: "Hugo Vargas", phone: "987654328", rating: "good", maxDaysLateHistorical: 0 },
 ];
 
 /** Helper: fecha de entrega `daysAgo` días atrás desde hoy. */

@@ -34,7 +34,7 @@ describe("pullFromSupabase", () => {
     vi.mocked(supabase!.auth.getSession).mockResolvedValue({ data: { session: { user: { id: "u1" } } }, error: null } as any);
     
     const mockClients: ClientRow[] = [
-      { id: "c1", owner_id: "u1", dni: "1", name: "A", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
+      { id: "c1", owner_id: "u1", dni: "1", name: "A", phone: "1", rating: "good", max_days_late_historical: 0, created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
     ];
 
     vi.mocked(supabase!.from).mockImplementation((table) => {
@@ -58,12 +58,14 @@ describe("pullFromSupabase", () => {
       dni: "1",
       name: "Local Name",
       phone: "1",
+      rating: "good",
+      maxDaysLateHistorical: 0,
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-02-01T00:00:00Z"
     });
 
     const mockClients: ClientRow[] = [
-      { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
+      { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", rating: "good", max_days_late_historical: 0, created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" }
     ];
 
     vi.mocked(supabase!.from).mockImplementation((table) => {
@@ -87,12 +89,14 @@ describe("pullFromSupabase", () => {
       dni: "1",
       name: "Local Name",
       phone: "1",
+      rating: "good",
+      maxDaysLateHistorical: 0,
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-01-01T00:00:00Z"
     });
 
     const mockClients: ClientRow[] = [
-      { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", created_at: "2024-01-01T00:00:00Z", updated_at: "2024-02-01T00:00:00Z" }
+      { id: "c1", owner_id: "u1", dni: "1", name: "Remote Name", phone: "1", rating: "bad", max_days_late_historical: 35, created_at: "2024-01-01T00:00:00Z", updated_at: "2024-02-01T00:00:00Z" }
     ];
 
     vi.mocked(supabase!.from).mockImplementation((table) => {
@@ -105,5 +109,7 @@ describe("pullFromSupabase", () => {
 
     const localClient = await db.clients.get("c1");
     expect(localClient?.name).toBe("Remote Name");
+    expect(localClient?.rating).toBe("bad");
+    expect(localClient?.maxDaysLateHistorical).toBe(35);
   });
 });

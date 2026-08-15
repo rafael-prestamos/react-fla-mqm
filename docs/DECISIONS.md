@@ -113,4 +113,5 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 3a (Login Gate):** Pantalla de login estricta para asegurar producción. (Completado)
 - **Sprint 3b (Sync Bidireccional):** Mappers de BD, pull inicial por sesión, push automático reaccionario, y Sync UI en la cabecera. Estrategia last-write-wins. (Completado)
 - **Sprint 3c:** Activación final de interés por mora (tras confirmación verbal de Fla).
+- **Sprint 4c-1:** Clasificación de clientes e historial en vista detalle. (Completado)
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.

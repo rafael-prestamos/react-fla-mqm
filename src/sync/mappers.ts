@@ -130,8 +130,11 @@ export interface SettingsRow {
   business_name: string;
   phone: string;
   yape: string;
+  yape_holder: string;
   bcp_soles: string;
+  bcp_soles_holder: string;
   bcp_interbank: string;
+  bcp_interbank_holder: string;
   updated_at: string;
 }
 
@@ -141,8 +144,11 @@ export function settingsToRow(s: BusinessSettings): Omit<SettingsRow, "owner_id"
     business_name: s.businessName,
     phone: s.phone,
     yape: s.yape,
+    yape_holder: s.yapeHolder,
     bcp_soles: s.bcpSoles,
+    bcp_soles_holder: s.bcpSolesHolder,
     bcp_interbank: s.bcpInterbank,
+    bcp_interbank_holder: s.bcpInterbankHolder,
     updated_at: s.updatedAt,
   };
 }
@@ -153,8 +159,11 @@ export function rowToSettings(r: SettingsRow): BusinessSettings {
     businessName: r.business_name,
     phone: r.phone,
     yape: r.yape,
+    yapeHolder: r.yape_holder,
     bcpSoles: r.bcp_soles,
+    bcpSolesHolder: r.bcp_soles_holder,
     bcpInterbank: r.bcp_interbank,
+    bcpInterbankHolder: r.bcp_interbank_holder,
     updatedAt: r.updated_at,
   };
 }

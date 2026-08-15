@@ -19,4 +19,9 @@ describe("dates", () => {
     expect(formatShort(d).length).toBeGreaterThan(0);
     expect(formatLong(d).length).toBeGreaterThan(0);
   });
+
+  it("toLocalIsoDate", () => {
+    const d = new Date(2025, 10, 5); // Month is 0-indexed, so 10 is Nov
+    expect(toLocalIsoDate(d)).toBe("2025-11-05");
+  });
 });

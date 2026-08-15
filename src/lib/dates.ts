@@ -29,5 +29,16 @@ export const formatLong = (date: Date): string =>
     month: "long",
   });
 
-/** Fecha ISO (solo día, YYYY-MM-DD). */
+/** Fecha ISO (solo día, YYYY-MM-DD). Usa UTC. Para persistencia. */
 export const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10);
+
+/** 
+ * Fecha ISO en zona horaria local (YYYY-MM-DD). 
+ * Usar para UI y lógicas de "día actual local" (ej. recordatorios). 
+ */
+export const toLocalIsoDate = (date: Date): string => {
+  const yr = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const dy = String(date.getDate()).padStart(2, "0");
+  return `${yr}-${mo}-${dy}`;
+};

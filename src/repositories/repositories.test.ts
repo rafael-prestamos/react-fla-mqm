@@ -100,7 +100,7 @@ describe("Repositories", () => {
     const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
     await db.outbox.clear();
     
-    await loansRepo.applyPayment({
+    const result = await loansRepo.applyPayment({
       loan,
       type: "partial",
       amountCents: 5000,
@@ -108,13 +108,19 @@ describe("Repositories", () => {
       reference: new Date("2025-01-15T00:00:00Z")
     });
 
+    expect(result.payment.type).toBe("partial");
+    expect(result.payment.amountCents).toBe(5000);
+    expect(result.payment.loanId).toBe(loan.id);
+    expect(result.payment.id).toBeTruthy();
+
     const l = await db.loans.get(loan.id);
     expect(l?.paidOffCents).toBe(5000);
-    
+
     const payments = await db.payments.toArray();
     expect(payments).toHaveLength(1);
     expect(payments[0].type).toBe("partial");
     expect(payments[0].amountCents).toBe(5000);
+    expect(payments[0].id).toBe(result.payment.id);
 
     const ops = await db.outbox.toArray();
     expect(ops).toHaveLength(2);

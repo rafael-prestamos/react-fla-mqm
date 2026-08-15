@@ -57,17 +57,18 @@ export const loansRepo = {
 
 
 
-  async applyPayment(input: ApplyPaymentInput): Promise<ApplyPaymentResult> {
+  async applyPayment(input: ApplyPaymentInput): Promise<ApplyPaymentResult & { payment: Payment }> {
     const current = await db.loans.get(input.loan.id);
     if (!current) throw new Error("Préstamo no encontrado");
-    
+
     const result = applyPayment({ ...input, loan: current });
-    
+    let payment: Payment | undefined;
+
     await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
       await db.loans.put(result.updatedLoan);
       await enqueue("loans", result.updatedLoan.id, "put", result.updatedLoan);
-      
-      await paymentsRepo.create({
+
+      payment = await paymentsRepo.create({
         loanId: result.updatedLoan.id,
         type: result.paymentRecord.type,
         amountCents: result.paymentRecord.amountCents,
@@ -76,7 +77,7 @@ export const loansRepo = {
       });
     });
 
-    return result;
+    return { ...result, payment: payment! };
   },
 
   async backfill(input: LoanBackfillInput): Promise<{ loan: Loan; payment: Payment | null }> {

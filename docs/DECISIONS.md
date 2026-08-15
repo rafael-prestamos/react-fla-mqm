@@ -216,6 +216,16 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
 - **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.
 
+### Sprint 6a-8: CRUD editable + soft delete
+
+- **Alcance:** editar cliente (nombre/DNI/teléfono), préstamo (monto/tasa/plazo/fecha) y pago (monto/método); anular préstamos con cascada a sus pagos y anular pagos individuales.
+- **Campos:** `cancelledAt`, `cancelReason` opcional y `editedAt` en Loan/Payment; solo `editedAt` en Client. La auditoría conserva únicamente ese timestamp y se muestra un badge sutil “editado”.
+- **Cascada:** al anular un préstamo se anulan todos sus pagos activos. El modal los enumera y exige escribir `ELIMINAR` antes de habilitar la acción destructiva.
+- **Visibilidad:** las consultas `all`/`active`/`byClient`/`byLoan` excluyen registros anulados, por lo que desaparecen de las vistas normales.
+- **Sync:** Dexie v5 y migración SQL `0008_soft_delete_and_edit.sql`; los mappers sincronizan los nuevos campos.
+- **Fix colateral:** `rowToLoan` usa `isValidLoanTerm` en vez del listado hardcodeado 25/28/30, preservando plazos libres entre 1 y 365.
+- **Descartado:** hard delete (sin auditoría), log completo de valores anteriores (excesivo para el producto) y una sección visible de anulados (ruido visual).
+
 ### Sprint 6a-7: Fix teclado móvil tapa input
 
 - **Problema:** en Android, el teclado flotante puede tapar el campo enfocado dentro de sheets con scroll.

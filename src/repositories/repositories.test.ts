@@ -91,6 +91,43 @@ describe("Repositories", () => {
     expect(ops[0].op).toBe("put");
   });
 
+  it("edits a loan and excludes cancelled loans from queries", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    await db.outbox.clear();
+    await loansRepo.update(loan.id, { principalCents: 2000, termDays: 15 });
+    expect((await db.loans.get(loan.id))?.editedAt).toBeTruthy();
+    expect((await db.outbox.toArray())[0].entity).toBe("loans");
+
+    await loansRepo.cancel(loan.id, "error");
+    expect((await db.loans.get(loan.id))?.cancelledAt).toBeTruthy();
+    expect(await loansRepo.all()).toHaveLength(0);
+    expect(await loansRepo.active()).toHaveLength(0);
+    expect(await loansRepo.byClient("c1")).toHaveLength(0);
+    await expect(loansRepo.update(loan.id, { rate: 0.3 })).rejects.toThrow("anulado");
+    await expect(loansRepo.cancel(loan.id)).rejects.toThrow("ya anulado");
+  });
+
+  it("cancels a loan and cascades its active payments", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 100, method: "cash", daysLate: 0 });
+    await db.outbox.clear();
+    const result = await loansRepo.cancel(loan.id);
+    expect(result.cancelledPaymentIds).toEqual([payment.id]);
+    expect((await db.payments.get(payment.id))?.cancelledAt).toBeTruthy();
+    expect((await db.outbox.toArray()).map((op) => op.entity).sort()).toEqual(["loans", "payments"]);
+  });
+
+  it("edits and cancels a payment while queries hide it", async () => {
+    const payment = await paymentsRepo.create({ loanId: "l1", type: "full", amountCents: 100, method: "cash", daysLate: 0 });
+    await db.outbox.clear();
+    await paymentsRepo.update(payment.id, { amountCents: 200, method: "digital" });
+    expect((await db.payments.get(payment.id))?.editedAt).toBeTruthy();
+    await paymentsRepo.cancel(payment.id, "duplicado");
+    expect((await db.payments.get(payment.id))?.cancelledAt).toBeTruthy();
+    expect(await paymentsRepo.all()).toHaveLength(0);
+    expect(await paymentsRepo.byLoan("l1")).toHaveLength(0);
+  });
+
   it("loansRepo.applyPayment with missing id throws", async () => {
     const fakeLoan = { id: "no-existe" } as any;
     await expect(loansRepo.applyPayment({ loan: fakeLoan, type: "partial", amountCents: 5000, method: "cash" })).rejects.toThrow("Préstamo no encontrado");

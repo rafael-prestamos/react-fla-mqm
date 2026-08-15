@@ -36,6 +36,7 @@ export const clientsRepo = {
       maxDaysLateHistorical: 0,
       createdAt: timestamp,
       updatedAt: timestamp,
+      editedAt: null,
     };
     await db.clients.put(client);
     await enqueue("clients", client.id, "put", client);
@@ -51,7 +52,8 @@ export const clientsRepo = {
       patch.name = normalizeClientName(patch.name);
     }
     
-    const updated: Client = { ...current, ...patch, updatedAt: nowIso() };
+    const timestamp = nowIso();
+    const updated: Client = { ...current, ...patch, updatedAt: timestamp, editedAt: timestamp };
     await db.clients.put(updated);
     await enqueue("clients", id, "put", updated);
   },

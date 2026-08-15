@@ -27,6 +27,7 @@ export interface Client {
   maxDaysLateHistorical: number;     // máximo atraso alguna vez alcanzado (monótono ascendente)
   createdAt: string; // ISO
   updatedAt: string; // ISO
+  editedAt?: string | null; // ISO — Sprint 6a-8
 }
 
 export interface Loan {
@@ -41,6 +42,9 @@ export interface Loan {
   isPaid: boolean;
   createdAt: string;
   updatedAt: string;
+  cancelledAt?: string | null; // ISO — Sprint 6a-8
+  cancelReason?: string | null;
+  editedAt?: string | null;
 }
 
 export interface Payment {
@@ -51,6 +55,9 @@ export interface Payment {
   method: PaymentMethod;
   daysLate: number; // atraso al momento del pago (para historial/clasificación)
   paidAt: string; // ISO
+  cancelledAt?: string | null; // ISO — Sprint 6a-8
+  cancelReason?: string | null;
+  editedAt?: string | null;
 }
 
 /** Datos del negocio (para recibos/PDFs). Modelo singleton: una fila por usuario. */

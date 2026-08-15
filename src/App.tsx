@@ -4,7 +4,7 @@ import {
   Users, Home, WifiOff, Coins, User, Check, RefreshCw
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
-import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
+import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
 import { formatShort, formatLong, addDays, startOfToday } from "./lib/dates";
@@ -56,6 +56,12 @@ const CSS = `
 .profile-sheet__status{font-size:13px;font-weight:700}.profile-sheet__status.online{color:var(--color-status-good)}.profile-sheet__status.offline{color:var(--color-status-bad)}
 .profile-sheet__sync small{color:var(--muted)}.profile-sheet__actions{display:flex;flex-direction:column;gap:9px}.profile-sheet__action{padding:12px;background:var(--color-status-good-soft);color:var(--navy);font-size:14px}
 .profile-sheet__logout{background:var(--color-status-bad);color:#fff}
+.badge-edited{font-size:10px;color:var(--muted);font-style:italic;margin-left:6px}
+.cancel-modal{background:var(--paper);border-radius:16px;padding:20px;max-width:400px;width:90%;margin:auto}
+.cancel-modal h4{margin:0 0 12px;font-size:16px;font-weight:700;color:var(--color-status-bad)}
+.cancel-modal .affected{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;font-size:12.5px}
+.cancel-modal .confirm-input{margin-top:12px}.cancel-modal .confirm-input input{width:100%;text-align:center;letter-spacing:.05em}
+.cancel-actions{display:flex;gap:8px;margin-top:14px}.cancel-actions .btn{flex:1}.btn-danger{background:var(--color-status-bad);color:#fff;border:none}.btn-danger:disabled{opacity:.4}
 .pf-hello{font-size:13px;opacity:.72;margin-top:14px;text-transform:capitalize}
 .pf-cobranza-lbl{font-size:12.5px;opacity:.78;margin-top:2px}
 .pf-cobranza{font-size:40px;font-weight:700;line-height:1.05;margin-top:2px}
@@ -242,6 +248,26 @@ export default function App() {
       toast.error(msg);
       return { error: msg };
     }
+  }
+
+  async function handleEditClient(id: string, patch: Pick<Client, "name" | "dni" | "phone">) {
+    await clientsRepo.update(id, patch);
+  }
+
+  async function handleEditLoan(id: string, patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>) {
+    await loansRepo.update(id, patch);
+  }
+
+  async function handleCancelLoan(id: string, reason?: string) {
+    return loansRepo.cancel(id, reason);
+  }
+
+  async function handleEditPayment(id: string, patch: Partial<Pick<Payment, "amountCents" | "method">>) {
+    await paymentsRepo.update(id, patch);
+  }
+
+  async function handleCancelPayment(id: string, reason?: string) {
+    await paymentsRepo.cancel(id, reason);
   }
 
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
@@ -481,6 +507,11 @@ export default function App() {
             loans={loans.filter(l => l.clientId === viewingClient)}
             payments={payments.filter(p => loans.some(l => l.id === p.loanId && l.clientId === viewingClient))}
             onClose={() => setViewingClient(null)}
+            onEditClient={handleEditClient}
+            onEditLoan={handleEditLoan}
+            onCancelLoan={handleCancelLoan}
+            onEditPayment={handleEditPayment}
+            onCancelPayment={handleCancelPayment}
           />
         )}
         {creating && (

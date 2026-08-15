@@ -78,6 +78,9 @@ Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña 
 **CRUD editable y anulación (Sprint 6a-8):**
 `clientsRepo`, `loansRepo` y `paymentsRepo` ofrecen `update`; Loan y Payment también ofrecen `cancel`. La anulación de préstamo es una cascada a pagos activos. Dexie v5 y `supabase/migrations/0008_soft_delete_and_edit.sql` agregan los campos de auditoría/soft delete. La UI vive en `ClientDetailSheet` con `Edit*Sheet` y `Cancel*Modal`.
 
+**Restricciones de pagos (Hotfix 6a-8b):**
+`paymentsRepo.update` solo acepta `method`; el monto se corrige anulando y re-registrando. `paymentsRepo.cancel` solo permite el último pago activo y reconstruye el estado del préstamo. La UI muestra Anular únicamente para ese último pago.
+
 **Teclado móvil (Sprint 6a-7):**
 `useKeyboardAwareInput` (`src/ui/useKeyboardAwareInput.ts`) escucha `visualViewport.resize` y centra el input/textarea/select enfocado dentro de su contenedor scrollable cuando se abre el teclado virtual. Se usa en NewLoanSheet, NewClientSheet, PaymentSheet, SettingsSheet y LoginScreen.
 

@@ -24,7 +24,7 @@ interface Props {
   onEditClient: (id: string, patch: Pick<Client, "name" | "dni" | "phone">) => Promise<void>;
   onEditLoan: (id: string, patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>) => Promise<void>;
   onCancelLoan: (id: string, reason?: string) => Promise<{ cancelledPaymentIds: string[] }>;
-  onEditPayment: (id: string, patch: Partial<Pick<Payment, "amountCents" | "method">>) => Promise<void>;
+  onEditPayment: (id: string, patch: Pick<Payment, "method">) => Promise<void>;
   onCancelPayment: (id: string, reason?: string) => Promise<void>;
 }
 
@@ -137,7 +137,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>
                         Pagos recibidos
                       </div>
-                      {loanPayments.map(p => (
+                      {loanPayments.map((p, index) => (
                         <div key={p.id} className="r" style={{ fontSize: 12.5, gap: 6 }}>
                           <span>
                             {formatShort(new Date(p.paidAt))}
@@ -148,7 +148,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                           <span className="num" style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
                             {formatSoles(p.amountCents)}{p.editedAt && <span className="badge-edited">editado</span>}
                             <button className="btn" aria-label="Editar pago" onClick={() => setEditingPayment(p)} style={{ background: "transparent", padding: 2, color: "var(--muted)" }}><Pencil size={13} /></button>
-                            <button className="btn" aria-label="Anular pago" onClick={() => setCancellingPayment(p)} style={{ background: "transparent", padding: 2, color: "var(--color-status-bad)" }}><Trash2 size={13} /></button>
+                            {index === 0 && <button className="btn" aria-label="Anular pago" onClick={() => setCancellingPayment(p)} style={{ background: "transparent", padding: 2, color: "var(--color-status-bad)" }}><Trash2 size={13} /></button>}
                           </span>
                         </div>
                       ))}

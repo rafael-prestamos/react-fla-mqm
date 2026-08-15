@@ -135,9 +135,9 @@ export function PaymentReceiptPdf({ business, client, loan, payment, balanceCent
 
         <View style={styles.footer}>
           <Text style={styles.footerTitle}>Datos para pagar la próxima cuota:</Text>
-          {business.yape && <Text>Yape/Plin: {business.yape}</Text>}
-          {business.bcpSoles && <Text>BCP Soles: {business.bcpSoles}</Text>}
-          {business.bcpInterbank && <Text>CCI interbancaria: {business.bcpInterbank}</Text>}
+          {business.yape && <Text>Yape/Plin: {business.yape}{business.yapeHolder?.trim() ? ` — ${business.yapeHolder.trim()}` : ""}</Text>}
+          {business.bcpSoles && <Text>BCP Soles: {business.bcpSoles}{business.bcpSolesHolder?.trim() ? ` — ${business.bcpSolesHolder.trim()}` : ""}</Text>}
+          {business.bcpInterbank && <Text>CCI interbancaria: {business.bcpInterbank}{business.bcpInterbankHolder?.trim() ? ` — ${business.bcpInterbankHolder.trim()}` : ""}</Text>}
           <Text>Contacto: {business.phone}</Text>
         </View>
       </Page>

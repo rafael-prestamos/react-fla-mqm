@@ -53,6 +53,17 @@ export class AppDatabase extends Dexie {
     this.version(3).stores({
       settings: "id, updatedAt",
     });
+
+    // v4: Se agregan titulares de las cuentas en settings.
+    this.version(4).stores({
+      settings: "id, updatedAt",
+    }).upgrade(tx => {
+      return tx.table("settings").toCollection().modify(s => {
+        s.yapeHolder = s.yapeHolder ?? "Rafael Rojas";
+        s.bcpSolesHolder = s.bcpSolesHolder ?? "Rafael Rojas";
+        s.bcpInterbankHolder = s.bcpInterbankHolder ?? "Rafael Rojas";
+      });
+    });
   }
 }
 

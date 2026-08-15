@@ -8,7 +8,7 @@ interface Props {
   onClose: () => void;
 }
 
-type EditableFields = Pick<BusinessSettings, "businessName" | "phone" | "yape" | "bcpSoles" | "bcpInterbank">;
+type EditableFields = Pick<BusinessSettings, "businessName" | "phone" | "yape" | "yapeHolder" | "bcpSoles" | "bcpSolesHolder" | "bcpInterbank" | "bcpInterbankHolder">;
 
 const HELPER_TEXT = "Este dato aparece en los comprobantes que compartes con tus clientes.";
 
@@ -33,6 +33,9 @@ export function SettingsSheet({ onClose }: Props) {
         yape: settings.yape,
         bcpSoles: settings.bcpSoles,
         bcpInterbank: settings.bcpInterbank,
+        yapeHolder: settings.yapeHolder,
+        bcpSolesHolder: settings.bcpSolesHolder,
+        bcpInterbankHolder: settings.bcpInterbankHolder,
       };
       setInitial(fields);
       setForm(fields);
@@ -129,35 +132,71 @@ export function SettingsSheet({ onClose }: Props) {
               </div>
 
               <div className="pf-sect">Cuentas para cobrar</div>
-              <div className="field">
-                <label>Yape / Plin</label>
-                <input
-                  className="inp"
-                  value={form.yape}
-                  onChange={(e) => setField("yape", e.target.value)}
-                  placeholder="961655740"
-                />
-                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 5 }}>{HELPER_TEXT}</div>
+              
+              <div style={{ paddingBottom: "16px", borderBottom: "1px dashed var(--line)", marginBottom: "16px" }}>
+                <div className="field">
+                  <label>Yape / Plin</label>
+                  <input
+                    className="inp"
+                    value={form.yape}
+                    onChange={(e) => setField("yape", e.target.value)}
+                    placeholder="961655740"
+                  />
+                </div>
+                <div className="field">
+                  <label>A nombre de</label>
+                  <input
+                    className="inp"
+                    value={form.yapeHolder}
+                    onChange={(e) => setField("yapeHolder", e.target.value)}
+                    placeholder="Rafael Rojas"
+                  />
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8 }}>{HELPER_TEXT}</div>
               </div>
-              <div className="field">
-                <label>Cuenta BCP Soles</label>
-                <input
-                  className="inp"
-                  value={form.bcpSoles}
-                  onChange={(e) => setField("bcpSoles", e.target.value)}
-                  placeholder="48018243654096"
-                />
-                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 5 }}>{HELPER_TEXT}</div>
+
+              <div style={{ paddingBottom: "16px", borderBottom: "1px dashed var(--line)", marginBottom: "16px" }}>
+                <div className="field">
+                  <label>Cuenta BCP Soles</label>
+                  <input
+                    className="inp"
+                    value={form.bcpSoles}
+                    onChange={(e) => setField("bcpSoles", e.target.value)}
+                    placeholder="48018243654096"
+                  />
+                </div>
+                <div className="field">
+                  <label>A nombre de</label>
+                  <input
+                    className="inp"
+                    value={form.bcpSolesHolder}
+                    onChange={(e) => setField("bcpSolesHolder", e.target.value)}
+                    placeholder="Rafael Rojas"
+                  />
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8 }}>{HELPER_TEXT}</div>
               </div>
-              <div className="field">
-                <label>CCI interbancaria BCP</label>
-                <input
-                  className="inp"
-                  value={form.bcpInterbank}
-                  onChange={(e) => setField("bcpInterbank", e.target.value)}
-                  placeholder="00248011824365409622"
-                />
-                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 5 }}>{HELPER_TEXT}</div>
+
+              <div style={{ paddingBottom: "16px", marginBottom: "16px" }}>
+                <div className="field">
+                  <label>CCI interbancaria BCP</label>
+                  <input
+                    className="inp"
+                    value={form.bcpInterbank}
+                    onChange={(e) => setField("bcpInterbank", e.target.value)}
+                    placeholder="00248011824365409622"
+                  />
+                </div>
+                <div className="field">
+                  <label>A nombre de</label>
+                  <input
+                    className="inp"
+                    value={form.bcpInterbankHolder}
+                    onChange={(e) => setField("bcpInterbankHolder", e.target.value)}
+                    placeholder="Rafael Rojas"
+                  />
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8 }}>{HELPER_TEXT}</div>
               </div>
             </>
           )}

@@ -44,7 +44,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose }: Props) {
               return (
                 <div key={loan.id} className="preview" style={{ marginBottom: 12 }}>
                   <div className="r" style={{ fontWeight: 600 }}>
-                    <span>Préstamo {formatShort(loan.disbursedAt)}</span>
+                    <span>Préstamo {formatShort(new Date(loan.disbursedAt))}</span>
                     <span>{formatSoles(loan.principalCents)} al {loan.rate * 100}%</span>
                   </div>
                   <div className="r" style={{ color: "var(--muted)" }}>
@@ -62,7 +62,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose }: Props) {
                       {loanPayments.map(p => (
                         <div key={p.id} className="r" style={{ fontSize: 12.5 }}>
                           <span>
-                            {formatShort(p.paidAt)}
+                            {formatShort(new Date(p.paidAt))}
                             {p.type === "interest" && " (Renovación)"}
                             {p.type === "partial" && " (Abono)"}
                             {p.type === "full" && " (Cancelación)"}

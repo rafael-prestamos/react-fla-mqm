@@ -4,7 +4,7 @@ import {
   Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw
 } from "lucide-react";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
-import { deriveLoan, classifyByMaxDaysLate, type LoanDerived, type LoanStatus } from "./domain/loanRules";
+import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
 import { formatShort, formatLong, addDays, startOfToday } from "./lib/dates";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -129,8 +129,6 @@ const STATUS_STYLE: Record<LoanStatus, StatusStyle> = {
   paid: { label: "Pagado", color: "var(--good)", bg: "var(--good-soft)", bar: "var(--good)" },
 };
 
-import { recomputeAllRatings } from "./sync/ratingsSync";
-
 /* ---------- modelos de vista ---------- */
 interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRating; }
 
@@ -142,9 +140,6 @@ export default function App() {
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
-
-  // Wire ratings update
-  import { useEffect } from "react"; // Wait, it's already imported at the top, let me fix this.
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);

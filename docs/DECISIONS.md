@@ -116,7 +116,15 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 4c-1:** Clasificación de clientes e historial en vista detalle. (Completado)
 - **Sprint 4c-2a:** Settings del negocio para PDFs de recibos. (Completado)
 - **Sprint 4c-2b:** Comprobante de pago y estado de cuenta en PDF. (Completado)
+- **Sprint 5a:** Recordatorio por WhatsApp desde pestaña Hoy ("tap-to-send" sin API, usando `wa.me`). (Completado)
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.
+
+### Sprint 5a: WhatsApp tap-to-send
+
+- **Funcionalidad:** Botón "WhatsApp" en la vista "Hoy" para préstamos Por vencer, Vence hoy y Atrasados.
+- **Implementación:** Sin API, sin backend. Se usa `wa.me/{telefono}?text={mensaje}`. El navegador abre WhatsApp y el usuario (Fla) debe confirmar/enviar manualmente. No tiene costo.
+- **Mensaje pre-armado:** Incluye saludo, estado de urgencia según la fecha ("vence el...", "HOY vence", "venció el..."), monto a pagar, y las opciones de pago configuradas en settings.
+- **Teléfonos:** Normalizados para Perú (se añade `51` a los de 9 dígitos que empiezan con `9`).
 
 ### Sprint 4c-2b: PDFs
 

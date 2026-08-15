@@ -22,6 +22,7 @@ import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
+import { WhatsappButton } from "./components/WhatsappButton";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -507,7 +508,10 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
         <div className="big num">{formatSoles(d.balanceCents)}</div>
         {loan.paidOffCents > 0 && <div className="sm num">abonó {formatSoles(loan.paidOffCents)}</div>}
       </div>
-      <button className="btn btn-p" onClick={onPay}>Cobrar</button>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+        <WhatsappButton client={client} loan={loan} balanceCents={d.balanceCents} dueDate={d.dueDate} />
+        <button className="btn btn-p" onClick={onPay}>Cobrar</button>
+      </div>
     </div>
   );
 }

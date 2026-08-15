@@ -17,6 +17,8 @@ describe("sync mappers", () => {
       dni: "12345678",
       name: "Juan",
       phone: "999999999",
+      rating: "slow",
+      maxDaysLateHistorical: 15,
       createdAt: "2024-01-01T00:00:00.000Z",
       updatedAt: "2024-01-01T00:00:00.000Z",
     };

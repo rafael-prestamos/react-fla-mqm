@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 5b-1 completo (Brief diario local en primer render. Toasts admiten opción persistent; el daily brief la usa para no perderse si Fla no mira la app en 4s). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Sprint 6a-1 completo (Rebrand logo, assets generados y PWA manifest actualizado). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.
@@ -64,6 +64,9 @@ Modelo singleton (`BusinessSettings`, `id: "singleton"`) en Dexie v3 (tabla `set
 
 **PDFs de comprobantes y estado de cuenta (Sprint 4c-2b):**
 `@react-pdf/renderer` **siempre** vía dynamic `import()` en el momento de la descarga (nunca import estático top-level fuera de `src/pdf/*`) — evita engordar el bundle inicial (~1.26MB queda en un chunk lazy aparte). Comprobante de pago (`PaymentReceiptPdf`) se descarga desde el estado "pago-registrado" de `PaymentSheet`; estado de cuenta (`StatementPdf`) desde `ClientDetailSheet`. Ambos usan `settingsRepo.get()` para los datos del negocio. Ver detalle en `docs/DECISIONS.md`.
+
+**Assets y Branding (Sprint 6a-1):**
+El logo principal se renderiza a través del componente `<BrandLogo />` (`src/components/brand/BrandLogo.tsx`). Los assets crudos viven en `src/assets/branding` y los derivados (favicons, PWA icons, etc.) en `public/` y `src/assets/logo.png`.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

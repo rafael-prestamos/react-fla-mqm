@@ -1,8 +1,9 @@
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, PawPrint, Check, RefreshCw, Settings
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Settings
 } from "lucide-react";
+import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
@@ -274,7 +275,7 @@ export default function App() {
 
         <div className="pf-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="pf-brand"><PawPrint size={18} /> Fla MpM</div>
+            <div className="pf-brand"><BrandLogo size={18} /> Fla MpM</div>
             {sync.status === "synced" && (
               <div style={{ background: "var(--good-soft)", color: "var(--good)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 <Check size={13} /> Al día

@@ -192,3 +192,10 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **UI:** `SettingsSheet` (patrón sheet full-screen, mismo estilo que
   `ClientDetailSheet`), accesible desde la pestaña Clientes junto al botón de
   cerrar sesión. Carga vía `settingsRepo.get()`, guarda vía `settingsRepo.update()`.
+
+### Sprint 6a-1: Rebrand logo
+
+- **Decisión:** PNG como formato base (no SVG traced) por simplicidad y calidad suficiente, extraído de `assets/branding/logo-source-1024.png`.
+- **Assets:** Se generaron derivados para PWA (`pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png`), favicons (`favicon.ico`, `apple-touch-icon.png`) y uso interno (`logo.png`).
+- **Implementación UI:** Componente `BrandLogo` (`src/components/brand/BrandLogo.tsx`) como *single source of truth* para renderizar el logo en la app (Login, cabecera).
+- **PDFs:** Se importó el logo como asset estático en `PaymentReceiptPdf` y `StatementPdf`, manteniéndolos en chunks separados sin afectar el bundle principal.

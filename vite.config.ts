@@ -8,21 +8,21 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon-32.png", "icons/apple-touch-icon.png"],
+      includeAssets: ["favicon.ico", "favicon-32.png", "apple-touch-icon.png"],
       manifest: {
-        name: "Fla MpM — Gestor de Préstamos",
+        name: "Fla MpM",
         short_name: "Fla MpM",
         description: "Gestión de préstamos y cobranzas, offline-first.",
         lang: "es",
         theme_color: "#16325C",
-        background_color: "#122845",
+        background_color: "#FBF5E9",
         display: "standalone",
         orientation: "portrait",
         start_url: "/",
         icons: [
-          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "pwa-192.png", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512.png", sizes: "512x512", type: "image/png" },
+          { src: "pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {

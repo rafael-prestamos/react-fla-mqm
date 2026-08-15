@@ -33,8 +33,11 @@ describe("whatsappReminder domain logic", () => {
     businessName: "Fla MpM",
     phone: "987654321",
     yape: "987654321",
+    yapeHolder: "Rafael Rojas",
     bcpSoles: "193-1234567-0-12",
+    bcpSolesHolder: "Rafael Rojas",
     bcpInterbank: "002193123456701234",
+    bcpInterbankHolder: "Rafael Rojas",
     updatedAt: new Date().toISOString(),
   };
 
@@ -77,9 +80,9 @@ describe("whatsappReminder domain logic", () => {
       expect(msg).toContain("te recuerdo que tu préstamo vence el 25 de noviembre de 2023.");
       expect(msg).toContain("Debes pagar 1,200.00.");
       expect(msg).toContain("Puedes pagar por:");
-      expect(msg).toContain("• Yape/Plin: 987654321");
-      expect(msg).toContain("• BCP Soles: 193-1234567-0-12");
-      expect(msg).toContain("• CCI interbancaria: 002193123456701234");
+      expect(msg).toContain("• Yape/Plin: 987654321 — Rafael Rojas");
+      expect(msg).toContain("• BCP Soles: 193-1234567-0-12 — Rafael Rojas");
+      expect(msg).toContain("• CCI interbancaria: 002193123456701234 — Rafael Rojas");
       expect(msg).toContain("Cualquier duda me escribes. Gracias.");
     });
 
@@ -113,8 +116,18 @@ describe("whatsappReminder domain logic", () => {
       });
       expect(msg).toContain("Puedes pagar por:");
       expect(msg).not.toContain("Yape/Plin");
-      expect(msg).toContain("• BCP Soles: 193-1234567-0-12");
-      expect(msg).toContain("• CCI interbancaria: 002193123456701234");
+      expect(msg).toContain("• BCP Soles: 193-1234567-0-12 — Rafael Rojas");
+      expect(msg).toContain("• CCI interbancaria: 002193123456701234 — Rafael Rojas");
+    });
+
+    it("omits holder text if the holder field is empty", () => {
+      const msg = buildReminderMessage({
+        ...defaultInput,
+        settings: { ...mockSettings, bcpSolesHolder: " ", bcpInterbankHolder: "" },
+      });
+      expect(msg).toContain("• Yape/Plin: 987654321 — Rafael Rojas");
+      expect(msg).toContain("• BCP Soles: 193-1234567-0-12\n");
+      expect(msg).toContain("• CCI interbancaria: 002193123456701234\n");
     });
 
     it("omits payment options block if all accounts are empty", () => {

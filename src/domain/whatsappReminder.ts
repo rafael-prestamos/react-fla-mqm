@@ -63,9 +63,9 @@ export function buildReminderMessage(input: ReminderInput): string {
 
   if (hasYape || hasBcp || hasCci) {
     const paymentLines = ["Puedes pagar por:"];
-    if (hasYape) paymentLines.push(`• Yape/Plin: ${settings.yape}`);
-    if (hasBcp) paymentLines.push(`• BCP Soles: ${settings.bcpSoles}`);
-    if (hasCci) paymentLines.push(`• CCI interbancaria: ${settings.bcpInterbank}`);
+    if (hasYape) paymentLines.push(`• Yape/Plin: ${settings.yape}${settings.yapeHolder?.trim() ? ` — ${settings.yapeHolder.trim()}` : ""}`);
+    if (hasBcp) paymentLines.push(`• BCP Soles: ${settings.bcpSoles}${settings.bcpSolesHolder?.trim() ? ` — ${settings.bcpSolesHolder.trim()}` : ""}`);
+    if (hasCci) paymentLines.push(`• CCI interbancaria: ${settings.bcpInterbank}${settings.bcpInterbankHolder?.trim() ? ` — ${settings.bcpInterbankHolder.trim()}` : ""}`);
     parts.push(paymentLines.join("\n"));
   }
 

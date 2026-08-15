@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <filter id="navy-tint">
+    <feColorMatrix type="matrix" values="
+      0 0 0 0 0.086
+      0 0 0 0 0.196
+      0 0 0 0 0.361
+      0 0 0 1 0" />
+  </filter>
+  <image href="logo.png" width="512" height="512" filter="url(#navy-tint)" />
+</svg>

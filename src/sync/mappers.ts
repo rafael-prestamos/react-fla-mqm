@@ -1,0 +1,169 @@
+import type { Client, Loan, Payment, LoanTerm, BusinessSettings } from "../types/domain";
+
+export interface ClientRow {
+  id: string;
+  owner_id: string;
+  dni: string;
+  name: string;
+  phone: string;
+  rating: "good" | "slow" | "bad";
+  max_days_late_historical: number;
+  created_at: string;
+  updated_at: string;
+}
+
+
+export interface LoanRow {
+  id: string;
+  owner_id: string;
+  client_id: string;
+  principal_cents: number;
+  rate: number;
+  term_days: number;
+  disbursed_at: string;
+  paid_off_cents: number;
+  renewal_count: number;
+  is_paid: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentRow {
+  id: string;
+  owner_id: string;
+  loan_id: string;
+  type: "full" | "interest" | "partial";
+  amount_cents: number;
+  method: "cash" | "digital";
+  days_late: number;
+  paid_at: string;
+}
+
+export function clientToRow(c: Client): Omit<ClientRow, "owner_id"> {
+  return {
+    id: c.id,
+    dni: c.dni,
+    name: c.name,
+    phone: c.phone,
+    rating: c.rating,
+    max_days_late_historical: c.maxDaysLateHistorical,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
+  };
+}
+
+export function rowToClient(r: ClientRow): Client {
+  return {
+    id: r.id,
+    dni: r.dni,
+    name: r.name,
+    phone: r.phone,
+    rating: r.rating,
+    maxDaysLateHistorical: r.max_days_late_historical,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function loanToRow(l: Loan): Omit<LoanRow, "owner_id"> {
+  return {
+    id: l.id,
+    client_id: l.clientId,
+    principal_cents: l.principalCents,
+    rate: l.rate,
+    term_days: l.termDays,
+    disbursed_at: l.disbursedAt,
+    paid_off_cents: l.paidOffCents,
+    renewal_count: l.renewalCount,
+    is_paid: l.isPaid,
+    created_at: l.createdAt,
+    updated_at: l.updatedAt,
+  };
+}
+
+export function rowToLoan(r: LoanRow): Loan {
+  if (r.term_days !== 25 && r.term_days !== 28 && r.term_days !== 30) {
+    throw new Error("term_days inválido en fila: " + r.id);
+  }
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    principalCents: r.principal_cents,
+    rate: Number(r.rate),
+    termDays: r.term_days as LoanTerm,
+    disbursedAt: r.disbursed_at,
+    paidOffCents: r.paid_off_cents,
+    renewalCount: r.renewal_count,
+    isPaid: r.is_paid,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+export function paymentToRow(p: Payment): Omit<PaymentRow, "owner_id"> {
+  return {
+    id: p.id,
+    loan_id: p.loanId,
+    type: p.type,
+    amount_cents: p.amountCents,
+    method: p.method,
+    days_late: p.daysLate,
+    paid_at: p.paidAt,
+  };
+}
+
+export function rowToPayment(r: PaymentRow): Payment {
+  return {
+    id: r.id,
+    loanId: r.loan_id,
+    type: r.type,
+    amountCents: r.amount_cents,
+    method: r.method,
+    daysLate: r.days_late,
+    paidAt: r.paid_at,
+  };
+}
+
+export interface SettingsRow {
+  id: string;
+  owner_id: string;
+  business_name: string;
+  phone: string;
+  yape: string;
+  yape_holder: string;
+  bcp_soles: string;
+  bcp_soles_holder: string;
+  bcp_interbank: string;
+  bcp_interbank_holder: string;
+  updated_at: string;
+}
+
+export function settingsToRow(s: BusinessSettings): Omit<SettingsRow, "owner_id"> {
+  return {
+    id: s.id,
+    business_name: s.businessName,
+    phone: s.phone,
+    yape: s.yape,
+    yape_holder: s.yapeHolder,
+    bcp_soles: s.bcpSoles,
+    bcp_soles_holder: s.bcpSolesHolder,
+    bcp_interbank: s.bcpInterbank,
+    bcp_interbank_holder: s.bcpInterbankHolder,
+    updated_at: s.updatedAt,
+  };
+}
+
+export function rowToSettings(r: SettingsRow): BusinessSettings {
+  return {
+    id: r.id,
+    businessName: r.business_name,
+    phone: r.phone,
+    yape: r.yape,
+    yapeHolder: r.yape_holder,
+    bcpSoles: r.bcp_soles,
+    bcpSolesHolder: r.bcp_soles_holder,
+    bcpInterbank: r.bcp_interbank,
+    bcpInterbankHolder: r.bcp_interbank_holder,
+    updatedAt: r.updated_at,
+  };
+}

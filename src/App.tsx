@@ -17,6 +17,7 @@ import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErr
 import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
+import { useDailyBrief } from "./ui/useDailyBrief";
 import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
@@ -143,6 +144,8 @@ export default function App() {
   const clients = useLiveQuery(() => clientsRepo.all()) ?? [];
   const loans = useLiveQuery(() => loansRepo.all()) ?? [];
   const payments = useLiveQuery(() => paymentsRepo.all()) ?? [];
+
+  useDailyBrief({ loans, clients });
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);

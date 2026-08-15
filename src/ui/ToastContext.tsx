@@ -2,12 +2,18 @@ import { createContext, useContext, useState, useCallback, useMemo, type ReactNo
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 
 type ToastKind = "success" | "error" | "info";
-interface Toast { id: string; kind: ToastKind; message: string }
+
+interface ToastOptions {
+  /** Si true, el toast NO se autodismisse; solo cierre manual con la X. Default false (autodismiss 4s). */
+  persistent?: boolean;
+}
+
+interface Toast { id: string; kind: ToastKind; message: string; persistent?: boolean }
 interface Ctx {
-  show: (kind: ToastKind, message: string) => void;
-  success: (msg: string) => void;
-  error: (msg: string) => void;
-  info: (msg: string) => void;
+  show: (kind: ToastKind, message: string, opts?: ToastOptions) => void;
+  success: (msg: string, opts?: ToastOptions) => void;
+  error: (msg: string, opts?: ToastOptions) => void;
+  info: (msg: string, opts?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<Ctx | null>(null);
@@ -25,15 +31,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const show = useCallback((kind: ToastKind, message: string) => {
+  const show = useCallback((kind: ToastKind, message: string, opts?: ToastOptions) => {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    setToasts(prev => [...prev, { id, kind, message }]);
-    setTimeout(() => remove(id), 4000);
+    setToasts(prev => [...prev, { id, kind, message, persistent: opts?.persistent }]);
+    if (!opts?.persistent) {
+      setTimeout(() => remove(id), 4000);
+    }
   }, [remove]);
 
-  const success = useCallback((msg: string) => show("success", msg), [show]);
-  const error = useCallback((msg: string) => show("error", msg), [show]);
-  const info = useCallback((msg: string) => show("info", msg), [show]);
+  const success = useCallback((msg: string, opts?: ToastOptions) => show("success", msg, opts), [show]);
+  const error = useCallback((msg: string, opts?: ToastOptions) => show("error", msg, opts), [show]);
+  const info = useCallback((msg: string, opts?: ToastOptions) => show("info", msg, opts), [show]);
 
   const ctxValue = useMemo(() => ({ show, success, error, info }), [show, success, error, info]);
 

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { BusinessSettings } from "../types/domain";
 import { settingsRepo } from "../repositories/settingsRepo";
 import { useToast } from "../ui/ToastContext";
+import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,8 @@ type EditableFields = Pick<BusinessSettings, "businessName" | "phone" | "yape" |
 const HELPER_TEXT = "Este dato aparece en los comprobantes que compartes con tus clientes.";
 
 export function SettingsSheet({ open, onClose }: Props) {
+  const formRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(formRef);
   const toast = useToast();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [initial, setInitial] = useState<EditableFields | null>(null);
@@ -97,7 +100,7 @@ export function SettingsSheet({ open, onClose }: Props) {
           <span style={{ fontSize: 17, fontWeight: 700 }}>Ajustes</span>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+        <div ref={formRef} style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
           {status === "loading" && (
             <div className="empty">Cargando…</div>
           )}

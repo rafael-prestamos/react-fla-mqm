@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "./SessionContext";
 import { BrandLogo } from "../components/brand/BrandLogo";
+import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
 
 const CSS = `
 .login-root {
@@ -139,6 +140,8 @@ export function LoadingScreen({ message = "Cargando…" }: { message?: string })
 }
 
 export function LoginScreen() {
+  const formRef = useRef<HTMLFormElement>(null);
+  useKeyboardAwareInput(formRef);
   const { signIn } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -170,6 +173,7 @@ export function LoginScreen() {
         </div>
 
         <form 
+          ref={formRef}
           className="login-form" 
           onSubmit={(e) => { 
             e.preventDefault(); 

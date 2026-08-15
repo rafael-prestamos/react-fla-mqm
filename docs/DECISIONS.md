@@ -118,7 +118,16 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Sprint 4c-2b:** Comprobante de pago y estado de cuenta en PDF. (Completado)
 - **Sprint 5a:** Recordatorio por WhatsApp desde pestaña Hoy ("tap-to-send" sin API, usando `wa.me`). (Completado)
 - **Sprint 5a-fix:** Titulares por cuenta (Yape, BCP Soles, BCP interbancaria). (Completado)
+- **Sprint 5b-1:** Brief diario local (toast). (Completado)
+- **Sprint 5b-2:** Push notifications reales.
 - **Sprint 4:** Panel resumen, alerta 7 a.m. solo-dueño, backup automático, Sentry.
+
+### Sprint 5b-1: brief diario local
+
+- **Funcionalidad:** Muestra un toast informativo (🔔) la primera vez que se abre la app en el día, indicando los préstamos que vencen hoy y los atrasados.
+- **Persistencia:** Se usa `localStorage` (`fla-mpm:lastOpenedDate`) por dispositivo. No se sincroniza, cada dispositivo tiene su propio registro.
+- **Zona Horaria:** Se introdujo `toLocalIsoDate` (que usa fechas locales del dispositivo) para el tracker de primera apertura, distinto a `toIsoDate` (UTC) usado para persistencia y base de datos.
+- **Hook:** `useDailyBrief` en `App.tsx` espera a que carguen los datos de Dexie, evalúa la condición y lanza el toast. Se asegura de marcar como abierto haya o no reporte.
 
 ### Sprint 5a-fix: titulares por cuenta
 

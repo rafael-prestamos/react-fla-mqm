@@ -583,10 +583,17 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
           </span>
         </div>
       </div>
-      {!loan.isPaid && <button className="btn btn-p btn-block" onClick={onPay}>Registrar pago</button>}
+      {!loan.isPaid && (
+        // Patrón: Presentational reuse — mismo WhatsappButton que pestaña Hoy (sprint 6a-5)
+        <div style={{ display: "flex", gap: 8 }}>
+          <WhatsappButton client={client} loan={loan} balanceCents={d.balanceCents} dueDate={d.dueDate} />
+          <button className="btn btn-p btn-block" onClick={onPay}>Registrar pago</button>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
   clients: Client[];

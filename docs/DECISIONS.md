@@ -215,3 +215,12 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Defensa en profundidad:** Validación en tres capas — dominio (`isValidLoanTerm`), validador de formulario (`validateLoanInput`/`validateLoanBackfillInput`), y repository (`assertValidLoanTerm` antes del `put`).
 - **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
 - **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.
+
+### Sprint 6a-5: WhatsApp ubicuo (Hoy + Detalle Cliente + tab Préstamos)
+
+- **Decisión (Opción B):** Un botón WhatsApp por cada préstamo activo en todas las vistas. Acordado con Fla: si un cliente tiene 2 préstamos activos, aparecen 2 botones (uno por préstamo) con la fecha de entrega como distinción.
+- **Single source of truth:** `buildWhatsappUrl` + `buildReminderMessage` en `src/domain/whatsappReminder.ts` — componente `WhatsappButton` (`src/components/WhatsappButton.tsx`) como presentacional reutilizable. NO se duplicó lógica.
+- **3 ubicaciones:** Pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard` — solo activos), y `ClientDetailSheet` (por cada préstamo `!loan.isPaid`).
+- **Excepción cromática:** Fondo verde `#25D366` (WhatsApp brand color). Excepción documentada y justificada: convención universal reconocida por todos los usuarios; usar navy generaría confusión con el botón de cobro.
+- **Sin cambios en dominio ni datos:** Alcance puramente UI. No afecta sync, IndexedDB ni lógica de cálculo.
+- **Filtro activo:** `!loan.isPaid` (criterio existente en dominio — préstamos pagados no muestran botón WhatsApp).

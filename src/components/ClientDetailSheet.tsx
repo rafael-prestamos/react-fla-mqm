@@ -7,6 +7,9 @@ import { settingsRepo } from "../repositories/settingsRepo";
 import { downloadBlob } from "../lib/downloadBlob";
 import { sanitizeFilename } from "../lib/sanitizeFilename";
 import { useToast } from "../ui/ToastContext";
+import { deriveLoan } from "../domain/loanRules";
+import { WhatsappButton } from "./WhatsappButton";
+
 
 interface Props {
   client: Client;
@@ -93,7 +96,22 @@ export function ClientDetailSheet({ client, loans, payments, onClose }: Props) {
                       {loan.isPaid ? "Pagado" : "Activo"}
                     </span>
                   </div>
-                  
+
+                  {/* Patrón: Presentational reuse — WhatsappButton reutilizable desde Hoy, Préstamos y Detalle (sprint 6a-5) */}
+                  {!loan.isPaid && (() => {
+                    const d = deriveLoan(loan, startOfToday());
+                    return (
+                      <div style={{ marginTop: 10 }}>
+                        <WhatsappButton
+                          client={client}
+                          loan={loan}
+                          balanceCents={d.balanceCents}
+                          dueDate={d.dueDate}
+                        />
+                      </div>
+                    );
+                  })()}
+
                   {loanPayments.length > 0 && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--line)" }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", marginBottom: 8 }}>

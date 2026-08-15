@@ -19,6 +19,7 @@ import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
+import { ClientDetailSheet } from "./components/ClientDetailSheet";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -147,6 +148,7 @@ export default function App() {
 
   const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
 
@@ -363,7 +365,7 @@ export default function App() {
                   const rating = c.rating ?? "good";
                   const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
                 return (
-                  <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                  <div key={c.id} className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8, cursor: "pointer" }} onClick={() => setViewingClient(c.id)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                       <div style={{ width: 38, height: 38, borderRadius: 11, background: "var(--paper)",
                         display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
@@ -423,6 +425,14 @@ export default function App() {
             row={payingRow}
             onClose={() => setPayingId(null)}
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
+          />
+        )}
+        {viewingClient && (
+          <ClientDetailSheet
+            client={clientById(viewingClient)}
+            loans={loans.filter(l => l.clientId === viewingClient)}
+            payments={payments.filter(p => loans.some(l => l.id === p.loanId && l.clientId === viewingClient))}
+            onClose={() => setViewingClient(null)}
           />
         )}
         {creating && (

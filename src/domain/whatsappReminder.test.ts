@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalizePeruPhone, buildReminderMessage, buildWhatsappUrl, type ReminderInput } from "./whatsappReminder";
 import type { Client, Loan, BusinessSettings } from "../types/domain";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 
 describe("whatsappReminder domain logic", () => {
   const mockClient: Client = {

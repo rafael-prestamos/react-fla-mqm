@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 3b completo (sync bidireccional con Supabase usando last-write-wins y Sync UI). El siguiente paso es activar el interés por mora (Sprint 3c) o avanzar al Sprint 4 (Panel resumen, Sentry, backups).
+Estado actual: Sprint 4c-1 completo (cacheo de clasificación de clientes e historial de vista detalle). El siguiente paso es avanzar con el PDF de recibos (4c-2) o el Panel resumen y notificaciones (Sprint 4).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.

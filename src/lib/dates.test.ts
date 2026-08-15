@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diffDays, toIsoDate, addDays, startOfToday, formatShort, formatLong } from "./dates";
+import { diffDays, toIsoDate, addDays, startOfToday, formatShort, formatLong, toLocalIsoDate } from "./dates";
 
 describe("dates", () => {
   it("diffDays", () => {

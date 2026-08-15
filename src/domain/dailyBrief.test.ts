@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDailyBriefMessage, type DailyBriefInput } from "./dailyBrief";
+import { buildDailyBriefMessage } from "./dailyBrief";
 
 describe("buildDailyBriefMessage", () => {
   it("Ambos 0 -> null", () => {

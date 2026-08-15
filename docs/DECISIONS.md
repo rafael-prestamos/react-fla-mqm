@@ -216,6 +216,13 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
 - **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.
 
+### Sprint 6a-6: Sección Perfil
+
+- **Decisión UX (Opción A):** avatar persistente en el header en vez de una pestaña nueva; Perfil queda disponible desde Hoy, Préstamos y Clientes sin ocupar espacio en la navegación principal.
+- **Contenido consolidado:** `ProfileSheet` muestra nombre del negocio, versión, estado de conexión/sincronización, Ajustes y cierre de sesión con confirmación explícita. Reutiliza `useSync` y `useSession`, sin modificar sus lógicas.
+- **Navegación:** Ajustes deja de estar al final de Clientes. Al elegirlo desde Perfil se cierra ese sheet y se abre el `SettingsSheet` existente.
+- **Versión:** `APP_VERSION` en `src/config/version.ts` toma `package.json.version` como constante de build-time.
+
 ### Sprint 6a-5: WhatsApp ubicuo (Hoy + Detalle Cliente + tab Préstamos)
 
 - **Decisión (Opción B):** Un botón WhatsApp por cada préstamo activo en todas las vistas. Acordado con Fla: si un cliente tiene 2 préstamos activos, aparecen 2 botones (uno por préstamo) con la fecha de entrega como distinción.

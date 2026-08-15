@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Settings
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
@@ -17,7 +17,6 @@ import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
 import { LOAN_TERM_PRESETS } from "./domain/loanTerm";
 
-import { useSession } from "./auth/SessionContext";
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { useDailyBrief } from "./ui/useDailyBrief";
@@ -25,6 +24,7 @@ import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { ProfileSheet } from "./components/ProfileSheet";
 import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
@@ -45,6 +45,16 @@ const CSS = `
   color:var(--cream);border-radius:0 0 22px 22px}
 .pf-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;
   letter-spacing:.02em;opacity:.92}
+.header-actions{display:flex;align-items:center;gap:8px}
+.header-avatar{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.26);
+  background:rgba(255,255,255,.12);color:var(--cream);display:inline-flex;align-items:center;
+  justify-content:center;cursor:pointer;flex-shrink:0}.header-avatar:active{transform:scale(.96)}
+.profile-sheet{padding:20px 16px 22px}.profile-sheet__header{display:flex;align-items:center;gap:12px;color:var(--navy)}
+.profile-sheet__header h2{margin:0;font-size:19px}.profile-sheet__header small{color:var(--muted)}.profile-sheet__header .x{margin-left:auto}
+.profile-sheet__sync{margin:20px 0 14px;padding:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:5px}
+.profile-sheet__status{font-size:13px;font-weight:700}.profile-sheet__status.online{color:var(--color-status-good)}.profile-sheet__status.offline{color:var(--color-status-bad)}
+.profile-sheet__sync small{color:var(--muted)}.profile-sheet__actions{display:flex;flex-direction:column;gap:9px}.profile-sheet__action{padding:12px;background:var(--color-status-good-soft);color:var(--navy);font-size:14px}
+.profile-sheet__logout{background:var(--color-status-bad);color:#fff}
 .pf-hello{font-size:13px;opacity:.72;margin-top:14px;text-transform:capitalize}
 .pf-cobranza-lbl{font-size:12.5px;opacity:.78;margin-top:2px}
 .pf-cobranza{font-size:40px;font-weight:700;line-height:1.05;margin-top:2px}
@@ -152,7 +162,6 @@ interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRa
 
 /* ---------- app ---------- */
 export default function App() {
-  const { session, signOut } = useSession();
   const sync = useSync();
   const toast = useToast();
   const clientsRaw = useLiveQuery(() => clientsRepo.all());
@@ -171,7 +180,8 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
-  const [showingSettings, setShowingSettings] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -290,6 +300,7 @@ export default function App() {
         <div className="pf-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div className="pf-brand"><BrandLogo size={18} /> Fla MpM</div>
+            <div className="header-actions">
             {sync.status === "synced" && (
               <div style={{ background: "var(--good-soft)", color: "var(--good)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 <Check size={13} /> Al día
@@ -310,6 +321,11 @@ export default function App() {
                 <AlertTriangle size={13} /> Error de sync
               </button>
             )}
+              {/* Patrón: Header action button + controlled sheet. Sprint 6a-6 */}
+              <button type="button" onClick={() => setProfileOpen(true)} className="header-avatar" aria-label="Perfil">
+                <User size={20} />
+              </button>
+            </div>
           </div>
           <div className="pf-hello">Buen día · {formatLong(startOfToday())} · 7:00 a.m.</div>
           <div className="pf-cobranza-lbl">Debes cobrar hoy</div>
@@ -436,22 +452,6 @@ export default function App() {
                 );
               }))}
               
-              <div style={{ marginTop: 24, textAlign: "center", display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  onClick={() => setShowingSettings(true)}
-                  style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-                >
-                  <Settings size={14} /> Ajustes
-                </button>
-                {session && (
-                  <button
-                    onClick={() => signOut()}
-                    style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
-                  >
-                    Cerrar sesión ({session.user?.email})
-                  </button>
-                )}
-              </div>
             </>
           )}
         </div>
@@ -493,7 +493,12 @@ export default function App() {
           />
         )}
         {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
-        {showingSettings && <SettingsSheet onClose={() => setShowingSettings(false)} />}
+        <ProfileSheet
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          onOpenSettings={() => { setProfileOpen(false); setSettingsOpen(true); }}
+        />
+        <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>
     </div>
   );

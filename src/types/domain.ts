@@ -57,7 +57,10 @@ export interface BusinessSettings {
   businessName: string;          // ej. "Fla" o razón social
   phone: string;                 // celular de contacto (9 dígitos si es Perú, pero no forzar formato)
   yape: string;                  // número Yape/Plin
+  yapeHolder: string;            // titular de la cuenta Yape/Plin
   bcpSoles: string;              // cuenta BCP Soles
+  bcpSolesHolder: string;        // titular BCP Soles
   bcpInterbank: string;          // CCI interbancaria BCP
+  bcpInterbankHolder: string;    // titular CCI interbancaria BCP
   updatedAt: string;             // ISO
 }

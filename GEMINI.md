@@ -2,7 +2,7 @@
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 5b-1 completo (Brief diario local en primer render). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Sprint 5b-1 completo (Brief diario local en primer render. Toasts admiten opción persistent; el daily brief la usa para no perderse si Fla no mira la app en 4s). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 **Stack y Arquitectura:**
 - **Frontend**: React 18 + Vite (no Next.js) + TypeScript. PWA mediante vite-plugin-pwa.

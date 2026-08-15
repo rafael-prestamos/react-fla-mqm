@@ -1,4 +1,5 @@
 import type { Client, Loan, Payment, LoanTerm, BusinessSettings } from "../types/domain";
+import { isValidLoanTerm } from "../domain/loanTerm";
 
 export interface ClientRow {
   id: string;
@@ -10,6 +11,7 @@ export interface ClientRow {
   max_days_late_historical: number;
   created_at: string;
   updated_at: string;
+  edited_at?: string | null;
 }
 
 
@@ -26,6 +28,9 @@ export interface LoanRow {
   is_paid: boolean;
   created_at: string;
   updated_at: string;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  edited_at?: string | null;
 }
 
 export interface PaymentRow {
@@ -37,6 +42,9 @@ export interface PaymentRow {
   method: "cash" | "digital";
   days_late: number;
   paid_at: string;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  edited_at?: string | null;
 }
 
 export function clientToRow(c: Client): Omit<ClientRow, "owner_id"> {
@@ -49,6 +57,7 @@ export function clientToRow(c: Client): Omit<ClientRow, "owner_id"> {
     max_days_late_historical: c.maxDaysLateHistorical,
     created_at: c.createdAt,
     updated_at: c.updatedAt,
+    edited_at: c.editedAt ?? null,
   };
 }
 
@@ -62,6 +71,7 @@ export function rowToClient(r: ClientRow): Client {
     maxDaysLateHistorical: r.max_days_late_historical,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    editedAt: r.edited_at ?? null,
   };
 }
 
@@ -78,11 +88,14 @@ export function loanToRow(l: Loan): Omit<LoanRow, "owner_id"> {
     is_paid: l.isPaid,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
+    cancelled_at: l.cancelledAt ?? null,
+    cancel_reason: l.cancelReason ?? null,
+    edited_at: l.editedAt ?? null,
   };
 }
 
 export function rowToLoan(r: LoanRow): Loan {
-  if (r.term_days !== 25 && r.term_days !== 28 && r.term_days !== 30) {
+  if (!isValidLoanTerm(r.term_days)) {
     throw new Error("term_days inválido en fila: " + r.id);
   }
   return {
@@ -97,6 +110,9 @@ export function rowToLoan(r: LoanRow): Loan {
     isPaid: r.is_paid,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    cancelledAt: r.cancelled_at ?? null,
+    cancelReason: r.cancel_reason ?? null,
+    editedAt: r.edited_at ?? null,
   };
 }
 
@@ -109,6 +125,9 @@ export function paymentToRow(p: Payment): Omit<PaymentRow, "owner_id"> {
     method: p.method,
     days_late: p.daysLate,
     paid_at: p.paidAt,
+    cancelled_at: p.cancelledAt ?? null,
+    cancel_reason: p.cancelReason ?? null,
+    edited_at: p.editedAt ?? null,
   };
 }
 
@@ -121,6 +140,9 @@ export function rowToPayment(r: PaymentRow): Payment {
     method: r.method,
     daysLate: r.days_late,
     paidAt: r.paid_at,
+    cancelledAt: r.cancelled_at ?? null,
+    cancelReason: r.cancel_reason ?? null,
+    editedAt: r.edited_at ?? null,
   };
 }
 

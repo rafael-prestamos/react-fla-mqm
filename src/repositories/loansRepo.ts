@@ -20,15 +20,15 @@ import type { Payment } from "../types/domain";
 
 export const loansRepo = {
   all(): Promise<Loan[]> {
-    return db.loans.toArray();
+    return db.loans.filter((loan) => !loan.cancelledAt).toArray();
   },
 
   active(): Promise<Loan[]> {
-    return db.loans.filter((loan) => !loan.isPaid).toArray();
+    return db.loans.filter((loan) => !loan.isPaid && !loan.cancelledAt).toArray();
   },
 
   byClient(clientId: string): Promise<Loan[]> {
-    return db.loans.where("clientId").equals(clientId).toArray();
+    return db.loans.where("clientId").equals(clientId).filter((loan) => !loan.cancelledAt).toArray();
   },
 
   /** Crea un préstamo entregado hoy. */
@@ -54,6 +54,9 @@ export const loansRepo = {
       isPaid: false,
       createdAt: timestamp,
       updatedAt: timestamp,
+      cancelledAt: null,
+      cancelReason: null,
+      editedAt: null,
     };
     await db.loans.put(loan);
     await enqueue("loans", loan.id, "put", loan);
@@ -109,5 +112,38 @@ export const loansRepo = {
     });
 
     return { loan: finalLoan, payment: finalPayment };
+  },
+
+  /** Edita campos de un préstamo existente. Sprint 6a-8. */
+  async update(id: string, patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>): Promise<void> {
+    const current = await db.loans.get(id);
+    if (!current) throw new Error("Préstamo no encontrado");
+    if (current.cancelledAt) throw new Error("No se puede editar un préstamo anulado");
+    if (patch.termDays !== undefined) assertValidLoanTerm(patch.termDays);
+    const timestamp = nowIso();
+    const updated: Loan = { ...current, ...patch, editedAt: timestamp, updatedAt: timestamp };
+    await db.loans.put(updated);
+    await enqueue("loans", id, "put", updated);
+  },
+
+  /** Anula un préstamo y todos sus pagos activos (cascada). Sprint 6a-8. */
+  async cancel(id: string, reason?: string): Promise<{ cancelledPaymentIds: string[] }> {
+    const current = await db.loans.get(id);
+    if (!current) throw new Error("Préstamo no encontrado");
+    if (current.cancelledAt) throw new Error("Préstamo ya anulado");
+    const activePayments = (await db.payments.where("loanId").equals(id).toArray()).filter((payment) => !payment.cancelledAt);
+    const timestamp = nowIso();
+
+    await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
+      const cancelledLoan: Loan = { ...current, cancelledAt: timestamp, cancelReason: reason ?? null, updatedAt: timestamp };
+      await db.loans.put(cancelledLoan);
+      await enqueue("loans", id, "put", cancelledLoan);
+      for (const payment of activePayments) {
+        const cancelledPayment: Payment = { ...payment, cancelledAt: timestamp, cancelReason: "Préstamo anulado" };
+        await db.payments.put(cancelledPayment);
+        await enqueue("payments", payment.id, "put", cancelledPayment);
+      }
+    });
+    return { cancelledPaymentIds: activePayments.map((payment) => payment.id) };
   },
 };

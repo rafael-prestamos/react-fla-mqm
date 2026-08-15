@@ -23,6 +23,7 @@ describe("sync mappers", () => {
       maxDaysLateHistorical: 15,
       createdAt: "2024-01-01T00:00:00.000Z",
       updatedAt: "2024-01-01T00:00:00.000Z",
+      editedAt: "2024-01-02T00:00:00.000Z",
     };
     const row = clientToRow(domain);
     const back = rowToClient({ ...row, owner_id: "user1" });
@@ -42,6 +43,9 @@ describe("sync mappers", () => {
       isPaid: true,
       createdAt: "2024-01-01T00:00:00.000Z",
       updatedAt: "2024-02-01T00:00:00.000Z",
+      cancelledAt: "2024-02-02T00:00:00.000Z",
+      cancelReason: "Error de tipeo",
+      editedAt: "2024-02-03T00:00:00.000Z",
     };
     const row = loanToRow(domain);
     const back = rowToLoan({ ...row, owner_id: "user1" });
@@ -57,6 +61,9 @@ describe("sync mappers", () => {
       method: "cash",
       daysLate: 5,
       paidAt: "2024-02-01T00:00:00.000Z",
+      cancelledAt: null,
+      cancelReason: null,
+      editedAt: "2024-02-03T00:00:00.000Z",
     };
     const row = paymentToRow(domain);
     const back = rowToPayment({ ...row, owner_id: "user1" });
@@ -81,20 +88,29 @@ describe("sync mappers", () => {
     expect(back).toEqual(domain);
   });
 
-  it("loan throws on invalid term_days", () => {
-    const invalidRow: LoanRow = {
+  it("accepts a flexible valid term_days", () => {
+    const validRow: LoanRow = {
       id: "l2",
       owner_id: "user1",
       client_id: "c1",
       principal_cents: 100000,
       rate: 0.2,
-      term_days: 15, // invalid
+      term_days: 15,
       disbursed_at: "2024-01-01T00:00:00.000Z",
       paid_off_cents: 0,
       renewal_count: 0,
       is_paid: false,
       created_at: "2024-01-01T00:00:00.000Z",
       updated_at: "2024-01-01T00:00:00.000Z",
+    };
+    expect(rowToLoan(validRow).termDays).toBe(15);
+  });
+
+  it.each([0, 366, -1])("throws on invalid term_days %i", (termDays) => {
+    const invalidRow: LoanRow = {
+      id: "l2", owner_id: "user1", client_id: "c1", principal_cents: 100000, rate: 0.2,
+      term_days: termDays, disbursed_at: "2024-01-01T00:00:00.000Z", paid_off_cents: 0,
+      renewal_count: 0, is_paid: false, created_at: "2024-01-01T00:00:00.000Z", updated_at: "2024-01-01T00:00:00.000Z",
     };
     expect(() => rowToLoan(invalidRow)).toThrowError("term_days inválido en fila: l2");
   });

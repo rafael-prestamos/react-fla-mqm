@@ -69,8 +69,11 @@ describe("sync mappers", () => {
       businessName: "Fla",
       phone: "961655740",
       yape: "961655740",
+      yapeHolder: "Rafael Rojas",
       bcpSoles: "48018243654096",
+      bcpSolesHolder: "Rafael Rojas",
       bcpInterbank: "00248011824365409622",
+      bcpInterbankHolder: "Rafael Rojas",
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
     const row = settingsToRow(domain);

@@ -119,6 +119,12 @@ export const loansRepo = {
     const current = await db.loans.get(id);
     if (!current) throw new Error("Préstamo no encontrado");
     if (current.cancelledAt) throw new Error("No se puede editar un préstamo anulado");
+
+    // Sprint 6a-8c: no editar préstamos que ya tienen pagos activos (evita inconsistencia)
+    const activePayments = await db.payments.where("loanId").equals(id)
+      .filter((p) => !p.cancelledAt).count();
+    if (activePayments > 0) throw new Error("No se puede editar un préstamo con pagos registrados. Anula los pagos primero.");
+
     if (patch.termDays !== undefined) assertValidLoanTerm(patch.termDays);
     const timestamp = nowIso();
     const updated: Loan = { ...current, ...patch, editedAt: timestamp, updatedAt: timestamp };

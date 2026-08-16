@@ -6,9 +6,9 @@ Gestor de préstamos personales offline-first para Fla (~8 clientes en Perú). R
 ## Estado
 Producto usable end-to-end en `develop`, no desplegado a producción todavía. Fla prueba en Preview de Vercel con cuenta real de Supabase.
 
-- Última rama activa: develop
-- Último commit: 075b91f fix: persistent toasts and cleanup run-cases.ts (2026-08-15)
-- Total tests: 109 passed (0 fallos, 0 skipped)
+- Última rama activa: feature/hotfix-6a-8c-client-observations (pendiente merge a develop)
+- Último commit: Hotfix 6a-8c — 4 correcciones del cliente
+- Total tests: 141 passed (0 fallos, 0 skipped)
 - `main` intacto en `4ec3745 Initial commit`
 - Ramas locales preservadas por rescates previos: `backup/develop-pre-revert-cuotas`, `restore/pre-cuotas` (NO borrar sin autorización — historial de un revert grande).
 

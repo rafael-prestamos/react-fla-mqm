@@ -99,6 +99,8 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
               const loanPayments = payments
                 .filter(p => p.loanId === loan.id)
                 .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
+              // Sprint 6a-8c: bloquear edición si el préstamo tiene pagos activos (Patrón: Guard)
+              const hasPayments = payments.filter(p => p.loanId === loan.id && !p.cancelledAt).length > 0;
               
               return (
                 <div key={loan.id} className="preview" style={{ marginBottom: 12 }}>
@@ -107,7 +109,14 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                     <span>{formatSoles(loan.principalCents)} al {loan.rate * 100}%{loan.editedAt && <span className="badge-edited">editado</span>}</span>
                   </div>
                   <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
-                    <button className="btn" aria-label="Editar préstamo" onClick={() => setEditingLoan(loan)} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "7px 9px" }}><Pencil size={15} /> Editar</button>
+                    <button
+                      className="btn"
+                      aria-label="Editar préstamo"
+                      onClick={() => setEditingLoan(loan)}
+                      disabled={hasPayments}
+                      title={hasPayments ? "Anula los pagos primero para editar" : "Editar préstamo"}
+                      style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "7px 9px", opacity: hasPayments ? 0.4 : 1 }}
+                    ><Pencil size={15} /> Editar</button>
                     <button className="btn btn-danger" aria-label="Anular préstamo" onClick={() => setCancellingLoan(loan)} style={{ padding: "7px 9px" }}><Trash2 size={15} /> Anular</button>
                   </div>
                   <div className="r" style={{ color: "var(--muted)" }}>
@@ -161,7 +170,10 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
         </div>
       </div>
       {editingClient && <EditClientSheet client={client} onClose={() => setEditingClient(false)} onSave={async (patch) => { await onEditClient(client.id, patch); toast.success("Cliente actualizado"); }} />}
-      {editingLoan && <EditLoanSheet loan={editingLoan} onClose={() => setEditingLoan(null)} onSave={async (patch) => { await onEditLoan(editingLoan.id, patch); toast.success("Préstamo actualizado"); }} />}
+      {editingLoan && <EditLoanSheet loan={editingLoan} onClose={() => setEditingLoan(null)} onSave={async (patch) => {
+        try { await onEditLoan(editingLoan.id, patch); toast.success("Préstamo actualizado"); }
+        catch (err) { toast.error(err instanceof Error ? err.message : "Error al editar"); }
+      }} />}
       {editingPayment && <EditPaymentSheet payment={editingPayment} onClose={() => setEditingPayment(null)} onSave={async (patch) => { await onEditPayment(editingPayment.id, patch); toast.success("Pago actualizado"); }} />}
       {cancellingLoan && <CancelLoanModal loan={cancellingLoan} payments={payments.filter((payment) => payment.loanId === cancellingLoan.id)} onClose={() => setCancellingLoan(null)} onConfirm={async (reason) => { await onCancelLoan(cancellingLoan.id, reason); toast.success("Préstamo anulado"); }} />}
       {cancellingPayment && <CancelPaymentModal payment={cancellingPayment} onClose={() => setCancellingPayment(null)} onConfirm={async (reason) => { await onCancelPayment(cancellingPayment.id, reason); toast.success("Pago anulado"); }} />}

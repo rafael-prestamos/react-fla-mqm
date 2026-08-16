@@ -107,6 +107,23 @@ describe("Repositories", () => {
     await expect(loansRepo.cancel(loan.id)).rejects.toThrow("ya anulado");
   });
 
+  // Sprint 6a-8c: bloqueo de edición con pagos activos
+  it("loansRepo.update() throws when loan has active payments", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0 });
+    await expect(loansRepo.update(loan.id, { principalCents: 200000 }))
+      .rejects.toThrow("No se puede editar un préstamo con pagos registrados");
+  });
+
+  it("loansRepo.update() succeeds when all payments are cancelled", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0 });
+    // Anular el pago — después la edición debe permitirse
+    await paymentsRepo.cancel(payment.id, "corrección");
+    await loansRepo.update(loan.id, { principalCents: 200000 });
+    expect((await db.loans.get(loan.id))?.principalCents).toBe(200000);
+  });
+
   it("cancels a loan and cascades its active payments", async () => {
     const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
     const payment = await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 100, method: "cash", daysLate: 0 });

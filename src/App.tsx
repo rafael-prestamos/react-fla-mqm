@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
@@ -29,6 +29,7 @@ import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
 import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
+import { EditLoanSheet } from "./components/EditLoanSheet";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -189,6 +190,8 @@ export default function App() {
   const [clientSearch, setClientSearch] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
+  const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -411,9 +414,9 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)}
+                  {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
                   {paidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} />)}
+                  {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
                 </>
               )}
             </>
@@ -531,6 +534,22 @@ export default function App() {
           onOpenSettings={() => { setProfileOpen(false); setSettingsOpen(true); }}
         />
         <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        {/* Sprint 6a-8c: Patrón: controlled-sheet — editar desde tab Préstamos (error por pagos activos → toast) */}
+        {editingLoanFromTab && (
+          <EditLoanSheet
+            loan={editingLoanFromTab}
+            onClose={() => setEditingLoanFromTab(null)}
+            onSave={async (patch) => {
+              try {
+                await handleEditLoan(editingLoanFromTab.id, patch);
+                setEditingLoanFromTab(null);
+                toast.success("Préstamo actualizado");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Error al editar");
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -590,7 +609,8 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
   );
 }
 
-function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
+// Sprint 6a-8c: Patrón: Presentational — botón Editar en LoanCard (tab Préstamos)
+function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onEdit: () => void }) {
   const { loan, d, client } = row;
   return (
     <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 9 }}>
@@ -604,6 +624,9 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
           </div>
         </div>
         <StatusChip status={d.status} />
+        {!loan.isPaid && (
+          <button className="btn" aria-label="Editar préstamo" onClick={onEdit} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 6 }}><Pencil size={14} /></button>
+        )}
       </div>
       <div className="preview" style={{ margin: 0 }}>
         <div className="r"><span>Entrega → Pago</span><span className="num">{formatShort(d.disbursedDate)} → {formatShort(d.dueDate)}</span></div>
@@ -644,7 +667,8 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   const [mode, setMode] = useState<"new" | "historical">("new");
   const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
   const [principal, setPrincipal] = useState("");
-  const [ratePct, setRatePct] = useState("20");
+  // Sprint 6a-8c: Fla piensa en montos, no en porcentajes. rate = interésCents / principalCents.
+  const [interestAmount, setInterestAmount] = useState("");
   const [termDays, setTermDays] = useState<LoanTerm>(30);
 
   // Historical fields
@@ -656,8 +680,9 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   const [submitError, setSubmitError] = useState<string | null>(null);
   
   const principalCents = toCents(parseFloat(principal) || 0);
-  const rate = (parseFloat(ratePct) || 0) / 100;
-  const interestCents = Math.round(principalCents * rate);
+  // Sprint 6a-8c: rate = interésCents / principalCents (Fla ingresa monto, no porcentaje)
+  const interestCents = toCents(parseFloat(interestAmount) || 0);
+  const rate = principalCents > 0 ? interestCents / principalCents : 0;
   const totalCents = principalCents + interestCents;
   const client = clients.find(c => c.id === clientId);
   const isBad = client?.rating === "bad";
@@ -774,8 +799,11 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
 
             <div style={{ display: "flex", gap: 11 }}>
               <div className="field" style={{ flex: 1 }}>
-                <label>Interés (%)</label>
-                <input className="inp num" inputMode="decimal" value={ratePct} onChange={(e) => setRatePct(e.target.value)} />
+                <label>Interés (S/)</label>
+                <input className="inp num" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} placeholder="200.00" />
+                {principalCents > 0 && interestCents > 0 && (
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {(rate * 100).toFixed(1)}%</div>
+                )}
                 {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
               </div>
               <div className="field" style={{ flex: 2 }}>
@@ -836,7 +864,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             {mode === "new" ? (
               <div className="preview">
                 <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
-                <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
+                <div className="r"><span>Interés</span><span className="num">{formatSoles(interestCents)}</span></div>
                 <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
                 <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
               </div>
@@ -856,7 +884,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             <button
               className="btn btn-p btn-block"
               style={{ marginTop: 18 }}
-              disabled={principalCents <= 0 || !Number.isInteger(principalCents)}
+              disabled={principalCents <= 0 || !Number.isInteger(principalCents) || (mode === "new" && interestCents <= 0)}
               onClick={handleSubmit}
             >
               {mode === "new" ? "Registrar préstamo" : "Registrar préstamo existente"}

@@ -17,11 +17,28 @@ function createMockViewport(height: number) {
   };
 }
 
+function createMockDocument(activeElement: Element | null) {
+  const listeners: Record<string, Array<(e: FocusEvent) => void>> = {};
+  return {
+    activeElement,
+    addEventListener: vi.fn((event: string, listener: (e: FocusEvent) => void) => {
+      (listeners[event] ??= []).push(listener);
+    }),
+    removeEventListener: vi.fn((event: string, listener: (e: FocusEvent) => void) => {
+      listeners[event] = (listeners[event] ?? []).filter((current) => current !== listener);
+    }),
+    fire(event: string, e: FocusEvent) {
+      listeners[event]?.forEach((listener) => listener(e));
+    },
+  };
+}
+
 function setup(viewport: ReturnType<typeof createMockViewport> | undefined, activeElement: Element | null, contains = true) {
   const container = { contains: vi.fn(() => contains) } as unknown as HTMLElement;
+  const mockDocument = createMockDocument(activeElement);
   vi.stubGlobal("window", { innerHeight: 1000, visualViewport: viewport, setTimeout });
-  vi.stubGlobal("document", { activeElement });
-  return { current: container };
+  vi.stubGlobal("document", mockDocument);
+  return { containerRef: { current: container }, mockDocument };
 }
 
 afterEach(() => {
@@ -31,16 +48,16 @@ afterEach(() => {
 
 describe("useKeyboardAwareInput", () => {
   it("is a no-op when visualViewport is unavailable", () => {
-    const ref = setup(undefined, null);
-    expect(() => subscribeKeyboardAwareInput(ref)).not.toThrow();
+    const { containerRef } = setup(undefined, null);
+    expect(() => subscribeKeyboardAwareInput(containerRef)).not.toThrow();
   });
 
-  it("scrolls the focused input when the keyboard opens", () => {
+  it("scrolls the focused input when the keyboard opens (visualViewport strategy)", () => {
     vi.useFakeTimers();
     const viewport = createMockViewport(700);
     const scrollIntoView = vi.fn();
-    const ref = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element);
-    subscribeKeyboardAwareInput(ref);
+    const { containerRef } = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element);
+    subscribeKeyboardAwareInput(containerRef);
 
     viewport.fire("resize");
     vi.runAllTimers();
@@ -52,8 +69,8 @@ describe("useKeyboardAwareInput", () => {
     vi.useFakeTimers();
     const viewport = createMockViewport(800);
     const scrollIntoView = vi.fn();
-    const ref = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element);
-    subscribeKeyboardAwareInput(ref);
+    const { containerRef } = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element);
+    subscribeKeyboardAwareInput(containerRef);
 
     viewport.fire("resize");
     vi.runAllTimers();
@@ -63,8 +80,8 @@ describe("useKeyboardAwareInput", () => {
 
   it("removes its resize listener during cleanup", () => {
     const viewport = createMockViewport(700);
-    const ref = setup(viewport, null);
-    const cleanup = subscribeKeyboardAwareInput(ref);
+    const { containerRef } = setup(viewport, null);
+    const cleanup = subscribeKeyboardAwareInput(containerRef);
 
     cleanup();
 
@@ -75,12 +92,54 @@ describe("useKeyboardAwareInput", () => {
     vi.useFakeTimers();
     const viewport = createMockViewport(700);
     const scrollIntoView = vi.fn();
-    const ref = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element, false);
-    subscribeKeyboardAwareInput(ref);
+    const { containerRef } = setup(viewport, { tagName: "INPUT", scrollIntoView } as unknown as Element, false);
+    subscribeKeyboardAwareInput(containerRef);
 
     viewport.fire("resize");
     vi.runAllTimers();
 
     expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  // Sprint 6a-8c: tests del fallback focusin (MIUI/Xiaomi)
+  it("scrolls via focusin fallback when target is inside the container", () => {
+    vi.useFakeTimers();
+    const viewport = createMockViewport(700);
+    const scrollIntoView = vi.fn();
+    const input = { tagName: "INPUT", scrollIntoView } as unknown as HTMLElement;
+    const { containerRef, mockDocument } = setup(viewport, input);
+    containerRef.current = { contains: vi.fn(() => true) } as unknown as HTMLElement;
+    subscribeKeyboardAwareInput(containerRef);
+
+    // Disparar focusin con el input como target
+    mockDocument.fire("focusin", { target: input } as unknown as FocusEvent);
+    vi.runAllTimers();
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+  });
+
+  it("focusin fallback does NOT scroll when target is outside the container", () => {
+    vi.useFakeTimers();
+    const viewport = createMockViewport(700);
+    const scrollIntoView = vi.fn();
+    const input = { tagName: "INPUT", scrollIntoView } as unknown as HTMLElement;
+    // contains = false → target fuera del contenedor
+    const { containerRef, mockDocument } = setup(viewport, input, false);
+    subscribeKeyboardAwareInput(containerRef);
+
+    mockDocument.fire("focusin", { target: input } as unknown as FocusEvent);
+    vi.runAllTimers();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it("removes focusin listener during cleanup", () => {
+    const viewport = createMockViewport(700);
+    const { containerRef, mockDocument } = setup(viewport, null);
+    const cleanup = subscribeKeyboardAwareInput(containerRef);
+
+    cleanup();
+
+    expect(mockDocument.removeEventListener).toHaveBeenCalledWith("focusin", expect.any(Function));
   });
 });

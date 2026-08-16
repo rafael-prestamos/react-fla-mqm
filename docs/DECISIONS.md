@@ -316,3 +316,10 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Ajuste de parámetros** en `scripts/process-logo.py`: outline blanco de 9px a 3px, drop-shadow de offset (0,5px)/blur 10px a (0,2px)/blur 4px (opacidad 28% sin cambios).
 - **Regenerado** `public/logo-pdf.png` y `src/assets/logo-pdf.png` corriendo el script — mismo pipeline documentado en Sprint 7a-3, solo cambian los valores de intensidad del borde/sombra.
 - **Solo afecta** el logo usado en los 4 PDF components (`react-pdf`); no toca `<BrandLogo />` de la UI ni lógica de dominio.
+
+### Sprint 7a-4: Descargar comprobante desde historial de pagos
+
+- **Botón por pago:** en `ClientDetailSheet`, cada fila del historial de pagos (préstamos activos o pagados) tiene un ícono `FileDown` discreto (navy) que regenera y descarga el mismo `PaymentReceiptPdf` que ya se genera al registrar el cobro — mismo componente, mismo patrón de dynamic import, sin duplicar esa lógica.
+- **Problema:** el comprobante necesita `balanceCentsAfterPayment` (saldo justo después de ESE pago), dato que no se guarda por pago — el préstamo solo conserva su `paidOffCents` acumulado actual, que ya incluye pagos posteriores y se resetea en cada renovación.
+- **Solución — nuevo módulo puro `src/domain/loanBalanceHistory.ts`** (con tests): reconstruye ese saldo reproduciendo la secuencia completa de pagos activos del préstamo desde su primer ciclo (retrocediendo `disbursedAt` un `termDays` por cada renovación previa) y reaplicándolos en orden con `applyPayment` hasta el pago objetivo, devolviendo `deriveLoan(...).balanceCents`. Reutiliza `applyPayment`/`deriveLoan` de `loanPayment.ts`/`loanRules.ts` tal cual — no se modificó ninguna regla de interés/mora/renovación existente, solo se compuso.
+- **Limitación aceptada:** si el préstamo fue editado (capital/tasa/plazo) entre pagos históricos, la reconstrucción usa los valores actuales para todos los ciclos — misma limitación que ya tenía `rebuildLoanAfterPaymentCancellation` (Hotfix 6a-8b) para el mismo escenario.

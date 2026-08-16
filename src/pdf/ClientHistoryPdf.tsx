@@ -1,5 +1,6 @@
 import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/renderer";
-import logoUrl from "../assets/logo.png";
+import logoPdfUrl from "../assets/logo-pdf.png";
+
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
 import { formatSoles } from "../lib/money";
 import { startOfToday } from "../lib/dates";
@@ -153,9 +154,7 @@ export function ClientHistoryPdf({ business, client, loans, payments, reference 
       <Page size="A4" style={styles.page} wrap>
         <View style={styles.header}>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={{ backgroundColor: "#FBF5E9", padding: 4, borderRadius: 8, marginRight: 12 }}>
-              <Image src={logoUrl} style={{ width: 32, height: 32 }} />
-            </View>
+            <Image src={logoPdfUrl} style={{ width: 64, height: 64, marginRight: 12 }} />
             <View>
               <Text style={styles.businessName}>{business.businessName}</Text>
               <Text style={styles.subtitle}>Historial completo</Text>

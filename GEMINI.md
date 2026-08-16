@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 5b-2 completo (notificaciones push diarias 7am) — código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
+Estado actual: Sprint 7a-1 completo (header Hoy: logo más grande, sin saludo). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
 
 
 **Stack y Arquitectura:**
@@ -77,6 +77,9 @@ Web Push con VAPID (sin FCM). Tabla `push_subscriptions` (RLS por `owner_id`, mi
 
 **Assets y Branding (Sprint 6a-1):**
 El logo principal se renderiza a través del componente `<BrandLogo />` (`src/components/brand/BrandLogo.tsx`). Los assets crudos viven en `src/assets/branding` y los derivados (favicons, PWA icons, etc.) en `public/` y `src/assets/logo.png`.
+
+**Header Hoy (Sprint 7a-1):**
+Cambio solo de presentación en el header navy de la pestaña Hoy (`App.tsx`): `<BrandLogo size={64} />` (antes 18px) y se eliminó el saludo ("Buen día · fecha · hora") junto con la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo. No toca el toast del brief diario ni los mini-cards "Vencen hoy"/"Atrasados".
 
 **WhatsApp ubicuo (Sprint 6a-5):**
 Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard`, solo activos) y `ClientDetailSheet` (por cada `!loan.isPaid`). Componente reutilizable: `WhatsappButton` (`src/components/WhatsappButton.tsx`). Lógica en `src/domain/whatsappReminder.ts` (`buildWhatsappUrl`, `buildReminderMessage`). Verde `#25D366` = excepción cromática documentada. Filtro: `!loan.isPaid`.

@@ -7,7 +7,7 @@ import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
-import { formatShort, formatLong, addDays, startOfToday, toIsoDate } from "./lib/dates";
+import { formatShort, addDays, startOfToday, toIsoDate } from "./lib/dates";
 import { downloadBlob } from "./lib/downloadBlob";
 import { useLiveQuery } from "dexie-react-hooks";
 import { clientsRepo } from "./repositories/clientsRepo";
@@ -67,9 +67,7 @@ const CSS = `
 .cancel-modal .affected{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;font-size:12.5px}
 .cancel-modal .confirm-input{margin-top:12px}.cancel-modal .confirm-input input{width:100%;text-align:center;letter-spacing:.05em}
 .cancel-actions{display:flex;gap:8px;margin-top:14px}.cancel-actions .btn{flex:1}.btn-danger{background:var(--color-status-bad);color:#fff;border:none}.btn-danger:disabled{opacity:.4}
-.pf-hello{font-size:13px;opacity:.72;margin-top:14px;text-transform:capitalize}
-.pf-cobranza-lbl{font-size:12.5px;opacity:.78;margin-top:2px}
-.pf-cobranza{font-size:40px;font-weight:700;line-height:1.05;margin-top:2px}
+.pf-cobranza{font-size:40px;font-weight:700;line-height:1.05;margin-top:14px}
 .pf-mini{display:flex;gap:8px;margin-top:14px}
 .pf-mini > div{flex:1;background:rgba(255,255,255,.10);border-radius:12px;padding:9px 10px}
 .pf-mini .k{font-size:11px;opacity:.72}
@@ -385,7 +383,7 @@ export default function App() {
 
         <div className="pf-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="pf-brand"><BrandLogo size={18} /> Fla MpM</div>
+            <div className="pf-brand"><BrandLogo size={64} /> Fla MpM</div>
             <div className="header-actions">
             {sync.status === "synced" && (
               <div style={{ background: "var(--good-soft)", color: "var(--good)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
@@ -413,8 +411,6 @@ export default function App() {
               </button>
             </div>
           </div>
-          <div className="pf-hello">Buen día · {formatLong(startOfToday())} · 7:00 a.m.</div>
-          <div className="pf-cobranza-lbl">Debes cobrar hoy</div>
           <div className="pf-cobranza num">{formatSoles(dueToday.reduce((s, r) => s + r.d.balanceCents, 0))}</div>
           <div className="pf-mini">
             <div><div className="k">Vencen hoy</div><div className="v num">{dueToday.length}</div></div>

@@ -2,7 +2,7 @@ import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/render
 import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
-import { formatSoles } from "../lib/money";
+import { formatSoles, formatRatePercent } from "../lib/money";
 import { startOfToday } from "../lib/dates";
 import { deriveLoan } from "../domain/loanRules";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime, ratingLabel } from "./formatters";
@@ -235,7 +235,7 @@ export function ClientHistoryPdf({ business, client, loans, payments, reference 
                   </View>
                   <View style={styles.loanBoxMeta}>
                     <Text style={styles.loanBoxMetaItem}>Capital: {formatSoles(loan.principalCents)}</Text>
-                    <Text style={styles.loanBoxMetaItem}>Tasa: {loan.rate * 100}%</Text>
+                    <Text style={styles.loanBoxMetaItem}>Tasa: {formatRatePercent(loan.rate)}</Text>
                     <Text style={styles.loanBoxMetaItem}>Plazo: {loan.termDays}d</Text>
                     {!isCancelled && !loan.isPaid && (
                       <Text style={styles.loanBoxMetaItem}>Saldo actual: {formatSoles(d.balanceCents)}</Text>

@@ -117,6 +117,24 @@ describe('loanBackfill', () => {
       expect(errors.outstandingBalance).toBe("El saldo pendiente excede la deuda calculada");
     });
 
+    it('5b. Acepta interés 0 (sprint 7b-1)', () => {
+      const refDate = new Date("2025-02-05T00:00:00Z");
+      const input: LoanBackfillInput = {
+        clientId: "c1",
+        principalCents: 100000,
+        rate: 0,
+        termDays: 30,
+        lastCycleStart: "2025-01-20",
+        renewalCount: 0,
+        outstandingBalanceCents: 100000, // deuda sin interés = capital
+        reference: refDate
+      };
+
+      const { ok, errors } = validateLoanBackfillInput(input);
+      expect(ok).toBe(true);
+      expect(errors.rate).toBeUndefined();
+    });
+
     it('6. Validación — fecha futura', () => {
       const refDate = new Date("2025-02-05T00:00:00Z");
       const input: LoanBackfillInput = {

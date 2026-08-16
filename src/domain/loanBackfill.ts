@@ -40,7 +40,7 @@ export function validateLoanBackfillInput(
     errors.principal = "Ingresa un capital válido";
     ok = false;
   }
-  if (input.rate <= 0 || input.rate > 1) {
+  if (input.rate < 0 || input.rate > 1) {
     errors.rate = "Ingresa un interés válido";
     ok = false;
   }

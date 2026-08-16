@@ -2,7 +2,7 @@ import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/render
 import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
-import { formatSoles } from "../lib/money";
+import { formatSoles, formatRatePercent } from "../lib/money";
 import { addDays } from "../lib/dates";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime } from "./formatters";
 
@@ -118,7 +118,7 @@ export function PaymentReceiptPdf({ business, client, loan, payment, balanceCent
           <Text style={styles.sectionTitle}>Préstamo</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Capital</Text>
-            <Text style={styles.value}>{formatSoles(loan.principalCents)} al {loan.rate * 100}%</Text>
+            <Text style={styles.value}>{formatSoles(loan.principalCents)} al {formatRatePercent(loan.rate)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Plazo</Text>

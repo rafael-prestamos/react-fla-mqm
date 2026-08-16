@@ -2,7 +2,7 @@ import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/render
 import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
-import { formatSoles } from "../lib/money";
+import { formatSoles, formatRatePercent } from "../lib/money";
 import { startOfToday } from "../lib/dates";
 import { deriveLoan } from "../domain/loanRules";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime } from "./formatters";
@@ -187,7 +187,7 @@ export function StatementPdf({ business, client, loans, payments, reference = st
                   <View key={loan.id} style={[styles.tableRow, loan.isPaid ? { opacity: 0.7 } : {}]}>
                     <Text style={[styles.tableCell, { width: "16%" }]}>{formatDate(loan.disbursedAt)}</Text>
                     <Text style={[styles.tableCell, { width: "16%" }]}>{formatSoles(loan.principalCents)}</Text>
-                    <Text style={[styles.tableCell, { width: "12%" }]}>{loan.rate * 100}%</Text>
+                    <Text style={[styles.tableCell, { width: "12%" }]}>{formatRatePercent(loan.rate)}</Text>
                     <Text style={[styles.tableCell, { width: "12%" }]}>{loan.termDays}d</Text>
                     <Text style={[styles.tableCell, { width: "18%" }]}>{formatDate(d.dueDate.toISOString())}</Text>
                     <Text style={[styles.tableCell, loan.isPaid ? styles.paidText : {}, { width: "12%" }]}>

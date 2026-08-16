@@ -20,7 +20,7 @@ export function validateLoanInput(input: LoanInput): { ok: boolean; errors: Loan
     errors.principal = "Ingresa un capital válido";
   }
 
-  if (input.rate <= 0 || input.rate > 1) {
+  if (input.rate < 0 || input.rate > 1) {
     errors.rate = "Ingresa un interés válido";
   }
 

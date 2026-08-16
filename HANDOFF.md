@@ -1,72 +1,105 @@
-# Fla MpM — Handoff
+# Handoff: Fla MpM — post sprint 7a-6, pre-release develop→main
 
-## Contexto
-Gestor de préstamos personales offline-first para Fla (~8 clientes en Perú). Reemplaza el control manual en cuaderno/spreadsheet. Usuaria = Fla. Dev + infra = Giancarlo. Idioma UI = español.
+## Contexto proyecto
 
-## Estado
-Producto usable end-to-end en `develop`, no desplegado a producción todavía. Fla prueba en Preview de Vercel con cuenta real de Supabase.
+Gestor microcréditos PWA para Fla (Perú, ~8 clientes, creciendo hacia 20+). Dev: Giancarlo.
+Stack: Vite+React+TS, Dexie/IndexedDB (v5), Supabase (auth+sync+RLS), react-pdf, vite-plugin-pwa, Vercel.
+Ramas: `develop` (integración, incluye hasta PR #24), `main` (producción, en `a531441` = solo sprint 6a-1 — 61 commits detrás de `develop`).
+Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), montos en céntimos.
 
-- Última rama activa: feature/hotfix-6a-8c-client-observations (pendiente merge a develop)
-- Último commit: Hotfix 6a-8c — 4 correcciones del cliente
-- Total tests: 141 passed (0 fallos, 0 skipped)
-- `main` intacto en `4ec3745 Initial commit`
-- Ramas locales preservadas por rescates previos: `backup/develop-pre-revert-cuotas`, `restore/pre-cuotas` (NO borrar sin autorización — historial de un revert grande).
+## Modo de trabajo
 
-## Documentación autoritativa
-Consulta estos ANTES de tocar código:
-- `docs/DECISIONS.md` — fuente de verdad; contiene el modelo de negocio, decisiones de arquitectura por sprint, convenciones, invariantes y pendientes.
-- `docs/REQUIREMENTS.md` — historias de usuario e invariantes.
-- `docs/ARCHITECTURE.md` — arquitectura + diagramas Mermaid.
-- `docs/DATA_MODEL.md` — diccionario de datos.
-- `CLAUDE.md` y `GEMINI.md` — briefs para agentes de IA (contenido gemelo).
-- `CONTRIBUTING.md` — git flow: main = producción (auto deploy), develop = integración (CI, sin deploy), feature branches `feature/sprint-<n><letra>-<slug>` que salen de develop, PR a develop, self-merge con CI verde. Conventional Commits.
+- Español siempre (comunicación, UI, comentarios, docs)
+- **Caveman**: respuestas ultra-concisas
+- **Grill-me**: una pregunta a la vez con recomendación antes de generar prompt
+- **Un prompt copy-paste por respuesta** para Antigravity/Claude Code
+- **Prompts en un solo bloque de código markdown** — NO anidar triple backticks dentro del bloque (causa rendering roto; usar indentación o texto descriptivo para SQL/snippets internos)
+- Docs paralelos: `docs/DECISIONS.md`, `CLAUDE.md`, `GEMINI.md` — actualizar en cada sprint
+- Git: agente autoriza commit/push/merge feature→develop vía `gh` CLI
+- **`main` NUNCA se toca por agente** — release a prod es paso manual deliberado
 
-## Stack
-- Frontend: React 18 + Vite + TypeScript (strict). PWA vía vite-plugin-pwa.
-- Datos locales (fuente de verdad): Dexie/IndexedDB (v4 actual). Repository pattern por entidad. Outbox pattern para sync.
-- Backend: Supabase (Postgres). Auth email+password + RLS por owner. Storage: Vercel.
-- Testing: Vitest. 22 archivos de test, 109 tests. TDD para lógica pura.
-- PDFs: `@react-pdf/renderer` con dynamic import (chunk lazy, no engordar bundle inicial).
+## Sprints cerrados (rama develop)
 
-## Modelo de negocio activo (importante)
-Préstamo con PAGO ÚNICO al vencimiento (termDays 25/28/30, tasa variable). Interés simple: interés = capital × tasa; total = capital + interés. Renovación = cobra solo interés y corre disbursedAt +termDays. Abono parcial = cubre primero interés pendiente, sobrante baja capital. Tolerancia de atraso: 7 días.
+| Sprint | PR  | Alcance                                                                                                                                          |
+| ------ | --- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 6a-1   | —   | Rebrand logo dálmata navy (mergeado a main por error, sin daño)                                                                                  |
+| 6a-2   | #2  | Colores semáforo (bad rojo, slow ámbar, good navy)                                                                                               |
+| 6a-3   | #3  | Nombres UPPERCASE normalizeClientName                                                                                                            |
+| 6a-4   | #4  | Plazo libre 1-365 con presets                                                                                                                    |
+| 6a-5   | #5  | WhatsApp en ClientDetailSheet + tab Préstamos                                                                                                    |
+| 6a-6   | #6  | ProfileSheet desde avatar header                                                                                                                 |
+| 6a-7   | #7  | Fix teclado móvil: hook useKeyboardAwareInput + visualViewport                                                                                   |
+| 6a-8   | #8  | CRUD editable + soft delete + cascada + Dexie v5 + migración 0008                                                                                |
+| 6a-8b  | #9  | Restringir edición/anulación pagos: solo método, solo último pago, recalcula préstamo                                                            |
+| 6a-8c  | #10 | Bloqueo edición préstamo con pagos, editar desde tab Préstamos, input interés en soles, fallback teclado MIUI focusin                            |
+| 6a-9   | #11 | PDFs: ClientHistoryPdf + GlobalReportPdf, botones en ClientDetailSheet y ProfileSheet                                                            |
+| 5b-2   | #12 | Push notifications 7am: VAPID, push_subscriptions (migración 0009), sw-push.js, Edge Function daily-push, PushPermissionModal, toggle en Ajustes |
+| 7a-1   | #13 | Header Hoy: logo 18px→64px, quitar saludo "Buen día · fecha · hora"                                                                              |
+| 7a-2   | #14 | Rediseño LoginScreen: fondo crema, logo 120px, botón caramelo                                                                                    |
+| 7a-2b  | #15 | Login: card unificado, fondo blanco, sin scroll en 375×667                                                                                       |
+| 7a-3   | #16 | Logo procesado para PDFs (`logo-pdf.png`): contorno blanco + drop-shadow, 64px, sin fondo doble                                                  |
+| 7a-1b  | #17 | Fix: restaurar etiqueta "Debes cobrar hoy" en header Hoy (se había quitado de más en 7a-1)                                                       |
+| 7a-3b  | #18 | Reducir borde (9px→3px) y sombra del logo PDF                                                                                                    |
+| docs   | #19 | Sync Sprint 7a-3b en DECISIONS.md + fix de desfase CLAUDE.md/GEMINI.md                                                                           |
+| 7a-4   | #20 | Descargar comprobante de pago desde el historial de `ClientDetailSheet` (nuevo `loanBalanceHistory.ts`, reconstruye saldo histórico sin duplicar reglas) |
+| 7a-5   | #21 | Saldo visible + botón "Cobrar" en card de préstamo de `ClientDetailSheet`                                                                        |
+| hotfix | #22 | Loguear errores reales (`console.error`) en los 3 handlers de descarga de PDF — investigación del bug de Historial de ELVIA PÉREZ                |
+| hotfix | #23 | **Causa raíz confirmada y arreglada**: `fontStyle:"italic"` inválido en badge "(editado)" de `ClientHistoryPdf` (combinaba mal con `fontFamily:"Helvetica-Bold"` heredado) — rompía la descarga solo para préstamos editados-y-anulados |
+| 7a-6   | #24 | Búsqueda por cliente en tab Préstamos (mismo patrón que Clientes)                                                                                |
 
-⚠️ NO usar modelo de cuotas. Se intentó (sprints 4a/4b) tras malinterpretar un requerimiento; se revertió al confirmar con Fla que solo maneja pago único. Los commits del intento son inalcanzables pero preservados en git. Si algún día vuelve a proponerse, requiere confirmación explícita del usuario.
+Tests: **152/152**. Build limpio. CI verde en todos los PRs mergeados.
 
-## Convenciones obligatorias (recordatorio)
-- TypeScript estricto; camelCase; identificadores en inglés; comentarios y UI en español.
-- Montos SIEMPRE como enteros en céntimos. `toCents`/`fromCents`/`formatSoles` en `src/lib/money.ts`. `toCents` es defensivo contra NaN/Infinity.
-- Nombrar los patrones de diseño en comentarios (Repository, Outbox, Provider/Context, Domain Model).
-- Cambios llegan como prompts UN prompt por respuesta; agente autorizado para commit/push/merge feature→develop; NUNCA main sin autorización explícita.
+## Estado de migraciones SQL
 
-## Pendientes ordenados por prioridad
-1. **Confirmación verbal con Fla de la regla de mora** antes de activar `LATE_INTEREST_ENABLED` (hoy = false en `src/domain/loanRules.ts`). La regla codificada: 7 días de gracia + 1 interés extra por cada 30 días de atraso sobre capital, no compuesto. Sin confirmarlo se puede afectar cuánto cobra ella; no activar por Claude ni por el agente.
-2. **Sprint 5b-2 — Push notifications reales 7 a.m.** Foco Android (Fla usará Android). Requiere: VAPID keypair, tabla `push_subscriptions`, Supabase Edge Function con `pg_cron`, service worker `push` handler, UI para pedir permiso + guía para instalar PWA en home. iOS queda como best-effort (solo funciona si PWA instalada en home + delay variable).
-3. **Release develop→main** = deploy productivo. Vercel Production Branch = main. Workflow ya configurado (build+test en push/PR a main y develop; deploy SOLO en push a main). Antes: aplicar todas las migraciones SQL pendientes en Supabase (ver siguiente sección).
+| Migración                     | Aplicada en Supabase |
+| ------------------------------ | -------------------- |
+| 0001_init                     | ✅                   |
+| 0004_revert_installments      | ✅                   |
+| 0005_client_rating            | ✅                   |
+| 0006_settings                 | ✅                   |
+| 0007_settings_account_holders | ✅                   |
+| 0008_soft_delete_and_edit     | ✅                   |
+| 0009_push_subscriptions       | ✅                   |
 
-## Migraciones SQL de Supabase
-Todas viven en `supabase/migrations/`. NO se aplican automáticamente. Cada una se ejecuta manualmente en el SQL Editor del dashboard antes de que el código dependiente empiece a pushear datos.
+Todas las migraciones del repo están aplicadas. No hay migraciones pendientes.
 
-Verifica en la sección "Migraciones SQL Supabase" de `docs/DECISIONS.md` cuáles han sido aplicadas al proyecto real y cuáles no. Si no está documentado, corre `ls supabase/migrations/` y confirma con el usuario cuál fue la última aplicada. Aplicar migraciones fuera de orden es peligroso.
+## Deploy push notifications — COMPLETADO
 
-## Datos por defecto del negocio
-Están en `src/config/business.ts` como fallback (se siembran solo en primer login por dispositivo, vía `ensureSettings`). Fla los edita en la pantalla Ajustes (accesible desde pestaña Clientes). Si edita, sobrescribe defaults; si no toca nada, los PDFs y el mensaje de WhatsApp usan estos valores.
+Confirmado por Giancarlo. Checklist ejecutado (referencia completa en `docs/DEPLOY_PUSH.md`):
 
-## Preview y Producción
-- Preview: cada push a `develop` genera un deploy Preview automático en Vercel. URL cambia por commit.
-- Cuenta Supabase de Fla ya está creada. Credenciales se comparten fuera del código.
-- Producción: aún NO desplegado. Main sigue en initial commit.
+1. ✅ VAPID public key en variable de entorno Vercel (`VITE_VAPID_PUBLIC_KEY`)
+2. ✅ VAPID private key como secret de la Edge Function en Supabase (`VAPID_PRIVATE_KEY`) — nunca en el repo
+3. ✅ Migración 0009 aplicada en Supabase
+4. ✅ `daily-push` Edge Function desplegada (`supabase functions deploy daily-push`)
+5. ✅ Extensiones `pg_cron` + `pg_net` habilitadas en Supabase
+6. ✅ Cron `0 12 * * *` UTC (= 7am hora Perú) programado
 
-## Ramas y commits especiales a NO borrar
-- `main` (obviamente).
-- `backup/develop-pre-revert-cuotas` — snapshot pre-revert.
-- `restore/pre-cuotas` — rama base del revert.
-Comandos de limpieza masiva del tipo `git branch -D` son PELIGROSOS acá.
+No queda ningún paso manual pendiente para este sprint.
 
-## Próximo paso natural cuando se retome
-Dependiendo del enfoque del usuario:
-- Si quiere ver deploy real → coordinar release develop→main después de aplicar todos los SQL pendientes.
-- Si quiere completar features → Sprint 5b-2 push notifs.
-- Si quiere confirmar la mora con Fla → activar `LATE_INTEREST_ENABLED = true`, correr tests, verificar que ningún test rompa.
+## ⚠️ MORA (LATE_INTEREST_ENABLED) — discrepancia sin resolver
 
-Preguntar al usuario cuál es la prioridad. NO decidir por él.
+Flag en `src/domain/loanRules.ts`, actualmente **`true`** en código (mora activa: 7 días de gracia + 1 interés extra cada 30 días de atraso sobre el capital, no compuesto).
+
+**Esto NO es una confirmación registrada.** Al revisar esto explícitamente con Giancarlo (2026-08-16): no hay confirmación verbal real de Fla documentada en ningún lado — el flag en `true` es una discrepancia entre el código y lo que dicen `CLAUDE.md`/`GEMINI.md`/`docs/DECISIONS.md §9`, no una decisión tomada conscientemente.
+
+**NO ACTIVAR/DESACTIVAR (ni a `true` ni a `false`) sin instrucción EXPLÍCITA de Giancarlo.** Antes de cualquier release a producción o de confiar en los cálculos de mora, resolver esta discrepancia: confirmar con Fla y dejar constancia por escrito de la decisión (o corregir el flag si nunca hubo tal confirmación).
+
+## Backlog priorizado
+
+| #   | Tarea                                  | Estado                                                                 |
+| --- | --------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | Resolver discrepancia de mora           | **Bloqueante para release tranquilo** — solo cuando Giancarlo confirme el estado real con Fla |
+| 2   | Release `develop`→`main`                | Código y deploy de push notifs listos; pendiente de la decisión de mora arriba |
+| 3   | Observación cosmética (línea tachada)   | Baja prioridad, ver abajo                                                |
+
+## Observación cosmética abierta
+
+Fechas "12-jul. → 11-ago." con `line-through` en detalle préstamo. Puede ser indicador "En tolerancia" o CSS heredado. No investigada en este handoff.
+
+## Suggested skills
+
+- **caveman** — modo de comunicación activo
+- **grill-me** — para definir alcance de features nuevos
+- **handoff** — para generar handoffs al pausar
+- **tdd** — para lógica de dominio nueva (ej: reglas de mora)
+- **diagnose** — si aparecen bugs en producción

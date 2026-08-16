@@ -283,3 +283,13 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
   - Estrategia 2: `focusin` con delay 300ms (fallback para MIUI/Xiaomi donde `resize` no dispara correctamente).
 - El check usa `tagName` en vez de `instanceof Element` (compatible con entornos sin jsdom).
 - Doble scroll inofensivo: `scrollIntoView` idempotente al mismo elemento.
+
+### Sprint 6a-9: Reportes PDF — historial por cliente + reporte global
+
+- **Dos reportes nuevos:** `ClientHistoryPdf` (historial completo por cliente: activos + pagados + anulados, con sección aparte "Registros anulados" con motivo y fecha de anulación) y `GlobalReportPdf` (métricas del negocio: cartera activa, cobranza del mes por tipo, morosidad, resumen por cliente, histórico acumulado).
+- **`StatementPdf` convive sin cambios** — es el estado de cuenta que Fla envía al cliente; no se toca ni se reemplaza.
+- **Descarga:** Historial desde `ClientDetailSheet` (botón junto a "Estado de cuenta"); Reporte global desde `ProfileSheet` (entre Ajustes y Cerrar sesión).
+- **Datos del historial:** se leen directo de Dexie (`db.loans`/`db.payments` sin filtro de `cancelledAt`) porque `loansRepo`/`paymentsRepo` excluyen anulados por diseño (Sprint 6a-8); el reporte global sí usa los repos tal cual (ya vienen sin anulados).
+- **Dynamic import** de `@react-pdf/renderer` en ambos handlers (mismo patrón que `StatementPdf`) — cada PDF queda en su propio chunk lazy (~2.5kb gzip).
+- **Sin migración SQL ni campos nuevos** — solo lectura de datos existentes.
+- **Helpers nuevos** en `src/pdf/formatters.ts`: `isCurrentMonth(isoDate, reference)` y `ratingLabel(rating)`.

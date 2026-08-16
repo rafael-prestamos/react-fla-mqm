@@ -31,10 +31,10 @@ OUT_ASSETS  = REPO_ROOT / "src" / "assets" / "logo-pdf.png"
 
 # Parametros
 OUTPUT_SIZE     = 256
-OUTLINE_PX      = 9
+OUTLINE_PX      = 3
 SHADOW_OFFSET_X = 0
-SHADOW_OFFSET_Y = 5
-SHADOW_BLUR     = 10
+SHADOW_OFFSET_Y = 2
+SHADOW_BLUR     = 4
 SHADOW_OPACITY  = 0.28
 WHITE_THRESHOLD = 235
 

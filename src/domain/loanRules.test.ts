@@ -75,4 +75,27 @@ describe("loanRules", () => {
     expect(res.balanceCents).toBe(0);
     expect(res.status).toBe("paid");
   });
+
+  it("deriveLoan con rate=0 (interés 0, sprint 7b-1): saldo = capital, sin NaN", () => {
+    const zeroRateLoan = {
+      id: "1",
+      clientId: "1",
+      principalCents: 100000,
+      rate: 0,
+      termDays: 30,
+      disbursedAt: "2025-01-01",
+      paidOffCents: 0,
+      renewalCount: 0,
+      isPaid: false,
+      createdAt: "2025-01-01T00:00:00Z",
+      updatedAt: "2025-01-01T00:00:00Z",
+    } as Loan;
+
+    const res = deriveLoan(zeroRateLoan, new Date("2025-01-31T00:00:00Z"));
+    expect(res.interestCents).toBe(0);
+    expect(res.totalCents).toBe(100000);
+    expect(res.debtCents).toBe(100000);
+    expect(res.balanceCents).toBe(100000);
+    expect(Number.isNaN(res.balanceCents)).toBe(false);
+  });
 });

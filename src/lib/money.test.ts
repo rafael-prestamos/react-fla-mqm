@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toCents, fromCents, formatSoles } from "./money";
+import { toCents, fromCents, formatSoles, formatRatePercent } from "./money";
 
 describe("money", () => {
   it("converts soles to cents", () => {
@@ -23,5 +23,11 @@ describe("money", () => {
 
   it("formatSoles", () => {
     expect(formatSoles(150000)).toBe("S/ 1,500.00");
+  });
+
+  it("formatRatePercent redondea a 2 decimales (sprint 7b-1)", () => {
+    expect(formatRatePercent(0.0001464557703573)).toBe("0.01%");
+    expect(formatRatePercent(0.2)).toBe("20.00%");
+    expect(formatRatePercent(0)).toBe("0.00%");
   });
 });

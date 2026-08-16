@@ -44,15 +44,24 @@ describe('validateLoanInput', () => {
     expect(resultNegative.errors.principal).toBe("Ingresa un capital válido");
   });
 
-  it('should return error if rate is 0 or > 1', () => {
+  it('acepta interés 0 (sprint 7b-1) pero rechaza negativo o > 1', () => {
     const resultZero = validateLoanInput({
       clientId: "c1",
       principalCents: 100000,
       rate: 0,
       termDays: 30
     });
-    expect(resultZero.ok).toBe(false);
-    expect(resultZero.errors.rate).toBe("Ingresa un interés válido");
+    expect(resultZero.ok).toBe(true);
+    expect(resultZero.errors.rate).toBeUndefined();
+
+    const resultNegative = validateLoanInput({
+      clientId: "c1",
+      principalCents: 100000,
+      rate: -0.1,
+      termDays: 30
+    });
+    expect(resultNegative.ok).toBe(false);
+    expect(resultNegative.errors.rate).toBe("Ingresa un interés válido");
 
     const resultTooHigh = validateLoanInput({
       clientId: "c1",

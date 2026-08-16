@@ -6,7 +6,7 @@ import {
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
-import { formatSoles, toCents } from "./lib/money";
+import { formatSoles, formatRatePercent, toCents } from "./lib/money";
 import { formatShort, addDays, startOfToday, toIsoDate } from "./lib/dates";
 import { downloadBlob } from "./lib/downloadBlob";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -541,7 +541,7 @@ export default function App() {
                       {theirs.map((r) => (
                         <div className="h" key={r.loan.id}>
                           <span>
-                            {formatShort(r.d.disbursedDate)} · {formatSoles(r.loan.principalCents)} al {r.loan.rate * 100}%
+                            {formatShort(r.d.disbursedDate)} · {formatSoles(r.loan.principalCents)} al {formatRatePercent(r.loan.rate)}
                             {r.loan.renewalCount > 0 ? ` · renovó ${r.loan.renewalCount}×` : ""}
                           </span>
                           <span className="num" style={{ color: r.loan.isPaid ? "var(--good)" : "var(--ink)" }}>
@@ -703,7 +703,7 @@ function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onE
         <div className="who">
           <div className="nm">{client.name}</div>
           <div className="sub">
-            {formatSoles(loan.principalCents)} al {loan.rate * 100}% · {loan.termDays} días
+            {formatSoles(loan.principalCents)} al {formatRatePercent(loan.rate)} · {loan.termDays} días
             {loan.renewalCount > 0 ? ` · renovó ${loan.renewalCount}×` : ""}
           </div>
         </div>
@@ -714,7 +714,7 @@ function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onE
       </div>
       <div className="preview" style={{ margin: 0 }}>
         <div className="r"><span>Entrega → Pago</span><span className="num">{formatShort(d.disbursedDate)} → {formatShort(d.dueDate)}</span></div>
-        <div className="r"><span>Interés ({loan.rate * 100}%)</span><span className="num">{formatSoles(d.interestCents)}</span></div>
+        <div className="r"><span>Interés ({formatRatePercent(loan.rate)})</span><span className="num">{formatSoles(d.interestCents)}</span></div>
         {d.lateInterestCents > 0 && (
           <div className="r" style={{ color: "var(--bad)" }}>
             <span>Interés por atraso (×{d.latePeriods})</span><span className="num">{formatSoles(d.lateInterestCents)}</span>
@@ -885,8 +885,8 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
               <div className="field" style={{ flex: 1 }}>
                 <label>Interés (S/)</label>
                 <input className="inp num" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} placeholder="200.00" />
-                {principalCents > 0 && interestCents > 0 && (
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {(rate * 100).toFixed(1)}%</div>
+                {principalCents > 0 && interestCents >= 0 && (
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {formatRatePercent(rate)}</div>
                 )}
                 {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
               </div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, User, Download, Pencil, Trash2, FileDown, Banknote } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
-import { formatSoles } from "../lib/money";
+import { formatSoles, formatRatePercent } from "../lib/money";
 import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
 import { settingsRepo } from "../repositories/settingsRepo";
 import { downloadBlob } from "../lib/downloadBlob";
@@ -187,7 +187,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                 <div key={loan.id} className="preview" style={{ marginBottom: 12 }}>
                   <div className="r" style={{ fontWeight: 600 }}>
                     <span>Préstamo {formatShort(new Date(loan.disbursedAt))}</span>
-                    <span>{formatSoles(loan.principalCents)} al {loan.rate * 100}%{loan.editedAt && <span className="badge-edited">editado</span>}</span>
+                    <span>{formatSoles(loan.principalCents)} al {formatRatePercent(loan.rate)}{loan.editedAt && <span className="badge-edited">editado</span>}</span>
                   </div>
                   <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
                     {isActive && (

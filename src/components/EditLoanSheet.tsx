@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Loan } from "../types/domain";
 import { LOAN_TERM_PRESETS, isValidLoanTerm } from "../domain/loanTerm";
-import { fromCents, toCents } from "../lib/money";
+import { fromCents, toCents, formatRatePercent } from "../lib/money";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
 
 interface Props { loan: Loan; onClose: () => void; onSave: (patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>) => Promise<void>; }
@@ -22,7 +22,7 @@ export function EditLoanSheet({ loan, onClose, onSave }: Props) {
     const principalCents = toCents(Number(principal));
     const interestCents = toCents(Number(interestAmount));
     const rate = principalCents > 0 ? interestCents / principalCents : 0;
-    if (principalCents <= 0 || interestCents <= 0 || !isValidLoanTerm(termDays) || !disbursedAt) return setError("Revisa monto, interés, plazo y fecha");
+    if (principalCents <= 0 || interestCents < 0 || !isValidLoanTerm(termDays) || !disbursedAt) return setError("Revisa monto, interés, plazo y fecha");
     const patch = { principalCents, rate, termDays, disbursedAt };
     setSaving(true);
     try { await onSave(patch); onClose(); } finally { setSaving(false); }
@@ -38,8 +38,8 @@ export function EditLoanSheet({ loan, onClose, onSave }: Props) {
     <div className="field">
       <label>Interés (S/)</label>
       <input className="inp" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} />
-      {principalCents > 0 && interestCents > 0 && (
-        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {(rate * 100).toFixed(1)}%</div>
+      {principalCents > 0 && interestCents >= 0 && (
+        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {formatRatePercent(rate)}</div>
       )}
     </div>
     <div className="field"><label>Plazo (días)</label><div className="term-input-wrap"><input className="inp num" type="number" min={1} max={365} value={termDays} onChange={(event) => setTermDays(Number(event.target.value))} /><div className="term-presets">{LOAN_TERM_PRESETS.map((day) => <button key={day} type="button" className={`term-preset-btn${termDays === day ? " active" : ""}`} onClick={() => setTermDays(day)}>{day}d</button>)}</div></div></div>

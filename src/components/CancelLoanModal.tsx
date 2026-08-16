@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { Loan, Payment } from "../types/domain";
-import { formatSoles } from "../lib/money";
+import { formatSoles, formatRatePercent } from "../lib/money";
 import { formatShort } from "../lib/dates";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
 
@@ -15,7 +15,7 @@ export function CancelLoanModal({ loan, payments, onClose, onConfirm }: Props) {
   async function handleConfirm() { setSaving(true); try { await onConfirm(reason.trim() || undefined); onClose(); } finally { setSaving(false); } }
   return <div className="ovl" onClick={onClose}><div ref={modalRef} className="cancel-modal" onClick={(event) => event.stopPropagation()}>
     <h4>¿Anular préstamo?</h4>
-    <div>{formatSoles(loan.principalCents)} al {loan.rate * 100}% · {formatShort(new Date(loan.disbursedAt))}</div>
+    <div>{formatSoles(loan.principalCents)} al {formatRatePercent(loan.rate)} · {formatShort(new Date(loan.disbursedAt))}</div>
     {payments.length > 0 && <div className="affected"><b>También se anularán estos pagos:</b>{payments.map((payment) => <div key={payment.id}>• {formatShort(new Date(payment.paidAt))} — {formatSoles(payment.amountCents)} ({payment.type})</div>)}</div>}
     <div className="field"><label>Motivo (opcional)</label><textarea className="inp" value={reason} onChange={(event) => setReason(event.target.value)} /></div>
     <div className="confirm-input"><label>Escribe ELIMINAR para confirmar</label><input className="inp" value={confirmation} placeholder="ELIMINAR" onChange={(event) => setConfirmation(event.target.value)} /></div>

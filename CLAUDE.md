@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) + Hotfix pre-release-mora-off (mora desactivada) + Sprint sync-log (log de errores de sync en Ajustes) — 160 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main` — la discrepancia de mora quedó resuelta apagando el flag (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
+Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) + Hotfix pre-release-mora-off (mora desactivada) + Sprint sync-log (log de errores de sync en Ajustes) + Sprint 7b-1 (interés 0 permitido + formateo % a 2 decimales) — 163 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main` — la discrepancia de mora quedó resuelta apagando el flag (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
 
 
 **Stack y Arquitectura:**
@@ -35,7 +35,7 @@ Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-s
 El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts`. **El flag está en `false` desde el Hotfix pre-release-mora-off** — se desactivó explícitamente por instrucción de Giancarlo antes del release a producción, ya que la confirmación verbal de la clienta que exigía el Sprint 3 nunca quedó registrada por escrito. **No cambiar su comportamiento (ni a `true` ni a `false`) sin instrucción EXPLÍCITA de Giancarlo**; reactivar (`true`) solo con confirmación escrita de Fla.
 
 **Reglas de Negocio (Resumen):**
-- **Interés simple**: (capital × tasa), no es compuesto.
+- **Interés simple**: (capital × tasa), no es compuesto. **Tasa 0 es válida** (sprint 7b-1) — un préstamo puede tener 0% de interés.
 - **Plazos**: Libre entre 1 y 365 días enteros. Presets rápidos: 25, 28, 30 días (sprint 6a-4). Constantes: `LOAN_TERM_MIN`, `LOAN_TERM_MAX`, `LOAN_TERM_PRESETS` y funciones `isValidLoanTerm` / `assertValidLoanTerm` en `src/domain/loanTerm.ts`.
 
 - **Tolerancia**: 7 días de gracia (atraso) sin penalidad.
@@ -123,6 +123,9 @@ El avatar del header abre `ProfileSheet` desde cualquier pestaña. Consolida nom
 
 **Log de sincronización en Ajustes (Sprint sync-log):**
 `OutboxOp.lastError` (Dexie v7) guarda el mensaje del último error de Supabase; `pushOutbox()` lo escribe en cada fallo y lo limpia en cada éxito, sin tocar el resto de la lógica de push/pull. Nuevo `SyncLogSheet` (`src/components/settings/SyncLogSheet.tsx`, mismo patrón visual que `SettingsSheet`) lista los entries con `retryCount > 0` o `failedAt` (tabla, operación, `entityId` truncado, `lastError`, badge rojo "Descartado" si es dead-letter) con botones "Reintentar" individual y "Reintentar todos" — ambos usan `retryDeadLetter`/`retryAllDeadLetters` (nuevas en `outbox.ts`, solo resetean `retryCount`/`failedAt`/`lastError`) y disparan `forcePush()` de `useSync()` para reintentar de inmediato. Accesible desde `SettingsSheet` → botón "Log de sincronización" (deshabilitado + "Sin errores" si no hay entries con error; badge rojo con la cantidad si hay). `App.tsx` sigue el patrón cierra-actual-abre-siguiente ya usado entre Perfil/Ajustes.
+
+**Interés 0 + formateo de porcentaje a 2 decimales (Sprint 7b-1):**
+`validateLoanInput`/`validateLoanBackfillInput` pasan de `rate <= 0` a `rate < 0` — un préstamo puede tener 0% de interés (nuevo, editado o histórico). `EditLoanSheet` mismo cambio en su gate de guardado (`interestCents <= 0` → `< 0`). `loanRules.ts`/`loanPayment.ts` ya soportaban `rate=0` sin cambios (solo multiplican, nunca dividen por `rate`). Nuevo `formatRatePercent` en `src/lib/money.ts` (`(rate*100).toFixed(2)+"%"`) reemplaza los usos sueltos de `loan.rate * 100` en `App.tsx`, `EditLoanSheet.tsx`, `ClientDetailSheet.tsx`, `CancelLoanModal.tsx` y los 3 PDFs que muestran tasa (`StatementPdf`, `PaymentReceiptPdf`, `ClientHistoryPdf`) — antes mostraban decimales largos sin redondear. `rate` se sigue guardando con toda su precisión; el redondeo es solo de presentación.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

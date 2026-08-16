@@ -16,3 +16,6 @@ export const formatSoles = (cents: number): string =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+/** Formatea una tasa decimal (0.20 = 20%) como "20.00%", a 2 decimales. */
+export const formatRatePercent = (rate: number): string => (rate * 100).toFixed(2) + "%";

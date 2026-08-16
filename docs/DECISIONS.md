@@ -56,8 +56,10 @@ más sólido. (La familiaridad con Next fue el único punto a favor de Next.)
 ### ⚠️ Regla de MAYOR riesgo — mora por atraso (interés extra)
 Pasados los 7 días corre **1 interés adicional por cada 30 días** de atraso
 (sobre el capital). Implementada tras el flag `LATE_INTEREST_ENABLED` en
-`src/domain/loanRules.ts`. **Pendiente de CONFIRMACIÓN VERBAL con la clienta
-antes de activarla en firme en Sprint 3.**
+`src/domain/loanRules.ts`. **`LATE_INTEREST_ENABLED = false` desde el hotfix
+pre-release-mora-off — desactivada explícitamente antes del primer release a
+producción, por falta de confirmación escrita de Fla (ver sección al final del
+documento). Reactivar solo con esa confirmación.**
 
 ### Sprint 2: Modelo de pagos y Onboarding de cartera activa
 - **Orden de abonos (partial):** Primero cubren el interés pendiente del ciclo actual. El sobrante reduce el capital (saldo).
@@ -353,3 +355,11 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Fix — dead-letter con reintentos acotados:** cada `OutboxOp` ahora tiene `retryCount?: number` y `failedAt?: string` (Dexie v6, `src/db/database.ts` — sin upgrade handler, los campos nuevos quedan `undefined` en registros existentes). En cada fallo, `pushOutbox()` loguea `console.error("[SYNC ERROR]", {...})`, incrementa `retryCount` y **no hace `break`** — sigue con el siguiente registro. Al llegar a 5 reintentos fallidos, el registro se marca `failedAt` (dead-letter) y sale de la cola activa; `pendingOps()` filtra `!entry.syncedAt && !entry.failedAt`.
 - **UI:** `pushOutbox()` retorna `{ synced, errors, deadLettered, total }`. `SyncEngine.tsx` muestra un toast diferenciado cuando `deadLettered > 0` ("X cambios no se pudieron enviar tras varios intentos"), distinto del toast genérico de error transitorio.
 - **No se tocó:** mappers, `pull.ts`, ni ninguna regla de negocio. Los registros dead-letter no se borran — quedan en `db.outbox` marcados, recuperables a futuro si se decide reintentar manualmente o exponer una UI de revisión.
+
+### Hotfix pre-release-mora-off: Desactivar mora antes de release
+
+- **Cambio:** `LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts` pasa de `true` a `false`, por instrucción explícita de Giancarlo.
+- **Mora desactivada explícitamente antes del primer release a producción. Se reactiva solo con confirmación escrita de Fla.** Resuelve (a favor de "apagada") la discrepancia documentada en `HANDOFF.md` — el flag estaba en `true` en el código sin que existiera constancia escrita de la confirmación verbal de la clienta que el Sprint 3 exigía.
+- **Efecto:** `computeLatePeriods()` retorna siempre 0, sin importar el atraso — ningún préstamo acumula interés extra por mora. El resto de las reglas (interés simple, tolerancia de 7 días, clasificación bueno/se demora/mal pagador) no cambia.
+- **Tests actualizados:** `loanRules.test.ts`, `loanPayment.test.ts` y `loanBackfill.test.ts` tenían casos que asumían `LATE_INTEREST_ENABLED=true` (interés extra por atraso); se actualizaron sus expectativas al comportamiento real con el flag en `false`, dejando comentado el valor esperado si se reactiva a futuro.
+- **No se tocó** ninguna otra regla de negocio, UI, ni el status `"lateInterest"` de `deriveLoan` (ese label de estado se sigue mostrando según días de atraso, independiente del flag — comportamiento preexistente, no modificado en este hotfix).

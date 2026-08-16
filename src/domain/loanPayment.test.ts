@@ -83,13 +83,14 @@ describe("loanPayment", () => {
     expect(res.updatedLoan.isPaid).toBe(false);
   });
 
-  it("6. interest con mora", () => {
-    // 2025-02-15 = 15 días de atraso sobre 2025-01-31.
-    // periodos de atraso = 1 => 20k de mora. Total interés: 40k.
+  it("6. interest con mora (LATE_INTEREST_ENABLED=false: sin recargo, solo interés base)", () => {
+    // 2025-02-15 = 15 días de atraso sobre 2025-01-31. Con la mora desactivada
+    // pre-release, no corre el período extra de interés (sería 20k de mora, total 40k
+    // si LATE_INTEREST_ENABLED volviera a true).
     const reference = new Date("2025-02-15T00:00:00Z");
     const res = applyPayment({ loan: baseLoan, type: "interest", amountCents: 0, method: "cash", reference });
-    expect(res.paymentRecord.amountCents).toBe(40000);
-    expect(res.paymentRecord.interestPaidCents).toBe(40000);
+    expect(res.paymentRecord.amountCents).toBe(20000);
+    expect(res.paymentRecord.interestPaidCents).toBe(20000);
     expect(res.paymentRecord.principalPaidCents).toBe(0);
     expect(res.updatedLoan.renewalCount).toBe(1);
     expect(res.updatedLoan.paidOffCents).toBe(0);
@@ -121,15 +122,16 @@ describe("loanPayment", () => {
     expect(res.updatedLoan.paidOffCents).toBe(120000);
   });
 
-  it("9. full con mora", () => {
+  it("9. full con mora (LATE_INTEREST_ENABLED=false: sin recargo, solo interés base)", () => {
     const reference = new Date("2025-02-15T00:00:00Z");
     const res = applyPayment({ loan: baseLoan, type: "full", amountCents: 0, method: "cash", reference });
-    
-    // Interés total: 40k. Balance: 140k
-    expect(res.paymentRecord.amountCents).toBe(140000);
-    expect(res.paymentRecord.interestPaidCents).toBe(40000);
+
+    // Con la mora desactivada pre-release: interés total 20k, balance 120k
+    // (sería interés 40k, balance 140k si LATE_INTEREST_ENABLED volviera a true).
+    expect(res.paymentRecord.amountCents).toBe(120000);
+    expect(res.paymentRecord.interestPaidCents).toBe(20000);
     expect(res.paymentRecord.principalPaidCents).toBe(100000);
     expect(res.updatedLoan.isPaid).toBe(true);
-    expect(res.updatedLoan.paidOffCents).toBe(140000);
+    expect(res.updatedLoan.paidOffCents).toBe(120000);
   });
 });

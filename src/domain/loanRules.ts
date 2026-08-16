@@ -22,8 +22,8 @@ import { addDays, diffDays, startOfToday } from "../lib/dates";
 export const GRACE_DAYS = 7;
 export const LATE_PERIOD_DAYS = 30;
 
-/** ⚠️ Apagar hasta la confirmación verbal del cliente (Sprint 3). */
-export const LATE_INTEREST_ENABLED: boolean = true;
+/** ⚠️ Desactivada explícitamente antes del release a producción — sin confirmación escrita de Fla. Reactivar solo con esa confirmación. */
+export const LATE_INTEREST_ENABLED: boolean = false;
 
 /** Umbrales de clasificación automática del cliente (en días de atraso). */
 export const SLOW_PAYER_DAYS = 7;

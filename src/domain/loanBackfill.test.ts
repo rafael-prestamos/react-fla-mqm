@@ -68,7 +68,7 @@ describe('loanBackfill', () => {
       expect(loan.disbursedAt).toBe("2025-01-20");
     });
 
-    it('4. Con mora activa (LATE_INTEREST_ENABLED=true) - atraso 10 días', () => {
+    it('4. Atraso 10 días (LATE_INTEREST_ENABLED=false: sin recargo de mora)', () => {
       const refDate = new Date("2025-02-05T00:00:00Z");
       // termDays: 30. dueDate = lastCycleStart + 30.
       // diffDays(refDate, dueDate) = 10.
@@ -81,15 +81,17 @@ describe('loanBackfill', () => {
         termDays: 30,
         lastCycleStart: "2024-12-27",
         renewalCount: 0,
-        outstandingBalanceCents: 140000, // debt = 100000 + 20000 (interest) + 20000 (late interest) = 140000
+        // debt = 100000 + 20000 (interest) = 120000 (mora desactivada pre-release,
+        // sería +20000 de mora extra = 140000 si LATE_INTEREST_ENABLED volviera a true).
+        outstandingBalanceCents: 120000,
         reference: refDate
       };
-      
+
       const { loan, syntheticPayment } = buildLoanBackfill(input, refDate);
       expect(loan.paidOffCents).toBe(0);
       expect(syntheticPayment).toBeNull();
-      
-      const inputPartial: LoanBackfillInput = { ...input, outstandingBalanceCents: 100000 };
+
+      const inputPartial: LoanBackfillInput = { ...input, outstandingBalanceCents: 80000 };
       const resPartial = buildLoanBackfill(inputPartial, refDate);
       expect(resPartial.loan.paidOffCents).toBe(40000);
       expect(resPartial.syntheticPayment?.amountCents).toBe(40000);

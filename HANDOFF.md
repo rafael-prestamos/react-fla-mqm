@@ -1,4 +1,4 @@
-# Handoff: Fla MpM — post sprint 7a-6, pre-release develop→main
+# Handoff: Fla MpM — post hotfix pre-release-mora-off, pre-release develop→main
 
 ## Contexto proyecto
 
@@ -46,8 +46,10 @@ Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), mon
 | hotfix | #22 | Loguear errores reales (`console.error`) en los 3 handlers de descarga de PDF — investigación del bug de Historial de ELVIA PÉREZ                |
 | hotfix | #23 | **Causa raíz confirmada y arreglada**: `fontStyle:"italic"` inválido en badge "(editado)" de `ClientHistoryPdf` (combinaba mal con `fontFamily:"Helvetica-Bold"` heredado) — rompía la descarga solo para préstamos editados-y-anulados |
 | 7a-6   | #24 | Búsqueda por cliente en tab Préstamos (mismo patrón que Clientes)                                                                                |
+| hotfix | #26 | Dead-letter en outbox: `pushOutbox()` ya no bloquea toda la cola ante un registro con error; logueo + reintentos acotados (5) antes de marcar `failedAt` |
+| hotfix | —   | **Mora desactivada explícitamente pre-release**: `LATE_INTEREST_ENABLED = false` por instrucción directa de Giancarlo (ver sección MORA abajo, ahora resuelta) |
 
-Tests: **152/152**. Build limpio. CI verde en todos los PRs mergeados.
+Tests: **156/156**. Build limpio. CI verde en todos los PRs mergeados.
 
 ## Estado de migraciones SQL
 
@@ -76,20 +78,20 @@ Confirmado por Giancarlo. Checklist ejecutado (referencia completa en `docs/DEPL
 
 No queda ningún paso manual pendiente para este sprint.
 
-## ⚠️ MORA (LATE_INTEREST_ENABLED) — discrepancia sin resolver
+## ⚠️ MORA (LATE_INTEREST_ENABLED) — discrepancia RESUELTA (desactivada)
 
-Flag en `src/domain/loanRules.ts`, actualmente **`true`** en código (mora activa: 7 días de gracia + 1 interés extra cada 30 días de atraso sobre el capital, no compuesto).
+Flag en `src/domain/loanRules.ts`, ahora **`false`** en código (sin mora: sin importar el atraso, `computeLatePeriods()` retorna siempre 0 — no corre interés extra sobre el capital).
 
-**Esto NO es una confirmación registrada.** Al revisar esto explícitamente con Giancarlo (2026-08-16): no hay confirmación verbal real de Fla documentada en ningún lado — el flag en `true` es una discrepancia entre el código y lo que dicen `CLAUDE.md`/`GEMINI.md`/`docs/DECISIONS.md §9`, no una decisión tomada conscientemente.
+**Resuelta el 2026-08-16 con instrucción EXPLÍCITA de Giancarlo** (hotfix `pre-release-mora-off`): como nunca quedó registrada una confirmación verbal real de Fla sobre la mora, se optó por apagar el flag antes del release en vez de dejarlo en `true` sin respaldo. `docs/DECISIONS.md`/`CLAUDE.md`/`GEMINI.md` ya reflejan el estado actual (`false`).
 
-**NO ACTIVAR/DESACTIVAR (ni a `true` ni a `false`) sin instrucción EXPLÍCITA de Giancarlo.** Antes de cualquier release a producción o de confiar en los cálculos de mora, resolver esta discrepancia: confirmar con Fla y dejar constancia por escrito de la decisión (o corregir el flag si nunca hubo tal confirmación).
+**NO ACTIVAR (`true`) sin confirmación escrita de Fla** — si Fla confirma la mora en el futuro, reactivar el flag es un cambio de negocio deliberado, no un hotfix; requiere instrucción EXPLÍCITA de Giancarlo y dejar constancia de la confirmación.
 
 ## Backlog priorizado
 
 | #   | Tarea                                  | Estado                                                                 |
 | --- | --------------------------------------- | ----------------------------------------------------------------------- |
-| 1   | Resolver discrepancia de mora           | **Bloqueante para release tranquilo** — solo cuando Giancarlo confirme el estado real con Fla |
-| 2   | Release `develop`→`main`                | Código y deploy de push notifs listos; pendiente de la decisión de mora arriba |
+| 1   | Resolver discrepancia de mora           | ✅ Resuelta 2026-08-16 — flag apagado (`false`) por instrucción de Giancarlo |
+| 2   | Release `develop`→`main`                | Código y deploy de push notifs listos; sin bloqueantes conocidos — pendiente solo de que Giancarlo dispare el release manual |
 | 3   | Observación cosmética (línea tachada)   | Baja prioridad, ver abajo                                                |
 
 ## Observación cosmética abierta

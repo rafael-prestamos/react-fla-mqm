@@ -4,12 +4,14 @@ import type { Loan } from "../types/domain";
 
 describe("loanRules", () => {
   it("computeLatePeriods", () => {
-    // ⚠️ PROVISIONAL: Esta regla asume LATE_INTEREST_ENABLED=true. Está pendiente de confirmación verbal antes de Sprint 3.
+    // ⚠️ LATE_INTEREST_ENABLED=false (desactivada pre-release, sin confirmación escrita de Fla):
+    // siempre 0, sin importar el atraso. Si se reactiva el flag, restaurar estas expectativas:
+    // computeLatePeriods(8) === 1, computeLatePeriods(37) === 1, computeLatePeriods(38) === 2.
     expect(computeLatePeriods(0)).toBe(0);
     expect(computeLatePeriods(7)).toBe(0);
-    expect(computeLatePeriods(8)).toBe(1);
-    expect(computeLatePeriods(37)).toBe(1);
-    expect(computeLatePeriods(38)).toBe(2);
+    expect(computeLatePeriods(8)).toBe(0);
+    expect(computeLatePeriods(37)).toBe(0);
+    expect(computeLatePeriods(38)).toBe(0);
   });
 
   it("classifyByMaxDaysLate", () => {
@@ -45,11 +47,12 @@ describe("loanRules", () => {
     expect(res.status).toBe("dueToday");
 
     // reference "2025-02-10T00:00:00Z" -> daysLate=10
+    // LATE_INTEREST_ENABLED=false: latePeriods/lateInterestCents en 0 (mora desactivada pre-release).
     res = deriveLoan(baseLoan, new Date("2025-02-10T00:00:00Z"));
     expect(res.daysLate).toBe(10);
-    expect(res.latePeriods).toBe(1);
-    expect(res.lateInterestCents).toBe(20000);
-    expect(res.debtCents).toBe(140000);
+    expect(res.latePeriods).toBe(0);
+    expect(res.lateInterestCents).toBe(0);
+    expect(res.debtCents).toBe(120000);
     expect(res.status).toBe("lateInterest");
 
     // reference "2025-02-05T00:00:00Z" -> daysLate=5

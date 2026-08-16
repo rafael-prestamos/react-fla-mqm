@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User, Download, Pencil, Trash2 } from "lucide-react";
+import { X, User, Download, Pencil, Trash2, FileDown } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles } from "../lib/money";
 import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
@@ -8,6 +8,7 @@ import { downloadBlob } from "../lib/downloadBlob";
 import { sanitizeFilename } from "../lib/sanitizeFilename";
 import { useToast } from "../ui/ToastContext";
 import { deriveLoan } from "../domain/loanRules";
+import { balanceCentsAfterPayment } from "../domain/loanBalanceHistory";
 import { WhatsappButton } from "./WhatsappButton";
 import { EditClientSheet } from "./EditClientSheet";
 import { EditLoanSheet } from "./EditLoanSheet";
@@ -32,6 +33,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
   const toast = useToast();
   const [generatingStatement, setGeneratingStatement] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
+  const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState(false);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
@@ -90,6 +92,39 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
       toast.error("No se pudo generar el historial");
     } finally {
       setGeneratingHistory(false);
+    }
+  }
+
+  /** Re-descarga el comprobante de un pago ya registrado (Sprint 7a-4). Reutiliza PaymentReceiptPdf tal cual. */
+  async function handleDownloadReceipt(loan: Loan, targetPayment: Payment) {
+    setDownloadingReceiptId(targetPayment.id);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const loanPayments = payments.filter((p) => p.loanId === loan.id);
+      const balanceAfter = balanceCentsAfterPayment(loan, loanPayments, targetPayment.id);
+      const [{ pdf }, { PaymentReceiptPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../pdf/PaymentReceiptPdf"),
+      ]);
+      const blob = await pdf(
+        <PaymentReceiptPdf
+          business={business}
+          client={client}
+          loan={loan}
+          payment={targetPayment}
+          balanceCentsAfterPayment={balanceAfter}
+        />
+      ).toBlob();
+      downloadBlob(blob, `Comprobante_${sanitizeFilename(client.name)}_${toIsoDate(new Date(targetPayment.paidAt))}.pdf`);
+      toast.success("Comprobante descargado");
+    } catch {
+      toast.error("No se pudo generar el comprobante");
+    } finally {
+      setDownloadingReceiptId(null);
     }
   }
 
@@ -196,6 +231,13 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                           </span>
                           <span className="num" style={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
                             {formatSoles(p.amountCents)}{p.editedAt && <span className="badge-edited">editado</span>}
+                            <button
+                              className="btn"
+                              aria-label="Descargar comprobante"
+                              onClick={() => void handleDownloadReceipt(loan, p)}
+                              disabled={downloadingReceiptId === p.id}
+                              style={{ background: "transparent", padding: 2, color: "var(--navy)", opacity: downloadingReceiptId === p.id ? 0.5 : 1 }}
+                            ><FileDown size={13} /></button>
                             <button className="btn" aria-label="Editar pago" onClick={() => setEditingPayment(p)} style={{ background: "transparent", padding: 2, color: "var(--muted)" }}><Pencil size={13} /></button>
                             {index === 0 && <button className="btn" aria-label="Anular pago" onClick={() => setCancellingPayment(p)} style={{ background: "transparent", padding: 2, color: "var(--color-status-bad)" }}><Trash2 size={13} /></button>}
                           </span>

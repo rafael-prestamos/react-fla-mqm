@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) — 156 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main`, pendiente solo de la confirmación de mora (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
+Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) + Hotfix pre-release-mora-off (mora desactivada) — 156 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main` — la discrepancia de mora quedó resuelta apagando el flag (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
 
 
 **Stack y Arquitectura:**
@@ -32,7 +32,7 @@ Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-s
 3. **Modo solo-local**: La aplicación debe poder seguir corriendo 100% sin Supabase si es necesario.
 
 **⚠️ Regla de Mayor Riesgo:**
-El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts`. **El flag está en `true` en el código actual**, pero la confirmación verbal de la clienta que exige el Sprint 3 nunca quedó registrada — es una discrepancia sin resolver, no una activación confirmada. **No cambiar su comportamiento (ni a `true` ni a `false`) sin instrucción EXPLÍCITA de Giancarlo**, y verificar con él si Fla dio esa confirmación antes de confiar en los cálculos de mora en producción.
+El interés por mora vive tras el flag `LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts`. **El flag está en `false` desde el Hotfix pre-release-mora-off** — se desactivó explícitamente por instrucción de Giancarlo antes del release a producción, ya que la confirmación verbal de la clienta que exigía el Sprint 3 nunca quedó registrada por escrito. **No cambiar su comportamiento (ni a `true` ni a `false`) sin instrucción EXPLÍCITA de Giancarlo**; reactivar (`true`) solo con confirmación escrita de Fla.
 
 **Reglas de Negocio (Resumen):**
 - **Interés simple**: (capital × tasa), no es compuesto.
@@ -117,6 +117,9 @@ El avatar del header abre `ProfileSheet` desde cualquier pestaña. Consolida nom
 
 **Dead-letter en outbox (Hotfix fix-sync-deadlock):**
 `pushOutbox()` (`src/sync/outbox.ts`) ya no hace `break` ante el primer registro que falla — un registro con error quedaba bloqueando toda la cola para siempre. Cada fallo se loguea con `console.error("[SYNC ERROR]", {...})`, incrementa `retryCount` en el `OutboxOp` (Dexie v6, campos `retryCount?`/`failedAt?` en `src/db/database.ts`) y sigue con el siguiente registro. Al llegar a 5 reintentos, el registro se marca `failedAt` (dead-letter, sale de la cola activa vía `pendingOps()`) pero no se borra. `pushOutbox()` retorna `{ synced, errors, deadLettered, total }`; `SyncEngine.tsx` muestra un toast diferenciado cuando hay `deadLettered > 0`. No toca mappers ni `pull.ts`.
+
+**Mora desactivada pre-release (Hotfix pre-release-mora-off):**
+`LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts` pasa de `true` a `false` por instrucción explícita de Giancarlo, para poder liberar `develop`→`main` sin depender de una confirmación de mora que nunca quedó registrada por escrito (ver "Regla de Mayor Riesgo" arriba). `computeLatePeriods()` ahora retorna siempre 0 — ningún préstamo acumula interés extra por atraso; el resto de las reglas (interés simple, tolerancia de 7 días, clasificación de cliente) no cambia. Se actualizaron las expectativas de `loanRules.test.ts`, `loanPayment.test.ts` y `loanBackfill.test.ts` que asumían el flag en `true`, dejando comentado el valor esperado si se reactiva a futuro.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

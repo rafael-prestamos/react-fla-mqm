@@ -3,7 +3,7 @@ import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
-import { startOfToday } from "../lib/dates";
+import { startOfToday, parseLocalDate } from "../lib/dates";
 import { deriveLoan } from "../domain/loanRules";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime } from "./formatters";
 
@@ -102,7 +102,7 @@ interface Props {
 }
 
 export function StatementPdf({ business, client, loans, payments, reference = startOfToday() }: Props) {
-  const sortedLoans = [...loans].sort((a, b) => new Date(b.disbursedAt).getTime() - new Date(a.disbursedAt).getTime());
+  const sortedLoans = [...loans].sort((a, b) => parseLocalDate(b.disbursedAt).getTime() - parseLocalDate(a.disbursedAt).getTime());
   const sortedPayments = [...payments].sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
 
   const totalLentCents = loans.reduce((s, l) => s + l.principalCents, 0);

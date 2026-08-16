@@ -7,7 +7,7 @@
 import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
-import { toIsoDate, startOfToday } from "../lib/dates";
+import { toLocalIsoDate, startOfToday } from "../lib/dates";
 import type { Loan, LoanTerm } from "../types/domain";
 import { assertValidLoanTerm } from "../domain/loanTerm";
 
@@ -48,7 +48,7 @@ export const loansRepo = {
       principalCents: input.principalCents,
       rate: input.rate,
       termDays: input.termDays,
-      disbursedAt: toIsoDate(startOfToday()),
+      disbursedAt: toLocalIsoDate(startOfToday()),
       paidOffCents: 0,
       renewalCount: 0,
       isPaid: false,

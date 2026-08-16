@@ -17,7 +17,7 @@
  */
 
 import type { Loan, ClientRating } from "../types/domain";
-import { addDays, diffDays, startOfToday } from "../lib/dates";
+import { addDays, diffDays, startOfToday, parseLocalDate } from "../lib/dates";
 
 export const GRACE_DAYS = 7;
 export const LATE_PERIOD_DAYS = 30;
@@ -64,7 +64,8 @@ export const computeLatePeriods = (daysLate: number): number => {
 
 /** Deriva todos los valores calculados de un préstamo a una fecha de referencia. */
 export const deriveLoan = (loan: Loan, reference: Date = startOfToday()): LoanDerived => {
-  const disbursedDate = new Date(loan.disbursedAt);
+  // disbursedAt es date-only (YYYY-MM-DD) — parsear en zona local, no UTC (ver parseLocalDate).
+  const disbursedDate = parseLocalDate(loan.disbursedAt);
   const dueDate = addDays(disbursedDate, loan.termDays);
   const interestCents = Math.round(loan.principalCents * loan.rate);
   const totalCents = loan.principalCents + interestCents;

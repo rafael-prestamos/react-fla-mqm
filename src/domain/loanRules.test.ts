@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { computeLatePeriods, classifyByMaxDaysLate, deriveLoan } from "./loanRules";
+import { parseLocalDate } from "../lib/dates";
 import type { Loan } from "../types/domain";
 
 describe("loanRules", () => {
@@ -37,8 +38,12 @@ describe("loanRules", () => {
       updatedAt: "2025-01-01T00:00:00Z",
     } as Loan;
 
-    // reference "2025-01-31T00:00:00Z" -> daysLate=0
-    let res = deriveLoan(baseLoan, new Date("2025-01-31T00:00:00Z"));
+    // reference "2025-01-31" -> daysLate=0
+    // Nota: reference se construye con parseLocalDate (no "...T00:00:00Z") porque deriveLoan
+    // ahora parsea disbursedAt en zona local (sprint 7b-2) — en producción la reference real
+    // es siempre startOfToday(), también local; usar un string UTC-Z aquí introduciría un
+    // desfase artificial de zona horaria que no existe en producción.
+    let res = deriveLoan(baseLoan, parseLocalDate("2025-01-31"));
     expect(res.interestCents).toBe(20000);
     expect(res.totalCents).toBe(120000);
     expect(res.daysLate).toBe(0);
@@ -46,32 +51,32 @@ describe("loanRules", () => {
     expect(res.balanceCents).toBe(120000);
     expect(res.status).toBe("dueToday");
 
-    // reference "2025-02-10T00:00:00Z" -> daysLate=10
+    // reference "2025-02-10" -> daysLate=10
     // LATE_INTEREST_ENABLED=false: latePeriods/lateInterestCents en 0 (mora desactivada pre-release).
-    res = deriveLoan(baseLoan, new Date("2025-02-10T00:00:00Z"));
+    res = deriveLoan(baseLoan, parseLocalDate("2025-02-10"));
     expect(res.daysLate).toBe(10);
     expect(res.latePeriods).toBe(0);
     expect(res.lateInterestCents).toBe(0);
     expect(res.debtCents).toBe(120000);
     expect(res.status).toBe("lateInterest");
 
-    // reference "2025-02-05T00:00:00Z" -> daysLate=5
-    res = deriveLoan(baseLoan, new Date("2025-02-05T00:00:00Z"));
+    // reference "2025-02-05" -> daysLate=5
+    res = deriveLoan(baseLoan, parseLocalDate("2025-02-05"));
     expect(res.daysLate).toBe(5);
     expect(res.latePeriods).toBe(0);
     expect(res.status).toBe("grace");
 
-    // reference "2025-01-29T00:00:00Z" -> daysLate=-2
-    res = deriveLoan(baseLoan, new Date("2025-01-29T00:00:00Z"));
+    // reference "2025-01-29" -> daysLate=-2
+    res = deriveLoan(baseLoan, parseLocalDate("2025-01-29"));
     expect(res.daysLate).toBe(-2);
     expect(res.status).toBe("dueSoon");
 
-    // reference "2025-01-20T00:00:00Z" -> active
-    res = deriveLoan(baseLoan, new Date("2025-01-20T00:00:00Z"));
+    // reference "2025-01-20" -> active
+    res = deriveLoan(baseLoan, parseLocalDate("2025-01-20"));
     expect(res.status).toBe("active");
 
     // con isPaid:true -> paid
-    res = deriveLoan({ ...baseLoan, isPaid: true }, new Date("2025-01-31T00:00:00Z"));
+    res = deriveLoan({ ...baseLoan, isPaid: true }, parseLocalDate("2025-01-31"));
     expect(res.balanceCents).toBe(0);
     expect(res.status).toBe("paid");
   });
@@ -91,7 +96,7 @@ describe("loanRules", () => {
       updatedAt: "2025-01-01T00:00:00Z",
     } as Loan;
 
-    const res = deriveLoan(zeroRateLoan, new Date("2025-01-31T00:00:00Z"));
+    const res = deriveLoan(zeroRateLoan, parseLocalDate("2025-01-31"));
     expect(res.interestCents).toBe(0);
     expect(res.totalCents).toBe(100000);
     expect(res.debtCents).toBe(100000);

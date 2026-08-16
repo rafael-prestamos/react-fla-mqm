@@ -7,7 +7,7 @@ import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, formatRatePercent, toCents } from "./lib/money";
-import { formatShort, addDays, startOfToday, toIsoDate } from "./lib/dates";
+import { formatShort, addDays, startOfToday, toIsoDate, parseLocalDate } from "./lib/dates";
 import { downloadBlob } from "./lib/downloadBlob";
 import { useLiveQuery } from "dexie-react-hooks";
 import { clientsRepo } from "./repositories/clientsRepo";
@@ -792,7 +792,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
       };
       // deriveLoan maneja fechas inválidas o NaN si lastCycleStart no está completo devolviendo NaN en calculations.
       // Así que lo validaremos solo si la fecha es más o menos parseable.
-      if (lastCycleStart && !isNaN(new Date(lastCycleStart).getTime())) {
+      if (lastCycleStart && !isNaN(parseLocalDate(lastCycleStart).getTime())) {
         const d = deriveLoan(previewLoan, startOfToday());
         const outCents = toCents(parseFloat(outstandingBalance) || 0);
         const consol = outCents > 0 && d.debtCents > 0 ? d.debtCents - outCents : 0;

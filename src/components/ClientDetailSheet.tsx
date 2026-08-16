@@ -2,7 +2,7 @@ import { useState } from "react";
 import { X, User, Download, Pencil, Trash2, FileDown, Banknote } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
-import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
+import { formatShort, startOfToday, toIsoDate, parseLocalDate } from "../lib/dates";
 import { settingsRepo } from "../repositories/settingsRepo";
 import { downloadBlob } from "../lib/downloadBlob";
 import { sanitizeFilename } from "../lib/sanitizeFilename";
@@ -40,7 +40,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [cancellingLoan, setCancellingLoan] = useState<Loan | null>(null);
   const [cancellingPayment, setCancellingPayment] = useState<Payment | null>(null);
-  const sortedLoans = [...loans].sort((a, b) => new Date(b.disbursedAt).getTime() - new Date(a.disbursedAt).getTime());
+  const sortedLoans = [...loans].sort((a, b) => parseLocalDate(b.disbursedAt).getTime() - parseLocalDate(a.disbursedAt).getTime());
 
   /** Patrón: dynamic import — @react-pdf/renderer (~450kb) solo se carga al tocar "Descargar". */
   async function handleDownloadStatement() {
@@ -186,7 +186,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
               return (
                 <div key={loan.id} className="preview" style={{ marginBottom: 12 }}>
                   <div className="r" style={{ fontWeight: 600 }}>
-                    <span>Préstamo {formatShort(new Date(loan.disbursedAt))}</span>
+                    <span>Préstamo {formatShort(parseLocalDate(loan.disbursedAt))}</span>
                     <span>{formatSoles(loan.principalCents)} al {formatRatePercent(loan.rate)}{loan.editedAt && <span className="badge-edited">editado</span>}</span>
                   </div>
                   <div style={{ display: "flex", gap: 7, marginTop: 10 }}>

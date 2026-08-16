@@ -1,7 +1,7 @@
 import type { Loan, Payment } from "../types/domain";
 import { applyPayment } from "./loanPayment";
 import { deriveLoan } from "./loanRules";
-import { addDays } from "../lib/dates";
+import { addDays, parseLocalDate, toLocalIsoDate } from "../lib/dates";
 
 /**
  * Reconstruye el saldo del préstamo justo después de un pago histórico específico,
@@ -17,7 +17,11 @@ export function balanceCentsAfterPayment(loan: Loan, activePayments: Payment[], 
   }
 
   const totalRenewals = chronological.filter((p) => p.type === "interest").length;
-  const originalDisbursedAt = addDays(new Date(loan.disbursedAt), -totalRenewals * loan.termDays).toISOString();
+  // disbursedAt es date-only — parsear/reserializar en local, no UTC, para que siga siendo
+  // parseable por parseLocalDate más abajo (vía deriveLoan/applyPayment).
+  const originalDisbursedAt = toLocalIsoDate(
+    addDays(parseLocalDate(loan.disbursedAt), -totalRenewals * loan.termDays)
+  );
 
   let state: Loan = { ...loan, paidOffCents: 0, renewalCount: 0, isPaid: false, disbursedAt: originalDisbursedAt };
 

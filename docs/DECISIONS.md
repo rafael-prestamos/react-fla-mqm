@@ -305,3 +305,8 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Edge Function:** calcula por cada `owner_id` los préstamos que vencen hoy o están atrasados (misma regla de tolerancia 7 días y mora que `deriveLoan`), compone el mensaje y envía el push; si el envío devuelve 410 (Gone), borra la suscripción vencida. Solo notifica si hay algo que vence hoy o está atrasado — no molesta por préstamos al día.
 - **Lógica de mensaje duplicada a propósito:** `src/domain/dailyBrief.ts` (frontend, toast in-app) y la Edge Function (Deno) no comparten código — son runtimes distintos sin forma práctica de compartir un módulo entre Vite/browser y Supabase Edge Functions.
 - **Deploy manual, no ejecutado por el agente:** aplicar la migración, desplegar la Edge Function, configurar secrets VAPID y habilitar `pg_cron`/`pg_net` requieren el Supabase CLI autenticado y acceso a dashboards — ver checklist en `docs/DEPLOY_PUSH.md`.
+
+### Sprint 7a-1: Header Hoy — logo más grande, sin saludo
+
+- **Solo presentación** en el header navy de la pestaña Hoy (`App.tsx`): el logo (`BrandLogo`) pasa de 18px a 64px; se elimina el saludo ("Buen día · fecha · hora") y la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo.
+- **No afecta** el toast del brief diario (`src/domain/dailyBrief.ts`) ni los mini-cards "Vencen hoy"/"Atrasados", que se mantienen sin cambios.

@@ -4,6 +4,7 @@ import type { BusinessSettings } from "../types/domain";
 import { settingsRepo } from "../repositories/settingsRepo";
 import { useToast } from "../ui/ToastContext";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
+import { isPushSubscribed, subscribeToPush } from "../push/pushSubscription";
 
 interface Props {
   open: boolean;
@@ -22,6 +23,20 @@ export function SettingsSheet({ open, onClose }: Props) {
   const [initial, setInitial] = useState<EditableFields | null>(null);
   const [form, setForm] = useState<EditableFields | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [togglingPush, setTogglingPush] = useState(false);
+
+  useEffect(() => {
+    void isPushSubscribed().then(setPushEnabled);
+  }, []);
+
+  async function handleTogglePush() {
+    if (pushEnabled) return; // desactivar requiere ir a la config de notificaciones del navegador
+    setTogglingPush(true);
+    const ok = await subscribeToPush();
+    setPushEnabled(ok);
+    setTogglingPush(false);
+  }
 
   async function load() {
     setStatus("loading");
@@ -203,6 +218,20 @@ export function SettingsSheet({ open, onClose }: Props) {
                   />
                 </div>
                 <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 8 }}>{HELPER_TEXT}</div>
+              </div>
+
+              <div className="pf-sect">Notificaciones</div>
+              <div className="field" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={{ flex: 1 }}>Notificaciones diarias (7am)</label>
+                <button
+                  type="button"
+                  className={`btn ${pushEnabled ? "btn-p" : ""}`}
+                  disabled={pushEnabled || togglingPush}
+                  onClick={() => void handleTogglePush()}
+                  style={{ minWidth: 90 }}
+                >
+                  {togglingPush ? "Activando…" : pushEnabled ? "Activadas" : "Activar"}
+                </button>
               </div>
             </>
           )}

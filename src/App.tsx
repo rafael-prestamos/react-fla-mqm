@@ -192,6 +192,7 @@ export default function App() {
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [loanSearch, setLoanSearch] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
@@ -247,6 +248,8 @@ export default function App() {
 
   const activeRows = rows.filter((r) => !r.loan.isPaid);
   const paidRows = rows.filter((r) => r.loan.isPaid).sort((a, b) => new Date(b.loan.createdAt).getTime() - new Date(a.loan.createdAt).getTime());
+  const filteredActiveRows = activeRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
+  const filteredPaidRows = paidRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
   // const badCount = activeRows.filter((r) => r.d.daysLate > 7).length; 
   const dueToday = activeRows.filter((r) => r.d.daysLate === 0).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const overdue = activeRows.filter((r) => r.d.daysLate > 0).sort((a, b) => b.d.daysLate !== a.d.daysLate ? b.d.daysLate - a.d.daysLate : b.d.balanceCents - a.d.balanceCents);
@@ -463,16 +466,30 @@ export default function App() {
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Préstamos</div>
                 {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
               </div>
+
+              {loans.length > 0 && (
+                <div style={{ marginBottom: 16, padding: "0 2px" }}>
+                  <input
+                    className="inp"
+                    placeholder="Buscar préstamo por cliente..."
+                    value={loanSearch}
+                    onChange={(e) => setLoanSearch(e.target.value)}
+                  />
+                </div>
+              )}
+
               {loans.length === 0 ? (
                 <div className="empty" style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
                   Aún no tienes préstamos activos.
                   <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>
                 </div>
+              ) : filteredActiveRows.length === 0 && filteredPaidRows.length === 0 ? (
+                <div className="empty">No se encontraron préstamos para "{loanSearch}".</div>
               ) : (
                 <>
-                  {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
-                  {paidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
+                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
+                  {filteredPaidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
+                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
                 </>
               )}
             </>

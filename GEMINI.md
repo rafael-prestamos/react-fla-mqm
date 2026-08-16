@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-5 completo (saldo en card de préstamo + botón "Cobrar" desde ClientDetailSheet). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
+Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
 
 
 **Stack y Arquitectura:**
@@ -77,6 +77,9 @@ Cada fila del historial de pagos en `ClientDetailSheet` (préstamos activos o pa
 
 **Saldo + botón "Cobrar" en card de préstamo (Sprint 7a-5):**
 Cada card de préstamo en `ClientDetailSheet` muestra "Saldo: S/ X" (navy) / "Pagado" (verde) / "Anulado" (gris) según estado, vía `deriveLoan`. Botón "Cobrar" (solo en préstamos activos) llama a la nueva prop `onPayLoan(loanId)`, que `App.tsx` conecta directo a `setPayingId` — abre el mismo `PaymentSheet` que usan Hoy/Préstamos, sin duplicar el flujo de pago. Como ambos overlays comparten `z-index:50` (`.ovl`), se reordenó el JSX en `App.tsx` para que `PaymentSheet` se renderice después de `ClientDetailSheet` y no quede tapado al abrirse desde ahí.
+
+**Búsqueda en tab Préstamos (Sprint 7a-6):**
+Mismo patrón que la búsqueda ya existente en el tab Clientes: input `.inp` con estado `loanSearch`, filtrando por nombre de cliente vía `clientNameMatches` (case/acento-insensitive, ya usado en Clientes). `filteredActiveRows`/`filteredPaidRows` se derivan de `activeRows`/`paidRows` junto a los demás derivados de `rows`. Mensaje vacío dedicado ("No se encontraron préstamos...") cuando la búsqueda no da resultados, distinto del vacío de "aún no tienes préstamos". Solo presentación — no toca `loanRules.ts` ni ningún repo.
 
 **Notificaciones push diarias (Sprint 5b-2):**
 Web Push con VAPID (sin FCM). Tabla `push_subscriptions` (RLS por `owner_id`, migración `0009_push_subscriptions.sql`). `src/push/pushSubscription.ts` (`subscribeToPush`, `isPushSubscribed`) — no-op seguro sin Supabase/VAPID/soporte del browser. `public/sw-push.js` se importa desde el SW autogenerado vía `workbox.importScripts` en `vite.config.ts` (no reemplaza el SW de Workbox, se le agrega). Opt-in: `PushPermissionModal` al primer login (una vez, flag en `localStorage`) + toggle en `SettingsSheet`. Edge Function `supabase/functions/daily-push/index.ts` (Deno, invocada por `pg_cron` a las 7am hora Perú) calcula cobros del día por owner y envía el push; limpia suscripciones vencidas (410). La lógica del mensaje está duplicada a propósito entre esta Edge Function y `src/domain/dailyBrief.ts` (runtimes distintos, sin código compartido). **El deploy (migración, Edge Function, secrets VAPID, pg_cron) es manual — ver checklist en `docs/DEPLOY_PUSH.md`.**

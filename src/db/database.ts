@@ -19,6 +19,8 @@ export interface OutboxOp {
   payload: unknown;
   createdAt: string; // ISO
   syncedAt?: string; // ISO cuando ya se empujó
+  retryCount?: number; // intentos fallidos consecutivos
+  failedAt?: string; // ISO cuando se marcó dead-letter (retryCount >= 5)
 }
 
 export class AppDatabase extends Dexie {
@@ -81,6 +83,10 @@ export class AppDatabase extends Dexie {
         if (client.editedAt === undefined) client.editedAt = null;
       }),
     ]));
+
+    // v6: Dead-letter en outbox (retryCount/failedAt) — no requiere upgrade handler,
+    // Dexie trata los campos nuevos como undefined en registros existentes.
+    this.version(6).stores({});
   }
 }
 

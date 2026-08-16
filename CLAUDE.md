@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 6a-5 completo (WhatsApp ubicuo: Hoy + Detalle Cliente + tab Préstamos). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Hotfix 6a-8c completo (4 correcciones: bloqueo edición con pagos, editar desde tab Préstamos, interés en soles, fallback teclado MIUI). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 
 **Stack y Arquitectura:**

@@ -255,3 +255,31 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Excepción cromática:** Fondo verde `#25D366` (WhatsApp brand color). Excepción documentada y justificada: convención universal reconocida por todos los usuarios; usar navy generaría confusión con el botón de cobro.
 - **Sin cambios en dominio ni datos:** Alcance puramente UI. No afecta sync, IndexedDB ni lógica de cálculo.
 - **Filtro activo:** `!loan.isPaid` (criterio existente en dominio — préstamos pagados no muestran botón WhatsApp).
+
+### Hotfix 6a-8c: Observaciones del cliente (4 correcciones)
+
+**1. Editar préstamo con pagos — bloqueado en repo + UI disabled:**
+- `loansRepo.update()` valida pagos activos antes de permitir la edición. Lanza `"No se puede editar un préstamo con pagos registrados. Anula los pagos primero."`.
+- `ClientDetailSheet`: botón Editar tiene `disabled={hasPayments}` y `opacity: 0.4` + tooltip explicativo.
+- El handler de `EditLoanSheet` en ambas UI (ClientDetailSheet y tab Préstamos) está envuelto en try/catch con `toast.error`.
+- **Justificación:** editar capital o tasa después de registrar pagos deja saldos inconsistentes.
+
+**2. Editar desde tab Préstamos — botón Pencil en LoanCard:**
+- `LoanCard` acepta prop `onEdit` y muestra botón Pencil solo si `!loan.isPaid`.
+- Estado `editingLoanFromTab` en `App` controla qué préstamo se edita.
+- `EditLoanSheet` se renderiza al mismo nivel que `PaymentSheet` (al final del árbol del componente principal).
+- Tab Hoy (`LoanRowItem`) no tiene botón Editar — es para cobranza rápida.
+
+**3. Input interés en soles (no porcentaje):**
+- `NewLoanSheet` y `EditLoanSheet`: campo cambia de "Interés (%)" a "Interés (S/)".
+- `rate` se calcula como `interésCents / principalCents` (antes: `ratePct / 100`).
+- El porcentaje derivado se muestra como hint debajo del input (`= X.X%`).
+- **Internamente `rate` sigue siendo decimal** — sin cambio en el modelo de datos ni en Supabase.
+- **Justificación:** Fla piensa en montos ("cobra 200 soles"), no en porcentajes.
+
+**4. Fallback teclado MIUI/Xiaomi:**
+- `useKeyboardAwareInput`: estrategia dual.
+  - Estrategia 1: `visualViewport.resize` (funciona en Chrome/Samsung).
+  - Estrategia 2: `focusin` con delay 300ms (fallback para MIUI/Xiaomi donde `resize` no dispara correctamente).
+- El check usa `tagName` en vez de `instanceof Element` (compatible con entornos sin jsdom).
+- Doble scroll inofensivo: `scrollIntoView` idempotente al mismo elemento.

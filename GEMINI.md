@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 6a-5 completo (WhatsApp ubicuo: Hoy + Detalle Cliente + tab Préstamos). El siguiente paso es notificaciones push (Sprint 5b-2).
+Estado actual: Hotfix 6a-8c completo (4 correcciones: bloqueo edición con pagos, editar desde tab Préstamos, interés en soles, fallback teclado MIUI). El siguiente paso es notificaciones push (Sprint 5b-2).
 
 
 **Stack y Arquitectura:**
@@ -81,6 +81,12 @@ Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña 
 
 **Restricciones de pagos (Hotfix 6a-8b):**
 `paymentsRepo.update` solo acepta `method`; el monto se corrige anulando y re-registrando. `paymentsRepo.cancel` solo permite el último pago activo y reconstruye el estado del préstamo. La UI muestra Anular únicamente para ese último pago.
+
+**Hotfix 6a-8c — Observaciones del cliente:**
+1. **Editar préstamo con pagos:** `loansRepo.update()` lanza error si hay pagos activos. UI: botón Editar `disabled` con opacity 0.4 + tooltip. Handler en try/catch con `toast.error`.
+2. **Editar desde tab Préstamos:** `LoanCard` tiene prop `onEdit` y botón Pencil (solo `!loan.isPaid`). Estado `editingLoanFromTab` en `App`. Tab Hoy (`LoanRowItem`) sin botón Editar.
+3. **Interés en soles:** `NewLoanSheet` y `EditLoanSheet` piden "Interés (S/)" en vez de "%". `rate = interésCents / principalCents`. Hint de porcentaje debajo del input. `rate` sigue siendo decimal internamente.
+4. **Fallback teclado MIUI:** `useKeyboardAwareInput` tiene estrategia dual — `visualViewport.resize` (primaria) + `focusin` con delay 300ms (fallback). Check usa `tagName` en vez de `instanceof Element`.
 
 **Teclado móvil (Sprint 6a-7):**
 `useKeyboardAwareInput` (`src/ui/useKeyboardAwareInput.ts`) escucha `visualViewport.resize` y centra el input/textarea/select enfocado dentro de su contenedor scrollable cuando se abre el teclado virtual. Se usa en NewLoanSheet, NewClientSheet, PaymentSheet, SettingsSheet y LoginScreen.

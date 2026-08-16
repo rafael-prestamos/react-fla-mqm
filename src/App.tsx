@@ -968,7 +968,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             <button
               className="btn btn-p btn-block"
               style={{ marginTop: 18 }}
-              disabled={principalCents <= 0 || !Number.isInteger(principalCents) || (mode === "new" && interestCents <= 0)}
+              disabled={principalCents <= 0 || !Number.isInteger(principalCents) || (mode === "new" && interestCents < 0)}
               onClick={handleSubmit}
             >
               {mode === "new" ? "Registrar préstamo" : "Registrar préstamo existente"}

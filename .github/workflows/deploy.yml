@@ -41,5 +41,9 @@ jobs:
         run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
       - name: Build (usa env de Vercel, incl. VITE_SUPABASE_*)
         run: vercel build --prod --token=$VERCEL_TOKEN
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
       - name: Deploy
         run: vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

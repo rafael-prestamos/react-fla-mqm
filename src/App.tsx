@@ -26,6 +26,7 @@ import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { SyncLogSheet } from "./components/settings/SyncLogSheet";
 import { ProfileSheet } from "./components/ProfileSheet";
 import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
@@ -195,6 +196,7 @@ export default function App() {
   const [loanSearch, setLoanSearch] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [syncLogOpen, setSyncLogOpen] = useState(false);
   const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
@@ -609,7 +611,12 @@ export default function App() {
           onDownloadGlobalReport={handleDownloadGlobalReport}
           generatingGlobalReport={generatingGlobalReport}
         />
-        <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsSheet
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onOpenSyncLog={() => { setSettingsOpen(false); setSyncLogOpen(true); }}
+        />
+        <SyncLogSheet open={syncLogOpen} onClose={() => setSyncLogOpen(false)} />
         {showPushModal && <PushPermissionModal onClose={handlePushDismiss} onSuccess={handlePushSuccess} />}
         {/* Sprint 6a-8c: Patrón: controlled-sheet — editar desde tab Préstamos (error por pagos activos → toast) */}
         {editingLoanFromTab && (

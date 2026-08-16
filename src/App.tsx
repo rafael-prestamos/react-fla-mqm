@@ -32,6 +32,8 @@ import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentShee
 import { WhatsappButton } from "./components/WhatsappButton";
 import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 import { EditLoanSheet } from "./components/EditLoanSheet";
+import { PushPermissionModal } from "./components/PushPermissionModal";
+import { isPushSubscribed } from "./push/pushSubscription";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -193,6 +195,7 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
+  const [showPushModal, setShowPushModal] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
   const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
 
@@ -203,6 +206,26 @@ export default function App() {
     }, 500);
     return () => clearTimeout(t);
   }, [loans, payments, clients]);
+
+  // Sprint 5b-2: ofrecer activar notificaciones push una sola vez (hasta que las active o las descarte).
+  useEffect(() => {
+    const PUSH_DISMISSED_KEY = "fla_push_dismissed";
+    if (localStorage.getItem(PUSH_DISMISSED_KEY)) return;
+    void isPushSubscribed().then((subscribed) => {
+      if (!subscribed) setShowPushModal(true);
+    });
+  }, []);
+
+  function handlePushDismiss() {
+    localStorage.setItem("fla_push_dismissed", "1");
+    setShowPushModal(false);
+  }
+
+  function handlePushSuccess() {
+    localStorage.setItem("fla_push_dismissed", "1");
+    setShowPushModal(false);
+    toast.success("Notificaciones activadas");
+  }
 
   const clientById = (id: string): Client =>
     clients.find((c) => c.id === id) ?? ({} as Client);
@@ -569,6 +592,7 @@ export default function App() {
           generatingGlobalReport={generatingGlobalReport}
         />
         <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        {showPushModal && <PushPermissionModal onClose={handlePushDismiss} onSuccess={handlePushSuccess} />}
         {/* Sprint 6a-8c: Patrón: controlled-sheet — editar desde tab Préstamos (error por pagos activos → toast) */}
         {editingLoanFromTab && (
           <EditLoanSheet

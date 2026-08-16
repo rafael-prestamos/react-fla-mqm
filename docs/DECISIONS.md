@@ -293,3 +293,15 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Dynamic import** de `@react-pdf/renderer` en ambos handlers (mismo patrón que `StatementPdf`) — cada PDF queda en su propio chunk lazy (~2.5kb gzip).
 - **Sin migración SQL ni campos nuevos** — solo lectura de datos existentes.
 - **Helpers nuevos** en `src/pdf/formatters.ts`: `isCurrentMonth(isoDate, reference)` y `ratingLabel(rating)`.
+
+### Sprint 5b-2: Push notifications diarias 7am
+
+- **Transporte:** Web Push estándar con VAPID (sin Firebase Cloud Messaging) — costo cero, funciona en Chrome/Android sin dependencias externas.
+- **Trigger:** Supabase Edge Function `daily-push` (Deno) invocada por `pg_cron` a `0 12 * * *` UTC (= 7am hora Perú, UTC-5 fijo). Alternativa documentada con cron externo si `pg_net` no está disponible.
+- **Tabla `push_subscriptions`:** RLS por `owner_id`, `unique(owner_id, endpoint)`; migración `0009_push_subscriptions.sql`.
+- **Suscripción:** `src/push/pushSubscription.ts` — `subscribeToPush()` pide permiso, se suscribe al `PushManager` del service worker y guarda `{endpoint, p256dh, auth}` en Supabase; `isPushSubscribed()` solo consulta el estado local. Ambas funciones son no-op seguro (`false`) en modo solo-local o navegadores sin soporte.
+- **Opt-in:** `PushPermissionModal` se muestra una vez al primer login (flag `fla_push_dismissed` en `localStorage` — solo UX, no dato de negocio); toggle equivalente y persistente en `SettingsSheet` (no se puede desactivar desde la app, hay que ir a la configuración del navegador — evita un estado "activado en Supabase, revocado en el browser" inconsistente).
+- **Service Worker:** `public/sw-push.js` (handlers `push`/`notificationclick`) se importa desde el SW autogenerado por `vite-plugin-pwa` vía `workbox.importScripts` en `vite.config.ts`, para no pisar el SW de precache de Workbox.
+- **Edge Function:** calcula por cada `owner_id` los préstamos que vencen hoy o están atrasados (misma regla de tolerancia 7 días y mora que `deriveLoan`), compone el mensaje y envía el push; si el envío devuelve 410 (Gone), borra la suscripción vencida. Solo notifica si hay algo que vence hoy o está atrasado — no molesta por préstamos al día.
+- **Lógica de mensaje duplicada a propósito:** `src/domain/dailyBrief.ts` (frontend, toast in-app) y la Edge Function (Deno) no comparten código — son runtimes distintos sin forma práctica de compartir un módulo entre Vite/browser y Supabase Edge Functions.
+- **Deploy manual, no ejecutado por el agente:** aplicar la migración, desplegar la Edge Function, configurar secrets VAPID y habilitar `pg_cron`/`pg_net` requieren el Supabase CLI autenticado y acceso a dashboards — ver checklist en `docs/DEPLOY_PUSH.md`.

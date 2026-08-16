@@ -31,6 +31,7 @@ interface Props {
 export function ClientDetailSheet({ client, loans, payments, onClose, onEditClient, onEditLoan, onCancelLoan, onEditPayment, onCancelPayment }: Props) {
   const toast = useToast();
   const [generatingStatement, setGeneratingStatement] = useState(false);
+  const [generatingHistory, setGeneratingHistory] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
   const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
@@ -63,6 +64,35 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
     }
   }
 
+  /** Historial completo (incluye anulados) — se lee directo de Dexie para no perder esos registros. */
+  async function handleDownloadHistory() {
+    setGeneratingHistory(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { ClientHistoryPdf }, { db }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../pdf/ClientHistoryPdf"),
+        import("../db/database"),
+      ]);
+      const allLoans = await db.loans.where("clientId").equals(client.id).toArray();
+      const allLoanIds = allLoans.map((l) => l.id);
+      const allPayments = (await db.payments.toArray()).filter((p) => allLoanIds.includes(p.loanId));
+      const blob = await pdf(
+        <ClientHistoryPdf business={business} client={client} loans={allLoans} payments={allPayments} />
+      ).toBlob();
+      downloadBlob(blob, `Historial_${sanitizeFilename(client.name)}_${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Historial descargado");
+    } catch {
+      toast.error("No se pudo generar el historial");
+    } finally {
+      setGeneratingHistory(false);
+    }
+  }
+
   return (
     <div className="ovl" onClick={onClose}>
       <div className="sheet" style={{ height: "90vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
@@ -82,13 +112,23 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
             <button className="btn" aria-label="Editar cliente" onClick={() => setEditingClient(true)} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 8 }}><Pencil size={16} /></button>
           </div>
 
-          <button
-            className="btn btn-p btn-block"
-            disabled={generatingStatement}
-            onClick={handleDownloadStatement}
-          >
-            <Download size={16} /> {generatingStatement ? "Generando…" : "Descargar estado de cuenta"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-p btn-block"
+              disabled={generatingStatement}
+              onClick={handleDownloadStatement}
+            >
+              <Download size={16} /> {generatingStatement ? "Generando…" : "Estado de cuenta"}
+            </button>
+            <button
+              className="btn btn-block"
+              disabled={generatingHistory}
+              onClick={handleDownloadHistory}
+              style={{ background: "var(--card)", border: "1px solid var(--line)" }}
+            >
+              <Download size={16} /> {generatingHistory ? "Generando…" : "Historial"}
+            </button>
+          </div>
 
           <div className="pf-sect">Historial de préstamos</div>
           

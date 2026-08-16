@@ -1,6 +1,6 @@
 /** Formateo de textos en español para los PDFs (comprobantes y estados de cuenta). */
 
-import type { PaymentMethod, PaymentType } from "../types/domain";
+import type { ClientRating, PaymentMethod, PaymentType } from "../types/domain";
 
 export const paymentTypeLabel = (t: PaymentType): string => {
   switch (t) {
@@ -27,4 +27,21 @@ export const formatDateTime = (iso: string): string => {
     .toLocaleTimeString("es-PE", { hour: "numeric", minute: "2-digit", hour12: true })
     .replace(/([ap])\.?\s?m\.?/i, (_m, letter: string) => `${letter.toLowerCase()}.m.`);
   return `${formatDate(iso)}, ${timePart}`;
+};
+
+/** Compara si una fecha ISO cae en el mismo mes/año que la fecha de referencia. */
+export const isCurrentMonth = (isoDate: string, reference: Date): boolean => {
+  const d = new Date(isoDate);
+  return d.getMonth() === reference.getMonth() && d.getFullYear() === reference.getFullYear();
+};
+
+export const ratingLabel = (r: ClientRating): string => {
+  switch (r) {
+    case "good":
+      return "Buen pagador";
+    case "slow":
+      return "Se demora";
+    case "bad":
+      return "Mal pagador";
+  }
 };

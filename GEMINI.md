@@ -1,4 +1,4 @@
-Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md en la raíz.
+Antes de nada, si el proyecto está en pausa o cambia de agente, lee `docs/HANDOFF.md`.
 
 # Fla MpM - Guía para IAs
 

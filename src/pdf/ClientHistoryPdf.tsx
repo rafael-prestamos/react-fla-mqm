@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   loanBoxTitle: { fontFamily: "Helvetica-Bold", fontSize: 10.5 },
   loanBoxMeta: { flexDirection: "row", flexWrap: "wrap", marginTop: 2 },
   loanBoxMetaItem: { fontSize: 8.5, color: MUTED, marginRight: 12 },
-  editedBadge: { fontSize: 8, color: MUTED, fontStyle: "italic" },
+  editedBadge: { fontSize: 8, color: MUTED },
   cancelReason: { fontSize: 8.5, color: BAD, marginTop: 4 },
   paymentRowCancelled: { opacity: 0.6 },
   strike: { textDecoration: "line-through" },

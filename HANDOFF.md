@@ -1,10 +1,10 @@
-# Handoff: Fla MpM — post sprint 7b-2 (fix timezone fechas), pre-release develop→main
+# Handoff: Fla MpM — post hotfix zero-interest-submit-disabled, pre-release develop→main
 
 ## Contexto proyecto
 
 Gestor microcréditos PWA para Fla (Perú, ~8 clientes, creciendo hacia 20+). Dev: Giancarlo.
 Stack: Vite+React+TS, Dexie/IndexedDB (v5), Supabase (auth+sync+RLS), react-pdf, vite-plugin-pwa, Vercel.
-Ramas: `develop` (integración, incluye hasta PR #29 + sprint 7b-2 fix timezone), `main` (producción, en `a531441` = solo sprint 6a-1, varios commits detrás de `develop`).
+Ramas: `develop` (integración, incluye hasta PR #30 + hotfix zero-interest-submit-disabled), `main` (producción, en `a531441` = solo sprint 6a-1, varios commits detrás de `develop`).
 Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), montos en céntimos.
 
 ## Modo de trabajo
@@ -50,7 +50,8 @@ Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), mon
 | hotfix | —   | **Mora desactivada explícitamente pre-release**: `LATE_INTEREST_ENABLED = false` por instrucción directa de Giancarlo (ver sección MORA abajo, ahora resuelta) |
 | sync-log | #28 | `OutboxOp.lastError` (Dexie v7) + `SyncLogSheet` en Ajustes: lista errores de sync con retry individual/masivo |
 | 7b-1   | #29 | Interés 0 permitido en préstamos (nuevo/editado/histórico) + `formatRatePercent` (2 decimales) reemplaza `loan.rate*100` sin redondear en ~10 sitios |
-| 7b-2   | —   | **Fix timezone en fechas de préstamo**: `disbursedAt`/`lastCycleStart` se parseaban como UTC (`new Date("YYYY-MM-DD")`) y se mostraban en zona local → corrían un día atrás. Resuelve la observación cosmética "12-jul.→11-ago." de abajo (detalle completo en `docs/DECISIONS.md`) |
+| 7b-2   | #30 | **Fix timezone en fechas de préstamo**: `disbursedAt`/`lastCycleStart` se parseaban como UTC (`new Date("YYYY-MM-DD")`) y se mostraban en zona local → corrían un día atrás. Resuelve la observación cosmética "12-jul.→11-ago." de abajo (detalle completo en `docs/DECISIONS.md`) |
+| hotfix | —   | **`disabled` del botón "Registrar préstamo" seguía bloqueando interés 0** (`App.tsx:971`, `interestCents <= 0` → `< 0`) — tercera copia de la validación de interés que el sprint 7b-1 dejó afuera; sin ella el botón quedaba deshabilitado y no pasaba nada al hacer clic, sin error visible |
 
 Tests: **166/166**. Build limpio. CI verde en todos los PRs mergeados.
 

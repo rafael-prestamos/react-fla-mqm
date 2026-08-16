@@ -15,28 +15,33 @@ export async function enqueue(
   await db.outbox.add(entry);
 }
 
-/** Operaciones aún no sincronizadas, en orden de creación. */
+/** Operaciones aún no sincronizadas ni dead-lettered, en orden de creación. */
 export function pendingOps(): Promise<OutboxOp[]> {
-  return db.outbox.filter((entry) => !entry.syncedAt).toArray();
+  return db.outbox.filter((entry) => !entry.syncedAt && !entry.failedAt).toArray();
 }
+
+/** Máximo de reintentos antes de mover un registro a dead-letter. */
+const MAX_RETRIES = 5;
 
 export interface PushResult {
   synced: number;
   errors: number;
+  deadLettered: number;
   total: number;
 }
 
 /** Empuja los pendientes a Supabase utilizando mappers camelCase -> snake_case. */
 export async function pushOutbox(): Promise<PushResult> {
-  if (!isSupabaseConfigured || !supabase) return { synced: 0, errors: 0, total: 0 };
+  if (!isSupabaseConfigured || !supabase) return { synced: 0, errors: 0, deadLettered: 0, total: 0 };
 
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return { synced: 0, errors: 0, total: 0 };
+  if (!data.session) return { synced: 0, errors: 0, deadLettered: 0, total: 0 };
 
   const ownerId = data.session.user.id;
   const pending = await pendingOps();
   let synced = 0;
   let errorsCount = 0;
+  let deadLettered = 0;
 
   for (const entry of pending) {
     const table = entry.entity;
@@ -67,16 +72,31 @@ export async function pushOutbox(): Promise<PushResult> {
 
     if (errorMessage) {
       errorsCount++;
-      // Rompe el loop ante errores para conservar el orden estricto, 
-      // especialmente importante para PGRST de auth/RLS.
-      break;
+      console.error("[SYNC ERROR]", {
+        table,
+        op: entry.op,
+        entityId: entry.entityId,
+        error: errorMessage,
+      });
+
+      if (entry.id !== undefined) {
+        const retryCount = (entry.retryCount ?? 0) + 1;
+        if (retryCount >= MAX_RETRIES) {
+          await db.outbox.update(entry.id, { retryCount, failedAt: nowIso() });
+          deadLettered++;
+        } else {
+          await db.outbox.update(entry.id, { retryCount });
+        }
+      }
+      // No hace break: sigue con el siguiente registro para no bloquear la cola.
+      continue;
     }
-    
+
     if (entry.id !== undefined) {
       await db.outbox.update(entry.id, { syncedAt: nowIso() });
     }
     synced++;
   }
 
-  return { synced, errors: errorsCount, total: pending.length };
+  return { synced, errors: errorsCount, deadLettered, total: pending.length };
 }

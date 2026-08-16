@@ -51,7 +51,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const handleError = (e: unknown, msg: string) => {
     setLastError(e instanceof Error ? e.message : msg);
     if (!lastWasErrorRef.current) {
-      toast.error("Error al sincronizar");
+      toast.error(msg);
       lastWasErrorRef.current = true;
     }
   };
@@ -69,7 +69,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     try {
       const result = await pushOutbox();
-      if (result.errors > 0) {
+      if (result.deadLettered > 0) {
+        handleError(null, `${result.deadLettered} cambios no se pudieron enviar tras varios intentos`);
+      } else if (result.errors > 0) {
         handleError(null, "Error al enviar algunos cambios");
       } else if (result.synced > 0) {
         setLastSyncAt(new Date().toISOString());

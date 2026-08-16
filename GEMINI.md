@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) — 152 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main`, pendiente solo de la confirmación de mora (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
+Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) — 156 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main`, pendiente solo de la confirmación de mora (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
 
 
 **Stack y Arquitectura:**
@@ -114,6 +114,9 @@ Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña 
 
 **Perfil (Sprint 6a-6):**
 El avatar del header abre `ProfileSheet` desde cualquier pestaña. Consolida nombre del negocio, `APP_VERSION`, estado de sync (`useSync`), Ajustes y cierre de sesión confirmado (`useSession`). El flujo Ajustes cierra Perfil y abre el `SettingsSheet` existente; ya no hay acciones de Ajustes ni Cerrar sesión al final de Clientes.
+
+**Dead-letter en outbox (Hotfix fix-sync-deadlock):**
+`pushOutbox()` (`src/sync/outbox.ts`) ya no hace `break` ante el primer registro que falla — un registro con error quedaba bloqueando toda la cola para siempre. Cada fallo se loguea con `console.error("[SYNC ERROR]", {...})`, incrementa `retryCount` en el `OutboxOp` (Dexie v6, campos `retryCount?`/`failedAt?` en `src/db/database.ts`) y sigue con el siguiente registro. Al llegar a 5 reintentos, el registro se marca `failedAt` (dead-letter, sale de la cola activa vía `pendingOps()`) pero no se borra. `pushOutbox()` retorna `{ synced, errors, deadLettered, total }`; `SyncEngine.tsx` muestra un toast diferenciado cuando hay `deadLettered > 0`. No toca mappers ni `pull.ts`.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

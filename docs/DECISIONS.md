@@ -310,3 +310,9 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 
 - **Solo presentación** en el header navy de la pestaña Hoy (`App.tsx`): el logo (`BrandLogo`) pasa de 18px a 64px; se elimina el saludo ("Buen día · fecha · hora") y la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo.
 - **No afecta** el toast del brief diario (`src/domain/dailyBrief.ts`) ni los mini-cards "Vencen hoy"/"Atrasados", que se mantienen sin cambios.
+
+### Sprint 7a-3b: Reducir borde y sombra del logo PDF
+
+- **Ajuste de parámetros** en `scripts/process-logo.py`: outline blanco de 9px a 3px, drop-shadow de offset (0,5px)/blur 10px a (0,2px)/blur 4px (opacidad 28% sin cambios).
+- **Regenerado** `public/logo-pdf.png` y `src/assets/logo-pdf.png` corriendo el script — mismo pipeline documentado en Sprint 7a-3, solo cambian los valores de intensidad del borde/sombra.
+- **Solo afecta** el logo usado en los 4 PDF components (`react-pdf`); no toca `<BrandLogo />` de la UI ni lógica de dominio.

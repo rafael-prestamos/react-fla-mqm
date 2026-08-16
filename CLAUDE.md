@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-1 completo (header Hoy: logo más grande, sin saludo). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
+Estado actual: Sprint 7a-3b completo (borde y sombra del logo PDF más sutiles). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
 
 
 **Stack y Arquitectura:**
@@ -74,11 +74,14 @@ Dos PDFs nuevos, mismo patrón de dynamic import que arriba. `ClientHistoryPdf` 
 **Notificaciones push diarias (Sprint 5b-2):**
 Web Push con VAPID (sin FCM). Tabla `push_subscriptions` (RLS por `owner_id`, migración `0009_push_subscriptions.sql`). `src/push/pushSubscription.ts` (`subscribeToPush`, `isPushSubscribed`) — no-op seguro sin Supabase/VAPID/soporte del browser. `public/sw-push.js` se importa desde el SW autogenerado vía `workbox.importScripts` en `vite.config.ts` (no reemplaza el SW de Workbox, se le agrega). Opt-in: `PushPermissionModal` al primer login (una vez, flag en `localStorage`) + toggle en `SettingsSheet`. Edge Function `supabase/functions/daily-push/index.ts` (Deno, invocada por `pg_cron` a las 7am hora Perú) calcula cobros del día por owner y envía el push; limpia suscripciones vencidas (410). La lógica del mensaje está duplicada a propósito entre esta Edge Function y `src/domain/dailyBrief.ts` (runtimes distintos, sin código compartido). **El deploy (migración, Edge Function, secrets VAPID, pg_cron) es manual — ver checklist en `docs/DEPLOY_PUSH.md`.**
 
-**Assets y Branding (Sprint 6a-1):**
-El logo principal se renderiza a través del componente `<BrandLogo />` (`src/components/brand/BrandLogo.tsx`). Los assets crudos viven en `src/assets/branding` y los derivados (favicons, PWA icons, etc.) en `public/` y `src/assets/logo.png`.
+**Assets y Branding (Sprint 6a-1 + Sprint 7a-3 + Sprint 7a-3b):**
+El logo principal se renderiza a través del componente `<BrandLogo />` (`src/components/brand/BrandLogo.tsx`). Los assets crudos viven en `src/assets/branding` y los derivados (favicons, PWA icons, etc.) en `public/` y `src/assets/logo.png`. Para los PDFs (`@react-pdf/renderer`), se usa `src/assets/logo-pdf.png` (también en `public/logo-pdf.png`): versión procesada con borde blanco siguiendo el contorno del alpha (3px, MaxFilter dilation) y drop-shadow sutil (offset 0,2px / blur 4px / opacity 28%). Generado por `scripts/process-logo.py` (Python 3 + Pillow). Los 4 PDF components (`PaymentReceiptPdf`, `StatementPdf`, `ClientHistoryPdf`, `GlobalReportPdf`) usan `import logoPdfUrl from "../assets/logo-pdf.png"` a 64×64px sin `View` wrapper crema.
 
-**Header Hoy (Sprint 7a-1):**
-Cambio solo de presentación en el header navy de la pestaña Hoy (`App.tsx`): `<BrandLogo size={64} />` (antes 18px) y se eliminó el saludo ("Buen día · fecha · hora") junto con la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo. No toca el toast del brief diario ni los mini-cards "Vencen hoy"/"Atrasados".
+**Header Hoy (Sprint 7a-1 + fix 7a-1b):**
+Cambio solo de presentación en el header navy de la pestaña Hoy (`App.tsx`): `<BrandLogo size={64} />` (antes 18px) y se eliminó el saludo ("Buen día · fecha · hora"). El texto "Debes cobrar hoy" (`.pf-cobranza-label`, 12px, 70% opacity) fue restaurado en 7a-1b — aparece justo encima del monto grande de cobro del día (`.pf-cobranza`). No toca el toast del brief diario ni los mini-cards "Vencen hoy"/"Atrasados".
+
+**Login Screen (Sprint 7a-2 + fix 7a-2b):**
+Rediseño visual completo de `src/auth/LoginScreen.tsx`. Fondo blanco `#ffffff`. Contenedor único `.login-card` (borde `rgba(31,64,106,0.18)`, `box-shadow: 0 2px 8px rgba(0,0,0,0.08)`, `border-radius: 12px`, `padding: 24px`) engloba logo + título + formulario. Logo `<img>` a 88px con drop-shadow en `.login-header` dentro del card; texto "Fla MpM" en navy debajo. `min-height: 100dvh` (sin `100vh` fallback) garantiza que no hay scroll en 375×667. Inputs: fondo blanco, borde navy sutil, focus ring navy, `border-radius: 8px`. Botón submit: `var(--accent)` caramelo `#D49A5D`, hover `#bf8748`, micro-animación active. `LoadingScreen`: mascota y texto en navy. Sin cambios en lógica de auth ni en persistencia de sesión Supabase.
 
 **WhatsApp ubicuo (Sprint 6a-5):**
 Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard`, solo activos) y `ClientDetailSheet` (por cada `!loan.isPaid`). Componente reutilizable: `WhatsappButton` (`src/components/WhatsappButton.tsx`). Lógica de mensaje en `src/domain/whatsappReminder.ts` (`buildWhatsappUrl`, `buildReminderMessage`). Verde `#25D366` es excepción cromática documentada (brand WhatsApp). Filtro: `!loan.isPaid`.
@@ -89,6 +92,12 @@ Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña 
 
 **Restricciones de pagos (Hotfix 6a-8b):**
 `paymentsRepo.update` solo acepta `method`; el monto se corrige anulando y re-registrando. `paymentsRepo.cancel` solo permite el último pago activo y reconstruye el estado del préstamo. La UI muestra Anular únicamente para ese último pago.
+
+**Hotfix 6a-8c — Observaciones del cliente:**
+1. **Editar préstamo con pagos:** `loansRepo.update()` lanza error si hay pagos activos. UI: botón Editar `disabled` con opacity 0.4 + tooltip. Handler en try/catch con `toast.error`.
+2. **Editar desde tab Préstamos:** `LoanCard` tiene prop `onEdit` y botón Pencil (solo `!loan.isPaid`). Estado `editingLoanFromTab` en `App`. Tab Hoy (`LoanRowItem`) sin botón Editar.
+3. **Interés en soles:** `NewLoanSheet` y `EditLoanSheet` piden "Interés (S/)" en vez de "%". `rate = interésCents / principalCents`. Hint de porcentaje debajo del input. `rate` sigue siendo decimal internamente.
+4. **Fallback teclado MIUI:** `useKeyboardAwareInput` tiene estrategia dual — `visualViewport.resize` (primaria) + `focusin` con delay 300ms (fallback). Check usa `tagName` en vez de `instanceof Element`.
 
 **Teclado móvil (Sprint 6a-7):**
 `useKeyboardAwareInput` (`src/ui/useKeyboardAwareInput.ts`) escucha `visualViewport.resize` y centra el input/textarea/select enfocado dentro de su contenedor scrollable cuando se abre el teclado virtual. Se usa en NewLoanSheet, NewClientSheet, PaymentSheet, SettingsSheet y LoginScreen.

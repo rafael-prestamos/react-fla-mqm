@@ -4,8 +4,10 @@
  * Los montos SIEMPRE se guardan como enteros en céntimos (evita errores de coma flotante).
  */
 
-/** Plazos permitidos del préstamo (en días). */
-export type LoanTerm = 25 | 28 | 30;
+/** Plazos del préstamo — entero en rango 1-365 días (sprint 6a-4: plazo libre con presets 25/28/30). */
+import type { LoanTerm } from "../domain/loanTerm";
+export type { LoanTerm };
+
 
 /** Cómo pagó el cliente. */
 export type PaymentMethod = "cash" | "digital"; // efectivo / virtual (Yape/Plin)
@@ -25,6 +27,7 @@ export interface Client {
   maxDaysLateHistorical: number;     // máximo atraso alguna vez alcanzado (monótono ascendente)
   createdAt: string; // ISO
   updatedAt: string; // ISO
+  editedAt?: string | null; // ISO — Sprint 6a-8
 }
 
 export interface Loan {
@@ -39,6 +42,9 @@ export interface Loan {
   isPaid: boolean;
   createdAt: string;
   updatedAt: string;
+  cancelledAt?: string | null; // ISO — Sprint 6a-8
+  cancelReason?: string | null;
+  editedAt?: string | null;
 }
 
 export interface Payment {
@@ -49,6 +55,9 @@ export interface Payment {
   method: PaymentMethod;
   daysLate: number; // atraso al momento del pago (para historial/clasificación)
   paidAt: string; // ISO
+  cancelledAt?: string | null; // ISO — Sprint 6a-8
+  cancelReason?: string | null;
+  editedAt?: string | null;
 }
 
 /** Datos del negocio (para recibos/PDFs). Modelo singleton: una fila por usuario. */
@@ -62,5 +71,6 @@ export interface BusinessSettings {
   bcpSolesHolder: string;        // titular BCP Soles
   bcpInterbank: string;          // CCI interbancaria BCP
   bcpInterbankHolder: string;    // titular CCI interbancaria BCP
+  namesMigratedToUpperV1?: boolean; // flag de migración one-shot sprint 6a-3
   updatedAt: string;             // ISO
 }

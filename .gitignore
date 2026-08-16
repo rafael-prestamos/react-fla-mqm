@@ -11,3 +11,5 @@ coverage
 
 # Archivos temporales de agentes / debug scripts
 run-cases.ts
+
+supabase/.temp/

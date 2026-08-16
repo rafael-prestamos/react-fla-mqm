@@ -1,21 +1,24 @@
-import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Settings
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
-import type { Client, Loan, LoanTerm, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
+import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
-import { formatShort, formatLong, addDays, startOfToday } from "./lib/dates";
+import { formatShort, addDays, startOfToday, toIsoDate } from "./lib/dates";
+import { downloadBlob } from "./lib/downloadBlob";
 import { useLiveQuery } from "dexie-react-hooks";
 import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
 import { paymentsRepo } from "./repositories/paymentsRepo";
+import { settingsRepo } from "./repositories/settingsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
-import { useSession } from "./auth/SessionContext";
+import { LOAN_TERM_PRESETS } from "./domain/loanTerm";
+
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { useDailyBrief } from "./ui/useDailyBrief";
@@ -23,8 +26,14 @@ import { recomputeAllRatings } from "./sync/ratingsSync";
 import { collectedThisMonth } from "./domain/collections";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
+import { ProfileSheet } from "./components/ProfileSheet";
+import { normalizeClientName, clientNameMatches } from "./domain/clientName";
 import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
+import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
+import { EditLoanSheet } from "./components/EditLoanSheet";
+import { PushPermissionModal } from "./components/PushPermissionModal";
+import { isPushSubscribed } from "./push/pushSubscription";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -42,9 +51,25 @@ const CSS = `
   color:var(--cream);border-radius:0 0 22px 22px}
 .pf-brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;
   letter-spacing:.02em;opacity:.92}
-.pf-hello{font-size:13px;opacity:.72;margin-top:14px;text-transform:capitalize}
-.pf-cobranza-lbl{font-size:12.5px;opacity:.78;margin-top:2px}
+.header-actions{display:flex;align-items:center;gap:8px}
+.header-avatar{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.26);
+  background:rgba(255,255,255,.12);color:var(--cream);display:inline-flex;align-items:center;
+  justify-content:center;cursor:pointer;flex-shrink:0}.header-avatar:active{transform:scale(.96)}
+.profile-sheet{padding:20px 16px 22px}.profile-sheet__header{display:flex;align-items:center;gap:12px;color:var(--navy)}
+.profile-sheet__header h2{margin:0;font-size:19px}.profile-sheet__header small{color:var(--muted)}.profile-sheet__header .x{margin-left:auto}
+.profile-sheet__sync{margin:20px 0 14px;padding:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:5px}
+.profile-sheet__status{font-size:13px;font-weight:700}.profile-sheet__status.online{color:var(--color-status-good)}.profile-sheet__status.offline{color:var(--color-status-bad)}
+.profile-sheet__sync small{color:var(--muted)}.profile-sheet__actions{display:flex;flex-direction:column;gap:9px}.profile-sheet__action{padding:12px;background:var(--color-status-good-soft);color:var(--navy);font-size:14px}
+.profile-sheet__logout{background:var(--color-status-bad);color:#fff}
+.badge-edited{font-size:10px;color:var(--muted);font-style:italic;margin-left:6px}
+.cancel-modal{background:var(--paper);border-radius:16px;padding:20px;max-width:400px;width:90%;margin:auto}
+.cancel-modal h4{margin:0 0 12px;font-size:16px;font-weight:700;color:var(--color-status-bad)}
+.cancel-modal .affected{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;font-size:12.5px}
+.cancel-modal .confirm-input{margin-top:12px}.cancel-modal .confirm-input input{width:100%;text-align:center;letter-spacing:.05em}
+.cancel-actions{display:flex;gap:8px;margin-top:14px}.cancel-actions .btn{flex:1}.btn-danger{background:var(--color-status-bad);color:#fff;border:none}.btn-danger:disabled{opacity:.4}
+.pf-cobranza-label{font-size:12px;font-weight:500;opacity:.70;letter-spacing:.03em;margin-top:14px}
 .pf-cobranza{font-size:40px;font-weight:700;line-height:1.05;margin-top:2px}
+
 .pf-mini{display:flex;gap:8px;margin-top:14px}
 .pf-mini > div{flex:1;background:rgba(255,255,255,.10);border-radius:12px;padding:9px 10px}
 .pf-mini .k{font-size:11px;opacity:.72}
@@ -99,7 +124,7 @@ const CSS = `
 .field{margin-top:13px}
 .field label{font-size:12.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px}
 .inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:11px;
-  padding:11px 12px;font-family:inherit;font-size:15px;color:var(--ink);outline:none}
+  padding:11px 12px;font-family:inherit;font-size:15px;color:var(--ink);outline:none;scroll-margin-bottom:120px}
 .inp:focus{border-color:var(--accent)}
 .seg{display:flex;gap:7px}
 .seg button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;
@@ -114,14 +139,24 @@ const CSS = `
   font-size:12.5px;display:flex;gap:9px;margin-top:14px;align-items:flex-start}
 .hist{font-size:12px;color:var(--muted);margin-top:8px;padding-left:2px}
 .hist .h{display:flex;justify-content:space-between;padding:3px 0}
+/* Patrón: Compound input — plazo libre + presets (sprint 6a-4) */
+.term-input-wrap{display:flex;gap:7px;align-items:center}
+.term-input-wrap .inp{flex:1;min-width:0}
+.term-presets{display:flex;gap:5px;flex-shrink:0}
+.term-preset-btn{background:var(--card);border:1px solid var(--line);border-radius:9px;
+  padding:9px 10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  color:var(--muted);transition:background .15s,color .15s,border-color .15s}
+.term-preset-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.term-preset-btn:not(.active):hover{border-color:var(--accent);color:var(--ink)}
 `;
+
 
 /* ---------- etiquetas y colores (UI en español) ---------- */
 interface RatingStyle { label: string; color: string; bg: string; }
 const RATING_STYLE: Record<ClientRating, RatingStyle> = {
-  good: { label: "Buen pagador", color: "var(--good)", bg: "var(--good-soft)" },
-  slow: { label: "Se demora", color: "var(--warn)", bg: "var(--warn-soft)" },
-  bad: { label: "Mal pagador", color: "var(--bad)", bg: "var(--bad-soft)" },
+  good: { label: "Buen pagador", color: "var(--color-status-good)", bg: "var(--color-status-good-soft)" },
+  slow: { label: "Se demora", color: "var(--color-status-slow)", bg: "var(--color-status-slow-soft)" },
+  bad: { label: "Mal pagador", color: "var(--color-status-bad)", bg: "var(--color-status-bad-soft)" },
 };
 
 interface StatusStyle { label: string; color: string; bg: string; bar: string; }
@@ -139,7 +174,6 @@ interface LoanRow { loan: Loan; d: LoanDerived; client: Client; rating: ClientRa
 
 /* ---------- app ---------- */
 export default function App() {
-  const { session, signOut } = useSession();
   const sync = useSync();
   const toast = useToast();
   const clientsRaw = useLiveQuery(() => clientsRepo.all());
@@ -157,7 +191,14 @@ export default function App() {
   const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
-  const [showingSettings, setShowingSettings] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [loanSearch, setLoanSearch] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
+  const [showPushModal, setShowPushModal] = useState(false);
+  // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
+  const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -166,6 +207,26 @@ export default function App() {
     }, 500);
     return () => clearTimeout(t);
   }, [loans, payments, clients]);
+
+  // Sprint 5b-2: ofrecer activar notificaciones push una sola vez (hasta que las active o las descarte).
+  useEffect(() => {
+    const PUSH_DISMISSED_KEY = "fla_push_dismissed";
+    if (localStorage.getItem(PUSH_DISMISSED_KEY)) return;
+    void isPushSubscribed().then((subscribed) => {
+      if (!subscribed) setShowPushModal(true);
+    });
+  }, []);
+
+  function handlePushDismiss() {
+    localStorage.setItem("fla_push_dismissed", "1");
+    setShowPushModal(false);
+  }
+
+  function handlePushSuccess() {
+    localStorage.setItem("fla_push_dismissed", "1");
+    setShowPushModal(false);
+    toast.success("Notificaciones activadas");
+  }
 
   const clientById = (id: string): Client =>
     clients.find((c) => c.id === id) ?? ({} as Client);
@@ -186,13 +247,15 @@ export default function App() {
   );
 
   const activeRows = rows.filter((r) => !r.loan.isPaid);
-  const paidRows = rows.filter((r) => r.loan.isPaid);
+  const paidRows = rows.filter((r) => r.loan.isPaid).sort((a, b) => new Date(b.loan.createdAt).getTime() - new Date(a.loan.createdAt).getTime());
+  const filteredActiveRows = activeRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
+  const filteredPaidRows = paidRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
+  // const badCount = activeRows.filter((r) => r.d.daysLate > 7).length; 
   const dueToday = activeRows.filter((r) => r.d.daysLate === 0).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const overdue = activeRows.filter((r) => r.d.daysLate > 0).sort((a, b) => b.d.daysLate !== a.d.daysLate ? b.d.daysLate - a.d.daysLate : b.d.balanceCents - a.d.balanceCents);
   const dueSoon = activeRows.filter((r) => r.d.daysLate < 0 && r.d.daysLate >= -3).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const capitalOut = activeRows.reduce((s, r) => s + r.loan.principalCents, 0);
   const interestOut = activeRows.reduce((s, r) => s + r.d.interestCents + r.d.lateInterestCents, 0);
-  const badCount = activeRows.filter((r) => r.d.daysLate > 7).length;
 
   /* acciones */
   async function registerPayment(loanId: string, input: { type: PaymentType; amountCents: number; method: PaymentMethod }): Promise<PaymentSubmitResult> {
@@ -216,6 +279,56 @@ export default function App() {
       const msg = e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
       toast.error(msg);
       return { error: msg };
+    }
+  }
+
+  async function handleEditClient(id: string, patch: Pick<Client, "name" | "dni" | "phone">) {
+    await clientsRepo.update(id, patch);
+  }
+
+  async function handleEditLoan(id: string, patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>) {
+    await loansRepo.update(id, patch);
+  }
+
+  async function handleCancelLoan(id: string, reason?: string) {
+    return loansRepo.cancel(id, reason);
+  }
+
+  async function handleEditPayment(id: string, patch: Pick<Payment, "method">) {
+    await paymentsRepo.update(id, patch);
+  }
+
+  async function handleCancelPayment(id: string, reason?: string) {
+    await paymentsRepo.cancel(id, reason);
+  }
+
+  /** Patrón: dynamic import — @react-pdf/renderer solo se carga al tocar "Reporte global". */
+  async function handleDownloadGlobalReport() {
+    setGeneratingGlobalReport(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { GlobalReportPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./pdf/GlobalReportPdf"),
+      ]);
+      const [allClients, allLoans, allPayments] = await Promise.all([
+        clientsRepo.all(),
+        loansRepo.all(),
+        paymentsRepo.all(),
+      ]);
+      const blob = await pdf(
+        <GlobalReportPdf business={business} clients={allClients} loans={allLoans} payments={allPayments} />
+      ).toBlob();
+      downloadBlob(blob, `ReporteGlobal_${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Reporte global descargado");
+    } catch {
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setGeneratingGlobalReport(false);
     }
   }
 
@@ -275,7 +388,8 @@ export default function App() {
 
         <div className="pf-head">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="pf-brand"><BrandLogo size={18} /> Fla MpM</div>
+            <div className="pf-brand"><BrandLogo size={64} /> Fla MpM</div>
+            <div className="header-actions">
             {sync.status === "synced" && (
               <div style={{ background: "var(--good-soft)", color: "var(--good)", borderRadius: 9, padding: "4px 8px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 <Check size={13} /> Al día
@@ -296,14 +410,20 @@ export default function App() {
                 <AlertTriangle size={13} /> Error de sync
               </button>
             )}
+              {/* Patrón: Header action button + controlled sheet. Sprint 6a-6 */}
+              <button type="button" onClick={() => setProfileOpen(true)} className="header-avatar" aria-label="Perfil">
+                <User size={20} />
+              </button>
+            </div>
           </div>
-          <div className="pf-hello">Buen día · {formatLong(startOfToday())} · 7:00 a.m.</div>
-          <div className="pf-cobranza-lbl">Debes cobrar hoy</div>
+          <div className="pf-cobranza-label">Debes cobrar hoy</div>
           <div className="pf-cobranza num">{formatSoles(dueToday.reduce((s, r) => s + r.d.balanceCents, 0))}</div>
+
           <div className="pf-mini">
             <div><div className="k">Vencen hoy</div><div className="v num">{dueToday.length}</div></div>
             <div><div className="k">Atrasados</div><div className="v num">{overdue.length}</div></div>
-            <div><div className="k">Mal pagador</div><div className="v num">{badCount}</div></div>
+            {/* TODO: componente sin uso desde sprint 6a-2, evaluar borrar si sigue sin uso en 2 sprints
+            <div><div className="k">Mal pagador</div><div className="v num">{badCount}</div></div> */}
           </div>
         </div>
 
@@ -346,16 +466,30 @@ export default function App() {
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Préstamos</div>
                 {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
               </div>
+
+              {loans.length > 0 && (
+                <div style={{ marginBottom: 16, padding: "0 2px" }}>
+                  <input
+                    className="inp"
+                    placeholder="Buscar préstamo por cliente..."
+                    value={loanSearch}
+                    onChange={(e) => setLoanSearch(e.target.value)}
+                  />
+                </div>
+              )}
+
               {loans.length === 0 ? (
                 <div className="empty" style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
                   Aún no tienes préstamos activos.
                   <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>
                 </div>
+              ) : filteredActiveRows.length === 0 && filteredPaidRows.length === 0 ? (
+                <div className="empty">No se encontraron préstamos para "{loanSearch}".</div>
               ) : (
                 <>
-                  {activeRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)}
-                  {paidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {paidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} />)}
+                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
+                  {filteredPaidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
+                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
                 </>
               )}
             </>
@@ -367,10 +501,24 @@ export default function App() {
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Clientes</div>
                 <button className="btn btn-p" onClick={() => setCreatingClient(true)}><Plus size={16} /> Nuevo</button>
               </div>
+              
+              {clients.length > 0 && (
+                <div style={{ marginBottom: 16, padding: "0 2px" }}>
+                  <input 
+                    className="inp" 
+                    placeholder="Buscar cliente..." 
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                  />
+                </div>
+              )}
+
               {clients.length === 0 ? (
                 <div className="empty">Aún no tienes clientes. Agrega el primero para empezar.</div>
               ) : (
-                clients.map((c) => {
+                clients
+                  .filter(c => !clientSearch || clientNameMatches(c.name, clientSearch))
+                  .map((c) => {
                   const theirs = rows.filter((r) => r.loan.clientId === c.id);
                   const rating = c.rating ?? "good";
                   const totalLent = theirs.reduce((s, r) => s + r.loan.principalCents, 0);
@@ -407,22 +555,6 @@ export default function App() {
                 );
               }))}
               
-              <div style={{ marginTop: 24, textAlign: "center", display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  onClick={() => setShowingSettings(true)}
-                  style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-                >
-                  <Settings size={14} /> Ajustes
-                </button>
-                {session && (
-                  <button
-                    onClick={() => signOut()}
-                    style={{ background: "transparent", border: "1px solid var(--line)", color: "var(--muted)", padding: "8px 16px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}
-                  >
-                    Cerrar sesión ({session.user?.email})
-                  </button>
-                )}
-              </div>
             </>
           )}
         </div>
@@ -436,6 +568,20 @@ export default function App() {
           <NavBtn on={tab === "clients"} onClick={() => setTab("clients")} icon={<Users size={20} />} label="Clientes" />
         </div>
 
+        {viewingClient && (
+          <ClientDetailSheet
+            client={clientById(viewingClient)}
+            loans={loans.filter(l => l.clientId === viewingClient)}
+            payments={payments.filter(p => loans.some(l => l.id === p.loanId && l.clientId === viewingClient))}
+            onClose={() => setViewingClient(null)}
+            onEditClient={handleEditClient}
+            onEditLoan={handleEditLoan}
+            onCancelLoan={handleCancelLoan}
+            onEditPayment={handleEditPayment}
+            onCancelPayment={handleCancelPayment}
+            onPayLoan={setPayingId}
+          />
+        )}
         {payingRow && (
           <PaymentSheet
             client={payingRow.client}
@@ -443,14 +589,6 @@ export default function App() {
             derived={payingRow.d}
             onClose={() => setPayingId(null)}
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
-          />
-        )}
-        {viewingClient && (
-          <ClientDetailSheet
-            client={clientById(viewingClient)}
-            loans={loans.filter(l => l.clientId === viewingClient)}
-            payments={payments.filter(p => loans.some(l => l.id === p.loanId && l.clientId === viewingClient))}
-            onClose={() => setViewingClient(null)}
           />
         )}
         {creating && (
@@ -464,7 +602,31 @@ export default function App() {
           />
         )}
         {creatingClient && <NewClientSheet onClose={() => setCreatingClient(false)} onSubmit={createClient} />}
-        {showingSettings && <SettingsSheet onClose={() => setShowingSettings(false)} />}
+        <ProfileSheet
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          onOpenSettings={() => { setProfileOpen(false); setSettingsOpen(true); }}
+          onDownloadGlobalReport={handleDownloadGlobalReport}
+          generatingGlobalReport={generatingGlobalReport}
+        />
+        <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        {showPushModal && <PushPermissionModal onClose={handlePushDismiss} onSuccess={handlePushSuccess} />}
+        {/* Sprint 6a-8c: Patrón: controlled-sheet — editar desde tab Préstamos (error por pagos activos → toast) */}
+        {editingLoanFromTab && (
+          <EditLoanSheet
+            loan={editingLoanFromTab}
+            onClose={() => setEditingLoanFromTab(null)}
+            onSave={async (patch) => {
+              try {
+                await handleEditLoan(editingLoanFromTab.id, patch);
+                setEditingLoanFromTab(null);
+                toast.success("Préstamo actualizado");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Error al editar");
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -524,7 +686,8 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
   );
 }
 
-function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
+// Sprint 6a-8c: Patrón: Presentational — botón Editar en LoanCard (tab Préstamos)
+function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onEdit: () => void }) {
   const { loan, d, client } = row;
   return (
     <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 9 }}>
@@ -538,6 +701,9 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
           </div>
         </div>
         <StatusChip status={d.status} />
+        {!loan.isPaid && (
+          <button className="btn" aria-label="Editar préstamo" onClick={onEdit} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 6 }}><Pencil size={14} /></button>
+        )}
       </div>
       <div className="preview" style={{ margin: 0 }}>
         <div className="r"><span>Entrega → Pago</span><span className="num">{formatShort(d.disbursedDate)} → {formatShort(d.dueDate)}</span></div>
@@ -554,10 +720,17 @@ function LoanCard({ row, onPay }: { row: LoanRow; onPay: () => void }) {
           </span>
         </div>
       </div>
-      {!loan.isPaid && <button className="btn btn-p btn-block" onClick={onPay}>Registrar pago</button>}
+      {!loan.isPaid && (
+        // Patrón: Presentational reuse — mismo WhatsappButton que pestaña Hoy (sprint 6a-5)
+        <div style={{ display: "flex", gap: 8 }}>
+          <WhatsappButton client={client} loan={loan} balanceCents={d.balanceCents} dueDate={d.dueDate} />
+          <button className="btn btn-p btn-block" onClick={onPay}>Registrar pago</button>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHistorical }: {
   clients: Client[];
@@ -566,10 +739,13 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   onSubmit: (input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) => void;
   onSubmitHistorical?: (input: LoanBackfillInput) => Promise<string | null>;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(sheetRef);
   const [mode, setMode] = useState<"new" | "historical">("new");
   const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
   const [principal, setPrincipal] = useState("");
-  const [ratePct, setRatePct] = useState("20");
+  // Sprint 6a-8c: Fla piensa en montos, no en porcentajes. rate = interésCents / principalCents.
+  const [interestAmount, setInterestAmount] = useState("");
   const [termDays, setTermDays] = useState<LoanTerm>(30);
 
   // Historical fields
@@ -581,12 +757,15 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   const [submitError, setSubmitError] = useState<string | null>(null);
   
   const principalCents = toCents(parseFloat(principal) || 0);
-  const rate = (parseFloat(ratePct) || 0) / 100;
-  const interestCents = Math.round(principalCents * rate);
+  // Sprint 6a-8c: rate = interésCents / principalCents (Fla ingresa monto, no porcentaje)
+  const interestCents = toCents(parseFloat(interestAmount) || 0);
+  const rate = principalCents > 0 ? interestCents / principalCents : 0;
   const totalCents = principalCents + interestCents;
   const client = clients.find(c => c.id === clientId);
   const isBad = client?.rating === "bad";
-  const terms: LoanTerm[] = [25, 28, 30];
+  // Patrón: Domain Value Object — usar constantes del dominio en la UI
+  const terms = LOAN_TERM_PRESETS;
+
 
   let historicalPreview = null;
   if (mode === "historical") {
@@ -658,7 +837,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
 
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Nuevo préstamo <span className="x" onClick={onClose}><X size={17} /></span></h3>
 
         {clients.length === 0 ? (
@@ -697,19 +876,46 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
 
             <div style={{ display: "flex", gap: 11 }}>
               <div className="field" style={{ flex: 1 }}>
-                <label>Interés (%)</label>
-                <input className="inp num" inputMode="decimal" value={ratePct} onChange={(e) => setRatePct(e.target.value)} />
+                <label>Interés (S/)</label>
+                <input className="inp num" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} placeholder="200.00" />
+                {principalCents > 0 && interestCents > 0 && (
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {(rate * 100).toFixed(1)}%</div>
+                )}
                 {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
               </div>
               <div className="field" style={{ flex: 2 }}>
-                <label>Plazo</label>
-                <div className="seg">
-                  {terms.map((day) => (
-                    <button key={day} className={termDays === day ? "on" : ""} onClick={() => setTermDays(day)}>{day} días</button>
-                  ))}
+                <label>Plazo (días)</label>
+                {/* Patrón: Compound input — número libre + presets. Shortcuts respetan hábito de Fla. */}
+                <div className="term-input-wrap">
+                  <input
+                    className="inp num"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={365}
+                    step={1}
+                    value={termDays}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setTermDays(isNaN(v) ? 1 : v);
+                    }}
+                  />
+                  <div className="term-presets">
+                    {terms.map((day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`term-preset-btn${termDays === day ? " active" : ""}`}
+                        onClick={() => setTermDays(day)}
+                      >
+                        {day}d
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {errors.termDays && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.termDays}</div>}
               </div>
+
             </div>
 
             {mode === "historical" && (
@@ -735,7 +941,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             {mode === "new" ? (
               <div className="preview">
                 <div className="r"><span>Capital</span><span className="num">{formatSoles(principalCents)}</span></div>
-                <div className="r"><span>Interés ({ratePct || 0}%)</span><span className="num">{formatSoles(interestCents)}</span></div>
+                <div className="r"><span>Interés</span><span className="num">{formatSoles(interestCents)}</span></div>
                 <div className="r"><span>Fecha de pago</span><span className="num">{formatShort(addDays(startOfToday(), termDays))}</span></div>
                 <div className="r tot"><span>Deberá pagar</span><span className="num">{formatSoles(totalCents)}</span></div>
               </div>
@@ -755,7 +961,7 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             <button
               className="btn btn-p btn-block"
               style={{ marginTop: 18 }}
-              disabled={principalCents <= 0 || !Number.isInteger(principalCents)}
+              disabled={principalCents <= 0 || !Number.isInteger(principalCents) || (mode === "new" && interestCents <= 0)}
               onClick={handleSubmit}
             >
               {mode === "new" ? "Registrar préstamo" : "Registrar préstamo existente"}
@@ -776,6 +982,8 @@ function NewClientSheet({ onClose, onSubmit }: {
   onClose: () => void;
   onSubmit: (input: ClientInput) => Promise<string | null>;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useKeyboardAwareInput(sheetRef);
   const [name, setName] = useState("");
   const [dni, setDni] = useState("");
   const [phone, setPhone] = useState("");
@@ -799,12 +1007,13 @@ function NewClientSheet({ onClose, onSubmit }: {
 
   return (
     <div className="ovl" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div ref={sheetRef} className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Nuevo cliente <span className="x" onClick={onClose}><X size={17} /></span></h3>
         
         <div className="field">
           <label>Nombre</label>
           <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Ana Torres" />
+          {name && <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>Se guardará como: {normalizeClientName(name)}</div>}
           {errors.name && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.name}</div>}
         </div>
 

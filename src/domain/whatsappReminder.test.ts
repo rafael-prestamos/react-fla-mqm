@@ -159,5 +159,54 @@ describe("whatsappReminder domain logic", () => {
       expect(url).to.match(/^https:\/\/wa\.me\/51961655740\?text=/);
       expect(url).toContain(encodeURIComponent("Hola Juan Pérez,"));
     });
+
+    // Sprint 6a-5: cobertura adicional para reutilización desde ClientDetailSheet y tab Préstamos
+    it("URL no contiene + ni espacios en el número (número limpio para wa.me)", () => {
+      const url = buildWhatsappUrl(defaultInput);
+      const phoneSegment = url.split("?")[0].replace("https://wa.me/", "");
+      expect(phoneSegment).not.toContain("+");
+      expect(phoneSegment).not.toContain(" ");
+      expect(phoneSegment).toBe("51961655740");
+    });
+
+    it("texto está URL-encoded correctamente (no contiene espacios sin codificar)", () => {
+      const url = buildWhatsappUrl(defaultInput);
+      const textPart = url.split("?text=")[1];
+      expect(textPart).not.toContain(" ");
+      expect(textPart).toContain("%");
+    });
+  });
+
+  // Sprint 6a-5: mensajes con mora — usados desde ClientDetailSheet y tab Préstamos
+  describe("buildReminderMessage — mora para reutilización ubicua", () => {
+    const baseInput: ReminderInput = {
+      client: { id: "c1", dni: "12345678", name: "ROSA LOPEZ", phone: "961655740",
+        rating: "bad", maxDaysLateHistorical: 35,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      loan: { id: "l1", clientId: "c1", principalCents: 50000, rate: 0.2, termDays: 25,
+        disbursedAt: new Date().toISOString(), paidOffCents: 0, renewalCount: 0,
+        isPaid: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      settings: { id: "singleton", businessName: "Fla MpM", phone: "987654321",
+        yape: "", yapeHolder: "", bcpSoles: "", bcpSolesHolder: "", bcpInterbank: "", bcpInterbankHolder: "", updatedAt: new Date().toISOString() },
+
+      balanceCents: 60000,
+      dueDate: new Date(2023, 10, 1),
+      reference: new Date(2023, 10, 15), // 14 días de atraso
+    };
+
+    it("mensaje incluye nombre del cliente en cualquier case (UPPERCASE preservado)", () => {
+      const msg = buildReminderMessage(baseInput);
+      expect(msg).toContain("ROSA LOPEZ");
+    });
+
+    it("mensaje incluye monto pendiente formateado", () => {
+      const msg = buildReminderMessage(baseInput);
+      expect(msg).toContain("600.00");
+    });
+
+    it("mensaje en mora incluye días de atraso", () => {
+      const msg = buildReminderMessage(baseInput);
+      expect(msg).toContain("14 días de atraso");
+    });
   });
 });

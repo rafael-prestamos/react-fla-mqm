@@ -64,6 +64,23 @@ export class AppDatabase extends Dexie {
         s.bcpInterbankHolder = s.bcpInterbankHolder ?? "Rafael Rojas";
       });
     });
+
+    // v5: Campos de anulación y edición (sprint 6a-8).
+    this.version(5).stores({}).upgrade(tx => Promise.all([
+      tx.table("loans").toCollection().modify(loan => {
+        if (loan.cancelledAt === undefined) loan.cancelledAt = null;
+        if (loan.cancelReason === undefined) loan.cancelReason = null;
+        if (loan.editedAt === undefined) loan.editedAt = null;
+      }),
+      tx.table("payments").toCollection().modify(payment => {
+        if (payment.cancelledAt === undefined) payment.cancelledAt = null;
+        if (payment.cancelReason === undefined) payment.cancelReason = null;
+        if (payment.editedAt === undefined) payment.editedAt = null;
+      }),
+      tx.table("clients").toCollection().modify(client => {
+        if (client.editedAt === undefined) client.editedAt = null;
+      }),
+    ]));
   }
 }
 

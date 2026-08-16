@@ -17,7 +17,7 @@ Fuente: `src/types/domain.ts`
 |---|---|---|---|---|
 | id | string (UUID) | sí | PK | |
 | dni | string | sí | 8 dígitos | `/^\d{8}$/` |
-| name | string | sí | Nombre visible del cliente | trim, length ≥ 2 |
+| name | string | sí | Nombre completo. **Siempre normalizado a UPPERCASE** post sprint 6a-3 (sin espacios extras y locale-aware `es-PE`). | trim, length ≥ 2 |
 | phone | string | sí | Celular | `/^9\d{8}$/` (Perú) |
 | rating | "good" \| "slow" \| "bad" | sí | Cacheado, monótono ascendente | nunca baja |
 | maxDaysLateHistorical | number (int) | sí | Máximo atraso alguna vez | ≥ 0, nunca disminuye |
@@ -31,7 +31,8 @@ Fuente: `src/types/domain.ts`
 | clientId | string (UUID) | sí | FK a Client | |
 | principalCents | number (int) | sí | Capital prestado | > 0 |
 | rate | number | sí | Tasa por período | > 0 |
-| termDays | LoanTerm | sí | Plazo en días | 25, 28, 30 |
+| termDays | number (int, 1-365) | sí | Plazo en días. Libre: cualquier entero 1-365. Presets comunes: 25, 28, 30 (sprint 6a-4). | ≥ 1, ≤ 365, entero |
+
 | disbursedAt | string ISO | sí | Fecha de entrega (YYYY-MM-DD) | |
 | paidOffCents | number (int) | sí | Abonos acumulados | ≥ 0 |
 | renewalCount | number (int) | sí | Veces que renovó pagando solo interés | ≥ 0 |

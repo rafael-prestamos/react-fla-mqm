@@ -198,4 +198,151 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Decisión:** PNG como formato base (no SVG traced) por simplicidad y calidad suficiente, extraído de `assets/branding/logo-source-1024.png`.
 - **Assets:** Se generaron derivados para PWA (`pwa-192.png`, `pwa-512.png`, `pwa-maskable-512.png`), favicons (`favicon.ico`, `apple-touch-icon.png`) y uso interno (`logo.png`).
 - **Implementación UI:** Componente `BrandLogo` (`src/components/brand/BrandLogo.tsx`) como *single source of truth* para renderizar el logo en la app (Login, cabecera).
-- **PDFs:** Se importó el logo como asset estático en `PaymentReceiptPdf` y `StatementPdf`, manteniéndolos en chunks separados sin afectar el bundle principal.
+### Sprint 6a-2: Colores estado + limpieza Hoy
+
+- **Tokens de Color (Semáforo):** A pedido del cliente, se adoptó una paleta de semáforo pura (`good: navy #16325C`, `slow: amber #F59E0B`, `bad: red #DC2626`) implementada vía CSS variables en `theme.css`. Se crearon variantes `-soft` para fondos con baja opacidad en los badges de estado.
+- **Limpieza de "Hoy":** Se eliminó el conteo estadístico de "mal pagador" de la cabecera en la pestaña "Hoy" para evitar ruido y ansiedad visual diaria. El componente queda comentado por si se requiere en el futuro, pero la visualización permanente se delega a las vistas de historial y al listado general de clientes.
+- **Estrategia (Opción C híbrida):** Los nombres de clientes se normalizan a UPPERCASE tanto al crear como al editar. Se implementó una migración one-shot (`namesMigratedToUpperV1`) con backup local que actualiza los registros en Dexie y hace un `.update` en Supabase para evitar sobrescribir otros campos.
+- **UI:** Se incluyó un input de búsqueda case-insensitive y se agregó un texto de previsualización (e.g. "Se guardará como: JUAN PÉREZ") debajo del input de creación de cliente.
+- **SQL / Consideración futura:** De momento la normalización se maneja 100% en el frontend con el helper `normalizeClientName`. Se considera un trigger SQL en Supabase como defensa futura pero no se requiere actualmente.
+
+### Sprint 6a-4: Plazo flexible de préstamo (1-365 días)
+
+- **Decisión:** Se cambió el tipo `LoanTerm` de un enum estricto `25 | 28 | 30` a `number` validado en rango `[1, 365]`. Esto habilita a Fla a ingresar cualquier plazo entero (ej. 45 días, 60 días) sin perder los atajos rápidos de sus plazos habituales.
+- **Rationale:** Fla necesita flexibilidad para acuerdos informales con plazos no estándar. El 90% de sus préstamos seguirán siendo 25/28/30 días, pero la restricción de enum bloqueaba casos edge.
+- **Sin migración de datos:** Los préstamos existentes tienen `termDays` ∈ {25, 28, 30}, todos dentro del nuevo rango [1, 365]. Solo se relaja la restricción, sin tocar datos persistidos.
+- **Value Object de dominio:** `src/domain/loanTerm.ts` implementa el patrón Value Object con `isValidLoanTerm()` y `assertValidLoanTerm()`. Constantes: `LOAN_TERM_MIN=1`, `LOAN_TERM_MAX=365`, `LOAN_TERM_PRESETS=[25,28,30]`.
+- **Defensa en profundidad:** Validación en tres capas — dominio (`isValidLoanTerm`), validador de formulario (`validateLoanInput`/`validateLoanBackfillInput`), y repository (`assertValidLoanTerm` antes del `put`).
+- **UI (Compound Input):** El formulario de préstamo muestra un `<input type="number">` libre para el plazo más tres botones-preset (25d / 28d / 30d) visualmente conectados. El botón activo se destaca en navy. Los presets respetan el hábito de Fla sin quitar la libertad de ingresar cualquier valor.
+- **Cálculos:** Los cálculos de interés simple, fecha de vencimiento, mora y renovación ya operaban con `number`; no requirieron cambio lógico, solo tipológico.
+
+### Sprint 6a-8: CRUD editable + soft delete
+
+- **Alcance:** editar cliente (nombre/DNI/teléfono), préstamo (monto/tasa/plazo/fecha) y pago (monto/método); anular préstamos con cascada a sus pagos y anular pagos individuales.
+- **Campos:** `cancelledAt`, `cancelReason` opcional y `editedAt` en Loan/Payment; solo `editedAt` en Client. La auditoría conserva únicamente ese timestamp y se muestra un badge sutil “editado”.
+- **Cascada:** al anular un préstamo se anulan todos sus pagos activos. El modal los enumera y exige escribir `ELIMINAR` antes de habilitar la acción destructiva.
+- **Visibilidad:** las consultas `all`/`active`/`byClient`/`byLoan` excluyen registros anulados, por lo que desaparecen de las vistas normales.
+- **Sync:** Dexie v5 y migración SQL `0008_soft_delete_and_edit.sql`; los mappers sincronizan los nuevos campos.
+- **Fix colateral:** `rowToLoan` usa `isValidLoanTerm` en vez del listado hardcodeado 25/28/30, preservando plazos libres entre 1 y 365.
+- **Descartado:** hard delete (sin auditoría), log completo de valores anteriores (excesivo para el producto) y una sección visible de anulados (ruido visual).
+
+#### Hotfix 6a-8b: Restricciones de pago
+
+- **Editar pago:** solo permite cambiar el método (`cash` ↔ `digital`). El monto no es editable: ante un error debe anularse y registrarse de nuevo.
+- **Anular pago:** únicamente se permite el último pago activo del préstamo; para llegar a uno anterior se anulan primero los más recientes.
+- **Recálculo:** al anular se reconstruyen `paidOffCents`, `isPaid`, `renewalCount` y, cuando corresponde, `disbursedAt` a partir de los pagos activos restantes en orden cronológico.
+- **Justificación:** editar importes sin actualizar el préstamo dejaba saldos inconsistentes; anular pagos fuera de orden rompía la secuencia de renovaciones y abonos.
+
+### Sprint 6a-7: Fix teclado móvil tapa input
+
+- **Problema:** en Android, el teclado flotante puede tapar el campo enfocado dentro de sheets con scroll.
+- **Solución (Opción B):** `useKeyboardAwareInput` detecta la apertura mediante `visualViewport.resize`; si el control enfocado está dentro del contenedor, hace `scrollIntoView({ block: "center" })` tras un breve delay para que el layout termine de actualizarse.
+- **Aplicado en:** `NewLoanSheet`, `NewClientSheet`, `PaymentSheet`, `SettingsSheet` y `LoginScreen`. `ClientDetailSheet` y `ProfileSheet` no tienen inputs editables.
+- **Descartado:** Opción A (CSS puro, no confiable en modales Android) y Opción C (librería React Native, no aplica a PWA web).
+
+### Sprint 6a-6: Sección Perfil
+
+- **Decisión UX (Opción A):** avatar persistente en el header en vez de una pestaña nueva; Perfil queda disponible desde Hoy, Préstamos y Clientes sin ocupar espacio en la navegación principal.
+- **Contenido consolidado:** `ProfileSheet` muestra nombre del negocio, versión, estado de conexión/sincronización, Ajustes y cierre de sesión con confirmación explícita. Reutiliza `useSync` y `useSession`, sin modificar sus lógicas.
+- **Navegación:** Ajustes deja de estar al final de Clientes. Al elegirlo desde Perfil se cierra ese sheet y se abre el `SettingsSheet` existente.
+- **Versión:** `APP_VERSION` en `src/config/version.ts` toma `package.json.version` como constante de build-time.
+
+### Sprint 6a-5: WhatsApp ubicuo (Hoy + Detalle Cliente + tab Préstamos)
+
+- **Decisión (Opción B):** Un botón WhatsApp por cada préstamo activo en todas las vistas. Acordado con Fla: si un cliente tiene 2 préstamos activos, aparecen 2 botones (uno por préstamo) con la fecha de entrega como distinción.
+- **Single source of truth:** `buildWhatsappUrl` + `buildReminderMessage` en `src/domain/whatsappReminder.ts` — componente `WhatsappButton` (`src/components/WhatsappButton.tsx`) como presentacional reutilizable. NO se duplicó lógica.
+- **3 ubicaciones:** Pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard` — solo activos), y `ClientDetailSheet` (por cada préstamo `!loan.isPaid`).
+- **Excepción cromática:** Fondo verde `#25D366` (WhatsApp brand color). Excepción documentada y justificada: convención universal reconocida por todos los usuarios; usar navy generaría confusión con el botón de cobro.
+- **Sin cambios en dominio ni datos:** Alcance puramente UI. No afecta sync, IndexedDB ni lógica de cálculo.
+- **Filtro activo:** `!loan.isPaid` (criterio existente en dominio — préstamos pagados no muestran botón WhatsApp).
+
+### Hotfix 6a-8c: Observaciones del cliente (4 correcciones)
+
+**1. Editar préstamo con pagos — bloqueado en repo + UI disabled:**
+- `loansRepo.update()` valida pagos activos antes de permitir la edición. Lanza `"No se puede editar un préstamo con pagos registrados. Anula los pagos primero."`.
+- `ClientDetailSheet`: botón Editar tiene `disabled={hasPayments}` y `opacity: 0.4` + tooltip explicativo.
+- El handler de `EditLoanSheet` en ambas UI (ClientDetailSheet y tab Préstamos) está envuelto en try/catch con `toast.error`.
+- **Justificación:** editar capital o tasa después de registrar pagos deja saldos inconsistentes.
+
+**2. Editar desde tab Préstamos — botón Pencil en LoanCard:**
+- `LoanCard` acepta prop `onEdit` y muestra botón Pencil solo si `!loan.isPaid`.
+- Estado `editingLoanFromTab` en `App` controla qué préstamo se edita.
+- `EditLoanSheet` se renderiza al mismo nivel que `PaymentSheet` (al final del árbol del componente principal).
+- Tab Hoy (`LoanRowItem`) no tiene botón Editar — es para cobranza rápida.
+
+**3. Input interés en soles (no porcentaje):**
+- `NewLoanSheet` y `EditLoanSheet`: campo cambia de "Interés (%)" a "Interés (S/)".
+- `rate` se calcula como `interésCents / principalCents` (antes: `ratePct / 100`).
+- El porcentaje derivado se muestra como hint debajo del input (`= X.X%`).
+- **Internamente `rate` sigue siendo decimal** — sin cambio en el modelo de datos ni en Supabase.
+- **Justificación:** Fla piensa en montos ("cobra 200 soles"), no en porcentajes.
+
+**4. Fallback teclado MIUI/Xiaomi:**
+- `useKeyboardAwareInput`: estrategia dual.
+  - Estrategia 1: `visualViewport.resize` (funciona en Chrome/Samsung).
+  - Estrategia 2: `focusin` con delay 300ms (fallback para MIUI/Xiaomi donde `resize` no dispara correctamente).
+- El check usa `tagName` en vez de `instanceof Element` (compatible con entornos sin jsdom).
+- Doble scroll inofensivo: `scrollIntoView` idempotente al mismo elemento.
+
+### Sprint 6a-9: Reportes PDF — historial por cliente + reporte global
+
+- **Dos reportes nuevos:** `ClientHistoryPdf` (historial completo por cliente: activos + pagados + anulados, con sección aparte "Registros anulados" con motivo y fecha de anulación) y `GlobalReportPdf` (métricas del negocio: cartera activa, cobranza del mes por tipo, morosidad, resumen por cliente, histórico acumulado).
+- **`StatementPdf` convive sin cambios** — es el estado de cuenta que Fla envía al cliente; no se toca ni se reemplaza.
+- **Descarga:** Historial desde `ClientDetailSheet` (botón junto a "Estado de cuenta"); Reporte global desde `ProfileSheet` (entre Ajustes y Cerrar sesión).
+- **Datos del historial:** se leen directo de Dexie (`db.loans`/`db.payments` sin filtro de `cancelledAt`) porque `loansRepo`/`paymentsRepo` excluyen anulados por diseño (Sprint 6a-8); el reporte global sí usa los repos tal cual (ya vienen sin anulados).
+- **Dynamic import** de `@react-pdf/renderer` en ambos handlers (mismo patrón que `StatementPdf`) — cada PDF queda en su propio chunk lazy (~2.5kb gzip).
+- **Sin migración SQL ni campos nuevos** — solo lectura de datos existentes.
+- **Helpers nuevos** en `src/pdf/formatters.ts`: `isCurrentMonth(isoDate, reference)` y `ratingLabel(rating)`.
+
+### Sprint 5b-2: Push notifications diarias 7am
+
+- **Transporte:** Web Push estándar con VAPID (sin Firebase Cloud Messaging) — costo cero, funciona en Chrome/Android sin dependencias externas.
+- **Trigger:** Supabase Edge Function `daily-push` (Deno) invocada por `pg_cron` a `0 12 * * *` UTC (= 7am hora Perú, UTC-5 fijo). Alternativa documentada con cron externo si `pg_net` no está disponible.
+- **Tabla `push_subscriptions`:** RLS por `owner_id`, `unique(owner_id, endpoint)`; migración `0009_push_subscriptions.sql`.
+- **Suscripción:** `src/push/pushSubscription.ts` — `subscribeToPush()` pide permiso, se suscribe al `PushManager` del service worker y guarda `{endpoint, p256dh, auth}` en Supabase; `isPushSubscribed()` solo consulta el estado local. Ambas funciones son no-op seguro (`false`) en modo solo-local o navegadores sin soporte.
+- **Opt-in:** `PushPermissionModal` se muestra una vez al primer login (flag `fla_push_dismissed` en `localStorage` — solo UX, no dato de negocio); toggle equivalente y persistente en `SettingsSheet` (no se puede desactivar desde la app, hay que ir a la configuración del navegador — evita un estado "activado en Supabase, revocado en el browser" inconsistente).
+- **Service Worker:** `public/sw-push.js` (handlers `push`/`notificationclick`) se importa desde el SW autogenerado por `vite-plugin-pwa` vía `workbox.importScripts` en `vite.config.ts`, para no pisar el SW de precache de Workbox.
+- **Edge Function:** calcula por cada `owner_id` los préstamos que vencen hoy o están atrasados (misma regla de tolerancia 7 días y mora que `deriveLoan`), compone el mensaje y envía el push; si el envío devuelve 410 (Gone), borra la suscripción vencida. Solo notifica si hay algo que vence hoy o está atrasado — no molesta por préstamos al día.
+- **Lógica de mensaje duplicada a propósito:** `src/domain/dailyBrief.ts` (frontend, toast in-app) y la Edge Function (Deno) no comparten código — son runtimes distintos sin forma práctica de compartir un módulo entre Vite/browser y Supabase Edge Functions.
+- **Deploy manual, no ejecutado por el agente:** aplicar la migración, desplegar la Edge Function, configurar secrets VAPID y habilitar `pg_cron`/`pg_net` requieren el Supabase CLI autenticado y acceso a dashboards — ver checklist en `docs/DEPLOY_PUSH.md`.
+
+### Sprint 7a-1: Header Hoy — logo más grande, sin saludo
+
+- **Solo presentación** en el header navy de la pestaña Hoy (`App.tsx`): el logo (`BrandLogo`) pasa de 18px a 64px; se elimina el saludo ("Buen día · fecha · hora") y la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo.
+- **No afecta** el toast del brief diario (`src/domain/dailyBrief.ts`) ni los mini-cards "Vencen hoy"/"Atrasados", que se mantienen sin cambios.
+
+### Sprint 7a-3b: Reducir borde y sombra del logo PDF
+
+- **Ajuste de parámetros** en `scripts/process-logo.py`: outline blanco de 9px a 3px, drop-shadow de offset (0,5px)/blur 10px a (0,2px)/blur 4px (opacidad 28% sin cambios).
+- **Regenerado** `public/logo-pdf.png` y `src/assets/logo-pdf.png` corriendo el script — mismo pipeline documentado en Sprint 7a-3, solo cambian los valores de intensidad del borde/sombra.
+- **Solo afecta** el logo usado en los 4 PDF components (`react-pdf`); no toca `<BrandLogo />` de la UI ni lógica de dominio.
+
+### Sprint 7a-4: Descargar comprobante desde historial de pagos
+
+- **Botón por pago:** en `ClientDetailSheet`, cada fila del historial de pagos (préstamos activos o pagados) tiene un ícono `FileDown` discreto (navy) que regenera y descarga el mismo `PaymentReceiptPdf` que ya se genera al registrar el cobro — mismo componente, mismo patrón de dynamic import, sin duplicar esa lógica.
+- **Problema:** el comprobante necesita `balanceCentsAfterPayment` (saldo justo después de ESE pago), dato que no se guarda por pago — el préstamo solo conserva su `paidOffCents` acumulado actual, que ya incluye pagos posteriores y se resetea en cada renovación.
+- **Solución — nuevo módulo puro `src/domain/loanBalanceHistory.ts`** (con tests): reconstruye ese saldo reproduciendo la secuencia completa de pagos activos del préstamo desde su primer ciclo (retrocediendo `disbursedAt` un `termDays` por cada renovación previa) y reaplicándolos en orden con `applyPayment` hasta el pago objetivo, devolviendo `deriveLoan(...).balanceCents`. Reutiliza `applyPayment`/`deriveLoan` de `loanPayment.ts`/`loanRules.ts` tal cual — no se modificó ninguna regla de interés/mora/renovación existente, solo se compuso.
+- **Limitación aceptada:** si el préstamo fue editado (capital/tasa/plazo) entre pagos históricos, la reconstrucción usa los valores actuales para todos los ciclos — misma limitación que ya tenía `rebuildLoanAfterPaymentCancellation` (Hotfix 6a-8b) para el mismo escenario.
+
+### Sprint 7a-5: Saldo en card de préstamo + botón "Cobrar" desde ClientDetailSheet
+
+- **Saldo visible:** cada card de préstamo en `ClientDetailSheet` muestra "Saldo: S/ X" (navy) para préstamos activos, "Pagado" (verde) para pagados y "Anulado" (gris) para anulados — reemplaza el antiguo texto genérico "Activo"/"Pagado". Usa `deriveLoan(loan, startOfToday())`, ya calculado una sola vez por card (antes solo se calculaba condicionalmente para el botón de WhatsApp).
+- **Botón "Cobrar":** visible solo en préstamos activos (`!isPaid && !cancelledAt`); dispara `onPayLoan(loan.id)`, prop nueva que `App.tsx` conecta directo a `setPayingId` — el mismo `PaymentSheet` que ya usan las pestañas Hoy/Préstamos, sin componente ni lógica de pago duplicada. Como `rows` en `App.tsx` cubre todos los préstamos (no solo los de "Hoy"), `payingRow` encuentra el préstamo sin cambios adicionales.
+- **Orden de overlays:** ambos overlays comparten `z-index:50` (`.ovl`), así que el orden en el DOM decide cuál queda encima. Se reordenó el JSX en `App.tsx` para que `PaymentSheet` se renderice después de `ClientDetailSheet` — si no, al abrir "Cobrar" desde el detalle del cliente, el sheet de pago hubiera quedado tapado detrás.
+- **Saldo se actualiza solo:** tras registrar el pago, `loans`/`payments` (Dexie `useLiveQuery`) se refrescan y `ClientDetailSheet` re-renderiza con el saldo nuevo — no hizo falta ningún estado ni prop adicional para esto.
+
+### Hotfix diagnóstico → causa raíz confirmada: error al descargar Historial PDF (caso ELVIA PÉREZ)
+
+- **Reporte inicial:** para un cliente con un préstamo + pago creados y luego anulados (soft delete de ambos), la descarga de "Historial" fallaba; otros clientes funcionaban bien.
+- **Primera investigación (sin logging):** se reprodujo el escenario de anulación en cascada con datos sintéticos contra `ClientHistoryPdf` y no crasheó — el filtro por `cancelledAt` estaba bien. Como los tres handlers de descarga en `ClientDetailSheet` (`handleDownloadStatement`, `handleDownloadHistory`, `handleDownloadReceipt`) atrapaban el error con `catch { toast.error(...) }` **sin loguearlo**, se agregó `console.error` en los tres para poder ver el error real la próxima vez.
+- **Causa raíz confirmada con el error real:** `Could not resolve font for Helvetica-Bold, fontWeight 400, fontStyle italic`. El préstamo de ELVIA PÉREZ no solo fue anulado — antes de anularlo, también fue **editado** (`loan.editedAt` truthy), lo que en `ClientHistoryPdf.tsx` activaba el badge `" (editado)"` (estilo `editedBadge`, con `fontStyle: "italic"`) anidado dentro del `<Text style={styles.loanBoxTitle}>` del título del préstamo, que tiene `fontFamily: "Helvetica-Bold"`. react-pdf hereda el `fontFamily` del padre en el `<Text>` anidado y no sabe resolver la combinación "Helvetica-Bold" + `fontStyle: italic` (los únicos fonts estándar disponibles son Helvetica / Helvetica-Bold / Helvetica-Oblique / Helvetica-BoldOblique, no hay una variante bold-italic registrada bajo ese nombre) — por eso solo fallaba para préstamos editados (y en este caso, coincidentemente, también anulados).
+- **Fix:** se quitó `fontStyle: "italic"` de `editedBadge` en `src/pdf/ClientHistoryPdf.tsx` — el color gris (`MUTED`) y el texto explícito "(editado)" ya bastan como indicador visual, sin depender de una variante de fuente que react-pdf no puede resolver. Se verificó que es el único uso de `fontStyle: "italic"` en todo `src/pdf/*`.
+- **Test de regresión:** `src/pdf/ClientHistoryPdf.test.ts` — genera el PDF real (`pdf(...).toBlob()`, mismo código que producción) para un préstamo editado-y-anulado con pago anulado en cascada, y para un cliente sin préstamos.
+- **Lección:** en PDFs con react-pdf, evitar `fontStyle`/`fontWeight` en `<Text>` anidados dentro de otro `<Text>` con `fontFamily` ya resuelto a una variante (ej. `"Helvetica-Bold"` en vez de `"Helvetica"` + `fontWeight: "bold"`) — la combinación puede no tener una fuente registrada y falla en tiempo de generación, no en build ni en tests que no ejerciten esa combinación de datos.
+
+### Sprint 7a-6: Búsqueda en tab Préstamos
+
+- **Mismo patrón que Clientes:** input `.inp` con placeholder "Buscar préstamo por cliente...", estado `loanSearch` en `App.tsx`, filtra por `clientNameMatches(r.client.name, loanSearch)` — la misma función de `src/domain/clientName.ts` que ya usa la búsqueda de Clientes (case/acento-insensitive).
+- **Derivados:** `filteredActiveRows`/`filteredPaidRows` se calculan junto a `activeRows`/`paidRows` (no dentro del JSX), y alimentan tanto la lista de préstamos activos como la sección "Pagados (historial)".
+- **Vacíos diferenciados:** "Aún no tienes préstamos activos" (cero préstamos en total, con botón para crear) vs. "No se encontraron préstamos para '...'" (hay préstamos pero ninguno matchea la búsqueda) — mismo criterio que ya existía implícitamente en Clientes, ahora explícito en ambos tabs.
+- **Sin cambios de dominio:** el filtro es puro presentacional sobre `rows` (ya calculado con `deriveLoan`); no toca `loanRules.ts` ni ningún repositorio.

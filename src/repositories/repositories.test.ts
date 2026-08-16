@@ -91,6 +91,93 @@ describe("Repositories", () => {
     expect(ops[0].op).toBe("put");
   });
 
+  it("edits a loan and excludes cancelled loans from queries", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    await db.outbox.clear();
+    await loansRepo.update(loan.id, { principalCents: 2000, termDays: 15 });
+    expect((await db.loans.get(loan.id))?.editedAt).toBeTruthy();
+    expect((await db.outbox.toArray())[0].entity).toBe("loans");
+
+    await loansRepo.cancel(loan.id, "error");
+    expect((await db.loans.get(loan.id))?.cancelledAt).toBeTruthy();
+    expect(await loansRepo.all()).toHaveLength(0);
+    expect(await loansRepo.active()).toHaveLength(0);
+    expect(await loansRepo.byClient("c1")).toHaveLength(0);
+    await expect(loansRepo.update(loan.id, { rate: 0.3 })).rejects.toThrow("anulado");
+    await expect(loansRepo.cancel(loan.id)).rejects.toThrow("ya anulado");
+  });
+
+  // Sprint 6a-8c: bloqueo de edición con pagos activos
+  it("loansRepo.update() throws when loan has active payments", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0 });
+    await expect(loansRepo.update(loan.id, { principalCents: 200000 }))
+      .rejects.toThrow("No se puede editar un préstamo con pagos registrados");
+  });
+
+  it("loansRepo.update() succeeds when all payments are cancelled", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0 });
+    // Anular el pago — después la edición debe permitirse
+    await paymentsRepo.cancel(payment.id, "corrección");
+    await loansRepo.update(loan.id, { principalCents: 200000 });
+    expect((await db.loans.get(loan.id))?.principalCents).toBe(200000);
+  });
+
+  it("cancels a loan and cascades its active payments", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "partial", amountCents: 100, method: "cash", daysLate: 0 });
+    await db.outbox.clear();
+    const result = await loansRepo.cancel(loan.id);
+    expect(result.cancelledPaymentIds).toEqual([payment.id]);
+    expect((await db.payments.get(payment.id))?.cancelledAt).toBeTruthy();
+    expect((await db.outbox.toArray()).map((op) => op.entity).sort()).toEqual(["loans", "payments"]);
+  });
+
+  it("edits and cancels a payment while queries hide it", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 1000, rate: 0.2, termDays: 30 });
+    const payment = await paymentsRepo.create({ loanId: loan.id, type: "full", amountCents: 100, method: "cash", daysLate: 0 });
+    await db.outbox.clear();
+    await paymentsRepo.update(payment.id, { method: "digital" });
+    expect((await db.payments.get(payment.id))?.editedAt).toBeTruthy();
+    expect((await db.payments.get(payment.id))?.amountCents).toBe(100);
+    expect((await db.payments.get(payment.id))?.method).toBe("digital");
+    await paymentsRepo.cancel(payment.id, "duplicado");
+    expect((await db.payments.get(payment.id))?.cancelledAt).toBeTruthy();
+    expect(await paymentsRepo.all()).toHaveLength(0);
+    expect(await paymentsRepo.byLoan(loan.id)).toHaveLength(0);
+  });
+
+  it("only cancels the latest active payment and rebuilds the loan state", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.payments.bulkPut([
+      { id: "old", loanId: loan.id, type: "partial", amountCents: 5000, method: "cash", daysLate: 0, paidAt: "2025-01-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+      { id: "latest", loanId: loan.id, type: "full", amountCents: 115000, method: "cash", daysLate: 0, paidAt: "2025-01-02T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+    ]);
+    await db.loans.update(loan.id, { paidOffCents: 120000, isPaid: true });
+
+    await expect(paymentsRepo.cancel("old")).rejects.toThrow("Solo se puede anular el último pago");
+    await paymentsRepo.cancel("latest");
+
+    const updatedLoan = await db.loans.get(loan.id);
+    expect(updatedLoan?.paidOffCents).toBe(5000);
+    expect(updatedLoan?.isPaid).toBe(false);
+  });
+
+  it("rebuilds renewal count and disbursed date when cancelling the latest renewal", async () => {
+    const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+    await db.loans.update(loan.id, { disbursedAt: "2025-03-02", renewalCount: 2 });
+    await db.payments.bulkPut([
+      { id: "renewal-old", loanId: loan.id, type: "interest", amountCents: 20000, method: "cash", daysLate: 0, paidAt: "2025-01-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+      { id: "renewal-latest", loanId: loan.id, type: "interest", amountCents: 20000, method: "cash", daysLate: 0, paidAt: "2025-02-01T00:00:00.000Z", cancelledAt: null, cancelReason: null, editedAt: null },
+    ]);
+
+    await paymentsRepo.cancel("renewal-latest");
+    const updatedLoan = await db.loans.get(loan.id);
+    expect(updatedLoan?.renewalCount).toBe(1);
+    expect(updatedLoan?.disbursedAt).toBe("2025-01-31");
+  });
+
   it("loansRepo.applyPayment with missing id throws", async () => {
     const fakeLoan = { id: "no-existe" } as any;
     await expect(loansRepo.applyPayment({ loan: fakeLoan, type: "partial", amountCents: 5000, method: "cash" })).rejects.toThrow("Préstamo no encontrado");

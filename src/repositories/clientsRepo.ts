@@ -8,6 +8,7 @@ import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
 import type { Client } from "../types/domain";
+import { normalizeClientName } from "../domain/clientName";
 
 export const clientsRepo = {
   /** Lista todos los clientes ordenados por nombre. */
@@ -29,12 +30,13 @@ export const clientsRepo = {
     const client: Client = {
       id: newId(),
       dni: input.dni.trim(),
-      name: input.name.trim(),
+      name: normalizeClientName(input.name),
       phone: input.phone.trim(),
       rating: "good",
       maxDaysLateHistorical: 0,
       createdAt: timestamp,
       updatedAt: timestamp,
+      editedAt: null,
     };
     await db.clients.put(client);
     await enqueue("clients", client.id, "put", client);
@@ -45,7 +47,13 @@ export const clientsRepo = {
   async update(id: string, patch: Partial<Omit<Client, "id" | "createdAt">>): Promise<void> {
     const current = await db.clients.get(id);
     if (!current) return;
-    const updated: Client = { ...current, ...patch, updatedAt: nowIso() };
+    
+    if (patch.name) {
+      patch.name = normalizeClientName(patch.name);
+    }
+    
+    const timestamp = nowIso();
+    const updated: Client = { ...current, ...patch, updatedAt: timestamp, editedAt: timestamp };
     await db.clients.put(updated);
     await enqueue("clients", id, "put", updated);
   },

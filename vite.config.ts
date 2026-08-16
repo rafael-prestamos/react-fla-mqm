@@ -27,6 +27,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+        // Sprint 5b-2: el SW generado por workbox importa el handler de push notifications.
+        importScripts: ["/sw-push.js"],
       },
     }),
   ],

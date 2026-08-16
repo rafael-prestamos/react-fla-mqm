@@ -6,15 +6,15 @@
 import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
-import type { Payment, PaymentMethod, PaymentType } from "../types/domain";
+import type { Loan, Payment, PaymentMethod, PaymentType } from "../types/domain";
 
 export const paymentsRepo = {
   all(): Promise<Payment[]> {
-    return db.payments.toArray();
+    return db.payments.filter((payment) => !payment.cancelledAt).toArray();
   },
 
   byLoan(loanId: string): Promise<Payment[]> {
-    return db.payments.where("loanId").equals(loanId).toArray();
+    return db.payments.where("loanId").equals(loanId).filter((payment) => !payment.cancelledAt).toArray();
   },
 
   /** Registra un pago en el historial. */
@@ -33,9 +33,73 @@ export const paymentsRepo = {
       method: input.method,
       daysLate: input.daysLate,
       paidAt: nowIso(),
+      cancelledAt: null,
+      cancelReason: null,
+      editedAt: null,
     };
     await db.payments.put(payment);
     await enqueue("payments", payment.id, "put", payment);
     return payment;
   },
+
+  /** Edita solo el método de pago. Sprint 6a-8b: el monto se corrige anulando y re-registrando. */
+  async update(id: string, patch: Pick<Payment, "method">): Promise<void> {
+    const current = await db.payments.get(id);
+    if (!current) throw new Error("Pago no encontrado");
+    if (current.cancelledAt) throw new Error("No se puede editar un pago anulado");
+    const updated: Payment = { ...current, method: patch.method, editedAt: nowIso() };
+    await db.payments.put(updated);
+    await enqueue("payments", id, "put", updated);
+  },
+
+  /** Anula el último pago activo y reconstruye el estado del préstamo. Sprint 6a-8b. */
+  async cancel(id: string, reason?: string): Promise<void> {
+    const current = await db.payments.get(id);
+    if (!current) throw new Error("Pago no encontrado");
+    if (current.cancelledAt) throw new Error("Pago ya anulado");
+    const activePayments = await db.payments.where("loanId").equals(current.loanId)
+      .filter((payment) => !payment.cancelledAt)
+      .toArray();
+    const newestFirst = activePayments.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
+    if (newestFirst.length === 0 || newestFirst[0].id !== id) {
+      throw new Error("Solo se puede anular el último pago del préstamo. Anula primero los pagos más recientes.");
+    }
+
+    const loan = await db.loans.get(current.loanId);
+    if (!loan) throw new Error("Préstamo no encontrado");
+    const timestamp = nowIso();
+    const remainingPayments = newestFirst.filter((payment) => payment.id !== id)
+      .sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime());
+
+    await db.transaction("rw", db.payments, db.loans, db.outbox, async () => {
+      const cancelled: Payment = { ...current, cancelledAt: timestamp, cancelReason: reason ?? null };
+      await db.payments.put(cancelled);
+      await enqueue("payments", id, "put", cancelled);
+
+      const updatedLoan = rebuildLoanAfterPaymentCancellation(loan, current, remainingPayments, timestamp);
+      await db.loans.put(updatedLoan);
+      await enqueue("loans", loan.id, "put", updatedLoan);
+    });
+  },
 };
+
+function rebuildLoanAfterPaymentCancellation(loan: Loan, cancelledPayment: Payment, remainingPayments: Payment[], timestamp: string): Loan {
+  let paidOffCents = 0;
+  let renewalCount = 0;
+  let isPaid = false;
+
+  for (const payment of remainingPayments) {
+    if (payment.type === "interest") renewalCount++;
+    if (payment.type === "partial" || payment.type === "full") paidOffCents += payment.amountCents;
+    if (payment.type === "full") isPaid = true;
+  }
+
+  let disbursedAt = loan.disbursedAt;
+  if (cancelledPayment.type === "interest") {
+    const date = new Date(`${loan.disbursedAt}T00:00:00`);
+    date.setDate(date.getDate() - loan.termDays);
+    disbursedAt = date.toISOString().slice(0, 10);
+  }
+
+  return { ...loan, paidOffCents, renewalCount, isPaid, disbursedAt, updatedAt: timestamp };
+}

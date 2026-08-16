@@ -32,6 +32,19 @@ export const formatLong = (date: Date): string =>
 /** Fecha ISO (solo día, YYYY-MM-DD). Usa UTC. Para persistencia. */
 export const toIsoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
+/**
+ * Parsea un string "YYYY-MM-DD" (solo fecha, sin hora) como medianoche en zona LOCAL,
+ * no UTC. `new Date("YYYY-MM-DD")` interpreta el string como UTC, lo que corre la fecha
+ * un día hacia atrás al mostrarla en zonas horarias detrás de UTC (ej. Perú, UTC-5).
+ * Usar siempre que se parsee un campo date-only como disbursedAt/lastCycleStart.
+ * Tolera timestamps completos (toma solo los primeros 10 chars, "YYYY-MM-DD") por si
+ * llega un disbursedAt legado guardado como ISO completo antes de este fix.
+ */
+export const parseLocalDate = (iso: string): Date => {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 /** 
  * Fecha ISO en zona horaria local (YYYY-MM-DD). 
  * Usar para UI y lógicas de "día actual local" (ej. recordatorios). 

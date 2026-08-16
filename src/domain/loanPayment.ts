@@ -1,5 +1,6 @@
 import type { Loan, PaymentType, PaymentMethod } from "../types/domain";
 import { deriveLoan } from "./loanRules";
+import { toLocalIsoDate } from "../lib/dates";
 
 // ⚠️ La regla de interés por mora aún está pendiente de confirmación verbal con la clienta (ver DECISIONS §5).
 
@@ -45,8 +46,9 @@ export function applyPayment(input: ApplyPaymentInput): ApplyPaymentResult {
     amountCents = interestOfCycle;
     updatedLoan.renewalCount += 1;
     updatedLoan.paidOffCents = 0;
-    // Nueva fecha de entrega es la fecha de vencimiento anterior
-    updatedLoan.disbursedAt = derived.dueDate.toISOString();
+    // Nueva fecha de entrega es la fecha de vencimiento anterior.
+    // disbursedAt es date-only (YYYY-MM-DD) — toLocalIsoDate, no toISOString (que es UTC).
+    updatedLoan.disbursedAt = toLocalIsoDate(derived.dueDate);
     updatedLoan.isPaid = false;
   } else if (input.type === "partial") {
     if (input.amountCents <= 0) {

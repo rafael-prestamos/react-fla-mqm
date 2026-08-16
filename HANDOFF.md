@@ -1,10 +1,10 @@
-# Handoff: Fla MpM — post hotfix pre-release-mora-off, pre-release develop→main
+# Handoff: Fla MpM — post sprint 7b-2 (fix timezone fechas), pre-release develop→main
 
 ## Contexto proyecto
 
 Gestor microcréditos PWA para Fla (Perú, ~8 clientes, creciendo hacia 20+). Dev: Giancarlo.
 Stack: Vite+React+TS, Dexie/IndexedDB (v5), Supabase (auth+sync+RLS), react-pdf, vite-plugin-pwa, Vercel.
-Ramas: `develop` (integración, incluye hasta PR #24), `main` (producción, en `a531441` = solo sprint 6a-1 — 61 commits detrás de `develop`).
+Ramas: `develop` (integración, incluye hasta PR #29 + sprint 7b-2 fix timezone), `main` (producción, en `a531441` = solo sprint 6a-1, varios commits detrás de `develop`).
 Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), montos en céntimos.
 
 ## Modo de trabajo
@@ -48,8 +48,11 @@ Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), mon
 | 7a-6   | #24 | Búsqueda por cliente en tab Préstamos (mismo patrón que Clientes)                                                                                |
 | hotfix | #26 | Dead-letter en outbox: `pushOutbox()` ya no bloquea toda la cola ante un registro con error; logueo + reintentos acotados (5) antes de marcar `failedAt` |
 | hotfix | —   | **Mora desactivada explícitamente pre-release**: `LATE_INTEREST_ENABLED = false` por instrucción directa de Giancarlo (ver sección MORA abajo, ahora resuelta) |
+| sync-log | #28 | `OutboxOp.lastError` (Dexie v7) + `SyncLogSheet` en Ajustes: lista errores de sync con retry individual/masivo |
+| 7b-1   | #29 | Interés 0 permitido en préstamos (nuevo/editado/histórico) + `formatRatePercent` (2 decimales) reemplaza `loan.rate*100` sin redondear en ~10 sitios |
+| 7b-2   | —   | **Fix timezone en fechas de préstamo**: `disbursedAt`/`lastCycleStart` se parseaban como UTC (`new Date("YYYY-MM-DD")`) y se mostraban en zona local → corrían un día atrás. Resuelve la observación cosmética "12-jul.→11-ago." de abajo (detalle completo en `docs/DECISIONS.md`) |
 
-Tests: **156/156**. Build limpio. CI verde en todos los PRs mergeados.
+Tests: **166/166**. Build limpio. CI verde en todos los PRs mergeados.
 
 ## Estado de migraciones SQL
 
@@ -92,11 +95,11 @@ Flag en `src/domain/loanRules.ts`, ahora **`false`** en código (sin mora: sin i
 | --- | --------------------------------------- | ----------------------------------------------------------------------- |
 | 1   | Resolver discrepancia de mora           | ✅ Resuelta 2026-08-16 — flag apagado (`false`) por instrucción de Giancarlo |
 | 2   | Release `develop`→`main`                | Código y deploy de push notifs listos; sin bloqueantes conocidos — pendiente solo de que Giancarlo dispare el release manual |
-| 3   | Observación cosmética (línea tachada)   | Baja prioridad, ver abajo                                                |
+| 3   | Observación cosmética (línea tachada)   | ✅ Resuelta en sprint 7b-2 — era el bug de timezone (ver abajo), no CSS heredado |
 
-## Observación cosmética abierta
+## Observación cosmética — RESUELTA (sprint 7b-2)
 
-Fechas "12-jul. → 11-ago." con `line-through` en detalle préstamo. Puede ser indicador "En tolerancia" o CSS heredado. No investigada en este handoff.
+Fechas "12-jul. → 11-ago." con `line-through` en detalle préstamo, reportadas como no investigadas en un handoff anterior. Causa real: `disbursedAt`/`dueDate` se parseaban con `new Date("YYYY-MM-DD")` (UTC) y se mostraban con `toLocaleDateString` en zona local (Perú, UTC-5) — la fecha corría un día hacia atrás. No era un indicador de "En tolerancia" ni CSS heredado. Fix: `parseLocalDate` en `src/lib/dates.ts`, detalle completo en `docs/DECISIONS.md` sección "Sprint 7b-2".
 
 ## Suggested skills
 

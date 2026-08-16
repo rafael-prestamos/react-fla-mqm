@@ -2,7 +2,7 @@ import type { Loan, Payment, LoanTerm } from "../types/domain";
 import { isValidLoanTerm } from "./loanTerm";
 
 import { deriveLoan } from "./loanRules";
-import { startOfToday } from "../lib/dates";
+import { startOfToday, parseLocalDate } from "../lib/dates";
 
 export interface LoanBackfillInput {
   clientId: string;
@@ -56,7 +56,7 @@ export function validateLoanBackfillInput(
     errors.lastCycleStart = "La fecha no puede ser futura";
     ok = false;
   } else {
-    const d = new Date(input.lastCycleStart);
+    const d = parseLocalDate(input.lastCycleStart);
     if (isNaN(d.getTime())) {
       errors.lastCycleStart = "La fecha no puede ser futura";
       ok = false;

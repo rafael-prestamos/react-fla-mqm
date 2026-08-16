@@ -3,7 +3,7 @@ import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
-import { addDays } from "../lib/dates";
+import { addDays, parseLocalDate } from "../lib/dates";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime } from "./formatters";
 
 const NAVY = "#16325C";
@@ -68,7 +68,7 @@ interface Props {
 }
 
 export function PaymentReceiptPdf({ business, client, loan, payment, balanceCentsAfterPayment }: Props) {
-  const dueDate = addDays(new Date(loan.disbursedAt), loan.termDays);
+  const dueDate = addDays(parseLocalDate(loan.disbursedAt), loan.termDays);
   const isPaidOff = balanceCentsAfterPayment <= 0;
 
   return (

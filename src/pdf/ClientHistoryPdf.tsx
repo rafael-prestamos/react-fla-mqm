@@ -3,7 +3,7 @@ import logoPdfUrl from "../assets/logo-pdf.png";
 
 import type { BusinessSettings, Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
-import { startOfToday } from "../lib/dates";
+import { startOfToday, parseLocalDate } from "../lib/dates";
 import { deriveLoan } from "../domain/loanRules";
 import { paymentTypeLabel, paymentMethodLabel, formatDate, formatDateTime, ratingLabel } from "./formatters";
 
@@ -136,7 +136,7 @@ export function ClientHistoryPdf({ business, client, loans, payments, reference 
   const sortedLoans = [...loans].sort((a, b) => {
     const priorityDiff = loanSortPriority(a) - loanSortPriority(b);
     if (priorityDiff !== 0) return priorityDiff;
-    return new Date(b.disbursedAt).getTime() - new Date(a.disbursedAt).getTime();
+    return parseLocalDate(b.disbursedAt).getTime() - parseLocalDate(a.disbursedAt).getTime();
   });
 
   const activeLoans = loans.filter((l) => !l.cancelledAt);

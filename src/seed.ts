@@ -5,7 +5,7 @@
  */
 
 import type { Client, Loan } from "./types/domain";
-import { addDays, startOfToday, toIsoDate } from "./lib/dates";
+import { addDays, startOfToday, toLocalIsoDate } from "./lib/dates";
 
 type ClientSeed = Omit<Client, "createdAt" | "updatedAt">;
 type LoanSeed = Omit<Loan, "createdAt" | "updatedAt">;
@@ -22,7 +22,7 @@ const baseClients: ClientSeed[] = [
 ];
 
 /** Helper: fecha de entrega `daysAgo` días atrás desde hoy. */
-const disbursed = (daysAgo: number): string => toIsoDate(addDays(startOfToday(), -daysAgo));
+const disbursed = (daysAgo: number): string => toLocalIsoDate(addDays(startOfToday(), -daysAgo));
 
 const baseLoans: LoanSeed[] = [
   { id: "l1", clientId: "c1", principalCents: 1_500_000, rate: 0.2, termDays: 30, disbursedAt: disbursed(30), paidOffCents: 0, renewalCount: 0, isPaid: false },

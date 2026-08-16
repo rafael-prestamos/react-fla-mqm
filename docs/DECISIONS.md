@@ -339,3 +339,10 @@ Se intentó migrar a un modelo de "Cuotas" (Sprints 4a/4b) por una confusión in
 - **Fix:** se quitó `fontStyle: "italic"` de `editedBadge` en `src/pdf/ClientHistoryPdf.tsx` — el color gris (`MUTED`) y el texto explícito "(editado)" ya bastan como indicador visual, sin depender de una variante de fuente que react-pdf no puede resolver. Se verificó que es el único uso de `fontStyle: "italic"` en todo `src/pdf/*`.
 - **Test de regresión:** `src/pdf/ClientHistoryPdf.test.ts` — genera el PDF real (`pdf(...).toBlob()`, mismo código que producción) para un préstamo editado-y-anulado con pago anulado en cascada, y para un cliente sin préstamos.
 - **Lección:** en PDFs con react-pdf, evitar `fontStyle`/`fontWeight` en `<Text>` anidados dentro de otro `<Text>` con `fontFamily` ya resuelto a una variante (ej. `"Helvetica-Bold"` en vez de `"Helvetica"` + `fontWeight: "bold"`) — la combinación puede no tener una fuente registrada y falla en tiempo de generación, no en build ni en tests que no ejerciten esa combinación de datos.
+
+### Sprint 7a-6: Búsqueda en tab Préstamos
+
+- **Mismo patrón que Clientes:** input `.inp` con placeholder "Buscar préstamo por cliente...", estado `loanSearch` en `App.tsx`, filtra por `clientNameMatches(r.client.name, loanSearch)` — la misma función de `src/domain/clientName.ts` que ya usa la búsqueda de Clientes (case/acento-insensitive).
+- **Derivados:** `filteredActiveRows`/`filteredPaidRows` se calculan junto a `activeRows`/`paidRows` (no dentro del JSX), y alimentan tanto la lista de préstamos activos como la sección "Pagados (historial)".
+- **Vacíos diferenciados:** "Aún no tienes préstamos activos" (cero préstamos en total, con botón para crear) vs. "No se encontraron préstamos para '...'" (hay préstamos pero ninguno matchea la búsqueda) — mismo criterio que ya existía implícitamente en Clientes, ahora explícito en ambos tabs.
+- **Sin cambios de dominio:** el filtro es puro presentacional sobre `rows` (ya calculado con `deriveLoan`); no toca `loanRules.ts` ni ningún repositorio.

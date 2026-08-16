@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-1 completo (header Hoy: logo más grande, sin saludo). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
+Estado actual: Sprint 7a-2 completo (rediseño login: fondo crema, logo 120px, card borde sutil, botón caramelo). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
 
 
 **Stack y Arquitectura:**
@@ -80,6 +80,9 @@ El logo principal se renderiza a través del componente `<BrandLogo />` (`src/co
 
 **Header Hoy (Sprint 7a-1):**
 Cambio solo de presentación en el header navy de la pestaña Hoy (`App.tsx`): `<BrandLogo size={64} />` (antes 18px) y se eliminó el saludo ("Buen día · fecha · hora") junto con la etiqueta "Debes cobrar hoy" — el monto grande de cobro del día queda directo debajo de la fila del logo. No toca el toast del brief diario ni los mini-cards "Vencen hoy"/"Atrasados".
+
+**Login Screen (Sprint 7a-2):**
+Rediseño visual completo de `src/auth/LoginScreen.tsx`. Fondo cambiado de gradiente navy a crema (`var(--cream)` = `#FBF5E9`). Logo `<img>` a 120px con drop-shadow centrado sobre el card (`.login-logo-wrap`); texto "Fla MpM" en navy debajo. Card: fondo transparente, borde `rgba(31,64,106,0.18)`, `box-shadow: 0 2px 8px rgba(0,0,0,0.08)`, `border-radius: 12px`. Inputs: fondo blanco, borde navy sutil, focus ring navy, `border-radius: 8px`. Botón submit: `var(--accent)` caramelo `#D49A5D`, hover `#bf8748`, micro-animación active. `LoadingScreen`: mascota y texto actualizados a navy (coherente con fondo claro). Sin cambios en lógica de auth ni en persistencia de sesión Supabase.
 
 **WhatsApp ubicuo (Sprint 6a-5):**
 Botón WhatsApp disponible en 3 lugares: pestaña Hoy (`LoanRowItem`), pestaña Préstamos (`LoanCard`, solo activos) y `ClientDetailSheet` (por cada `!loan.isPaid`). Componente reutilizable: `WhatsappButton` (`src/components/WhatsappButton.tsx`). Lógica en `src/domain/whatsappReminder.ts` (`buildWhatsappUrl`, `buildReminderMessage`). Verde `#25D366` = excepción cromática documentada. Filtro: `!loan.isPaid`.

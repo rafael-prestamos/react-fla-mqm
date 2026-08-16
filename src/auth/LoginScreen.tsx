@@ -6,58 +6,58 @@ import logoUrl from "../assets/logo.png";
 
 
 const CSS = `
-/* Sprint 7a-2: diseño claro con fondo crema */
+/* Sprint 7a-2b: fondo blanco, contenedor único, sin scroll */
 .login-root {
-  min-height: 100vh;
   min-height: 100dvh;
-  background: var(--cream);
+  background: #ffffff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: Inter, system-ui, sans-serif;
-  padding: 24px 20px;
+  padding: 16px 20px;
+  box-sizing: border-box;
 }
 
-/* Logo centrado en la parte superior del contenedor */
-.login-logo-wrap {
+/* Contenedor único: logo + título + formulario dentro del mismo borde */
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 64, 106, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Cabecera: logo + nombre de la app */
+.login-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .login-logo-img {
   display: block;
-  width: 120px;
-  height: 120px;
+  width: 88px;
+  height: 88px;
   object-fit: contain;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 4px 12px rgba(22, 50, 92, 0.14));
+  margin-bottom: 10px;
+  filter: drop-shadow(0 3px 8px rgba(22, 50, 92, 0.13));
 }
 .login-brand {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 26px;
+  font-size: 24px;
   color: var(--navy);
   margin: 0;
   letter-spacing: -0.02em;
 }
 
-/* Card con fondo transparente, borde navy sutil, sombra suave */
-.login-card {
-  width: 100%;
-  max-width: 360px;
-  padding: 28px 28px 32px;
-  border-radius: 12px;
-  border: 1px solid rgba(31, 64, 106, 0.18);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  background: transparent;
-}
-
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 .login-field {
   display: flex;
@@ -67,7 +67,7 @@ const CSS = `
   font-weight: 500;
   font-size: 12.5px;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 /* Inputs: fondo blanco, borde navy sutil */
@@ -75,7 +75,7 @@ const CSS = `
   background: #ffffff;
   border: 1px solid rgba(31, 64, 106, 0.22);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   font-size: 15px;
   width: 100%;
   box-sizing: border-box;
@@ -94,13 +94,13 @@ const CSS = `
   width: 100%;
   background: var(--accent);
   color: #fff;
-  padding: 14px;
+  padding: 13px;
   border-radius: 10px;
   font-weight: 600;
   font-size: 15px;
   border: none;
   cursor: pointer;
-  margin-top: 20px;
+  margin-top: 16px;
   transition: background 0.18s, opacity 0.15s, transform 0.1s;
   font-family: inherit;
   letter-spacing: 0.01em;
@@ -122,11 +122,11 @@ const CSS = `
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 12.5px;
-  margin-top: 12px;
+  margin-top: 10px;
   text-align: center;
 }
 
-/* LoadingScreen: fondo crema, mascota navy */
+/* LoadingScreen: fondo blanco, mascota navy */
 @keyframes pulse-mascot {
   0% { opacity: 0.5; transform: scale(0.98); }
   50% { opacity: 1; transform: scale(1.02); }
@@ -179,17 +179,19 @@ export function LoginScreen() {
     <div className="login-root">
       <style>{CSS}</style>
 
-      {/* Logo prominente centrado sobre el formulario */}
-      <div className="login-logo-wrap">
-        <img
-          src={logoUrl}
-          alt="Fla MpM"
-          className="login-logo-img"
-        />
-        <h1 className="login-brand">Fla MpM</h1>
-      </div>
-
+      {/* Contenedor único: logo + formulario dentro del mismo borde */}
       <div className="login-card">
+
+        {/* Cabecera con logo y nombre */}
+        <div className="login-header">
+          <img
+            src={logoUrl}
+            alt="Fla MpM"
+            className="login-logo-img"
+          />
+          <h1 className="login-brand">Fla MpM</h1>
+        </div>
+
         <form
           ref={formRef}
           className="login-form"
@@ -244,4 +246,3 @@ export function LoginScreen() {
     </div>
   );
 }
-

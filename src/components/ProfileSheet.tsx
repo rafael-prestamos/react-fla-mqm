@@ -1,7 +1,7 @@
 // Patrón: Modal/Sheet + Presentational component.
 // Consolida acciones de usuario dispersas (Ajustes + cierre de sesión + información).
 // Sprint 6a-6
-import { LogOut, Settings, User, X } from "lucide-react";
+import { Download, LogOut, Settings, User, X } from "lucide-react";
 import { BUSINESS_NAME } from "../config/business";
 import { APP_VERSION } from "../config/version";
 import { useSession } from "../auth/SessionContext";
@@ -11,6 +11,8 @@ interface ProfileSheetProps {
   open: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
+  onDownloadGlobalReport: () => Promise<void>;
+  generatingGlobalReport: boolean;
 }
 
 function formatRelativeTime(dateValue: string): string {
@@ -27,7 +29,7 @@ export function confirmSignOut(confirmAction: (message: string) => boolean, sign
   }
 }
 
-export function ProfileSheet({ open, onClose, onOpenSettings }: ProfileSheetProps) {
+export function ProfileSheet({ open, onClose, onOpenSettings, onDownloadGlobalReport, generatingGlobalReport }: ProfileSheetProps) {
   const { signOut } = useSession();
   const sync = useSync();
 
@@ -57,6 +59,9 @@ export function ProfileSheet({ open, onClose, onOpenSettings }: ProfileSheetProp
         <div className="profile-sheet__actions">
           <button type="button" className="btn profile-sheet__action" onClick={onOpenSettings}>
             <Settings size={18} /> Ajustes
+          </button>
+          <button type="button" className="btn profile-sheet__action" disabled={generatingGlobalReport} onClick={() => void onDownloadGlobalReport()}>
+            <Download size={18} /> {generatingGlobalReport ? "Generando…" : "Reporte global"}
           </button>
           <button type="button" className="btn profile-sheet__action profile-sheet__logout" onClick={() => confirmSignOut(window.confirm, signOut)}>
             <LogOut size={18} /> Cerrar sesión

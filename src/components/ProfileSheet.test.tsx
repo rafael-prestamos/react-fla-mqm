@@ -10,7 +10,15 @@ vi.mock("../sync/SyncEngine", () => ({ useSync: () => syncState }));
 vi.mock("../auth/SessionContext", () => ({ useSession: () => ({ signOut }) }));
 
 function renderProfile() {
-  return renderToStaticMarkup(<ProfileSheet open onClose={() => {}} onOpenSettings={() => {}} />);
+  return renderToStaticMarkup(
+    <ProfileSheet
+      open
+      onClose={() => {}}
+      onOpenSettings={() => {}}
+      onDownloadGlobalReport={() => Promise.resolve()}
+      generatingGlobalReport={false}
+    />
+  );
 }
 
 describe("ProfileSheet", () => {
@@ -25,7 +33,17 @@ describe("ProfileSheet", () => {
     expect(markup).toContain("Fla");
     expect(markup).toContain(`Versión ${APP_VERSION}`);
     expect(markup).toContain("En línea");
-    expect(renderToStaticMarkup(<ProfileSheet open={false} onClose={() => {}} onOpenSettings={() => {}} />)).toBe("");
+    expect(
+      renderToStaticMarkup(
+        <ProfileSheet
+          open={false}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+          onDownloadGlobalReport={() => Promise.resolve()}
+          generatingGlobalReport={false}
+        />
+      )
+    ).toBe("");
   });
 
   it("renders the offline state", () => {

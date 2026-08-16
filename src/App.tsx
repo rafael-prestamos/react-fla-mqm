@@ -7,11 +7,13 @@ import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
 import { formatSoles, toCents } from "./lib/money";
-import { formatShort, formatLong, addDays, startOfToday } from "./lib/dates";
+import { formatShort, formatLong, addDays, startOfToday, toIsoDate } from "./lib/dates";
+import { downloadBlob } from "./lib/downloadBlob";
 import { useLiveQuery } from "dexie-react-hooks";
 import { clientsRepo } from "./repositories/clientsRepo";
 import { loansRepo } from "./repositories/loansRepo";
 import { paymentsRepo } from "./repositories/paymentsRepo";
+import { settingsRepo } from "./repositories/settingsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
@@ -190,6 +192,7 @@ export default function App() {
   const [clientSearch, setClientSearch] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
   const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
 
@@ -271,6 +274,36 @@ export default function App() {
 
   async function handleCancelPayment(id: string, reason?: string) {
     await paymentsRepo.cancel(id, reason);
+  }
+
+  /** Patrón: dynamic import — @react-pdf/renderer solo se carga al tocar "Reporte global". */
+  async function handleDownloadGlobalReport() {
+    setGeneratingGlobalReport(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { GlobalReportPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./pdf/GlobalReportPdf"),
+      ]);
+      const [allClients, allLoans, allPayments] = await Promise.all([
+        clientsRepo.all(),
+        loansRepo.all(),
+        paymentsRepo.all(),
+      ]);
+      const blob = await pdf(
+        <GlobalReportPdf business={business} clients={allClients} loans={allLoans} payments={allPayments} />
+      ).toBlob();
+      downloadBlob(blob, `ReporteGlobal_${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Reporte global descargado");
+    } catch {
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setGeneratingGlobalReport(false);
+    }
   }
 
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
@@ -532,6 +565,8 @@ export default function App() {
           open={profileOpen}
           onClose={() => setProfileOpen(false)}
           onOpenSettings={() => { setProfileOpen(false); setSettingsOpen(true); }}
+          onDownloadGlobalReport={handleDownloadGlobalReport}
+          generatingGlobalReport={generatingGlobalReport}
         />
         <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
         {/* Sprint 6a-8c: Patrón: controlled-sheet — editar desde tab Préstamos (error por pagos activos → toast) */}

@@ -60,7 +60,8 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
       ).toBlob();
       downloadBlob(blob, `EstadoDeCuenta_${sanitizeFilename(client.name)}_${toIsoDate(startOfToday())}.pdf`);
       toast.success("Estado de cuenta descargado");
-    } catch {
+    } catch (err) {
+      console.error("Error al generar el estado de cuenta:", err);
       toast.error("No se pudo generar el estado de cuenta");
     } finally {
       setGeneratingStatement(false);
@@ -89,7 +90,8 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
       ).toBlob();
       downloadBlob(blob, `Historial_${sanitizeFilename(client.name)}_${toIsoDate(startOfToday())}.pdf`);
       toast.success("Historial descargado");
-    } catch {
+    } catch (err) {
+      console.error("Error al generar el historial:", err);
       toast.error("No se pudo generar el historial");
     } finally {
       setGeneratingHistory(false);
@@ -122,7 +124,8 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
       ).toBlob();
       downloadBlob(blob, `Comprobante_${sanitizeFilename(client.name)}_${toIsoDate(new Date(targetPayment.paidAt))}.pdf`);
       toast.success("Comprobante descargado");
-    } catch {
+    } catch (err) {
+      console.error("Error al generar el comprobante:", err);
       toast.error("No se pudo generar el comprobante");
     } finally {
       setDownloadingReceiptId(null);

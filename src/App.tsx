@@ -551,15 +551,6 @@ export default function App() {
           <NavBtn on={tab === "clients"} onClick={() => setTab("clients")} icon={<Users size={20} />} label="Clientes" />
         </div>
 
-        {payingRow && (
-          <PaymentSheet
-            client={payingRow.client}
-            loan={payingRow.loan}
-            derived={payingRow.d}
-            onClose={() => setPayingId(null)}
-            onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
-          />
-        )}
         {viewingClient && (
           <ClientDetailSheet
             client={clientById(viewingClient)}
@@ -571,6 +562,16 @@ export default function App() {
             onCancelLoan={handleCancelLoan}
             onEditPayment={handleEditPayment}
             onCancelPayment={handleCancelPayment}
+            onPayLoan={setPayingId}
+          />
+        )}
+        {payingRow && (
+          <PaymentSheet
+            client={payingRow.client}
+            loan={payingRow.loan}
+            derived={payingRow.d}
+            onClose={() => setPayingId(null)}
+            onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
           />
         )}
         {creating && (

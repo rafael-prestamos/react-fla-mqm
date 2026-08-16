@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, User, Download, Pencil, Trash2, FileDown } from "lucide-react";
+import { X, User, Download, Pencil, Trash2, FileDown, Banknote } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles } from "../lib/money";
 import { formatShort, startOfToday, toIsoDate } from "../lib/dates";
@@ -27,9 +27,10 @@ interface Props {
   onCancelLoan: (id: string, reason?: string) => Promise<{ cancelledPaymentIds: string[] }>;
   onEditPayment: (id: string, patch: Pick<Payment, "method">) => Promise<void>;
   onCancelPayment: (id: string, reason?: string) => Promise<void>;
+  onPayLoan: (loanId: string) => void;
 }
 
-export function ClientDetailSheet({ client, loans, payments, onClose, onEditClient, onEditLoan, onCancelLoan, onEditPayment, onCancelPayment }: Props) {
+export function ClientDetailSheet({ client, loans, payments, onClose, onEditClient, onEditLoan, onCancelLoan, onEditPayment, onCancelPayment, onPayLoan }: Props) {
   const toast = useToast();
   const [generatingStatement, setGeneratingStatement] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
@@ -176,7 +177,9 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                 .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
               // Sprint 6a-8c: bloquear edición si el préstamo tiene pagos activos (Patrón: Guard)
               const hasPayments = payments.filter(p => p.loanId === loan.id && !p.cancelledAt).length > 0;
-              
+              const d = deriveLoan(loan, startOfToday());
+              const isActive = !loan.isPaid && !loan.cancelledAt;
+
               return (
                 <div key={loan.id} className="preview" style={{ marginBottom: 12 }}>
                   <div className="r" style={{ fontWeight: 600 }}>
@@ -184,6 +187,11 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                     <span>{formatSoles(loan.principalCents)} al {loan.rate * 100}%{loan.editedAt && <span className="badge-edited">editado</span>}</span>
                   </div>
                   <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
+                    {isActive && (
+                      <button className="btn btn-p" aria-label="Cobrar" onClick={() => onPayLoan(loan.id)} style={{ padding: "7px 9px" }}>
+                        <Banknote size={15} /> Cobrar
+                      </button>
+                    )}
                     <button
                       className="btn"
                       aria-label="Editar préstamo"
@@ -196,25 +204,26 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                   </div>
                   <div className="r" style={{ color: "var(--muted)" }}>
                     <span>Plazo: {loan.termDays} días</span>
-                    <span style={{ color: loan.isPaid ? "var(--good)" : "var(--warn)", fontWeight: 600 }}>
-                      {loan.isPaid ? "Pagado" : "Activo"}
-                    </span>
+                    {loan.cancelledAt ? (
+                      <span style={{ color: "var(--muted)", fontWeight: 600 }}>Anulado</span>
+                    ) : loan.isPaid ? (
+                      <span style={{ color: "var(--good)", fontWeight: 600 }}>Pagado</span>
+                    ) : (
+                      <span className="num" style={{ color: "var(--navy)", fontWeight: 600 }}>Saldo: {formatSoles(d.balanceCents)}</span>
+                    )}
                   </div>
 
                   {/* Patrón: Presentational reuse — WhatsappButton reutilizable desde Hoy, Préstamos y Detalle (sprint 6a-5) */}
-                  {!loan.isPaid && (() => {
-                    const d = deriveLoan(loan, startOfToday());
-                    return (
-                      <div style={{ marginTop: 10 }}>
-                        <WhatsappButton
-                          client={client}
-                          loan={loan}
-                          balanceCents={d.balanceCents}
-                          dueDate={d.dueDate}
-                        />
-                      </div>
-                    );
-                  })()}
+                  {!loan.isPaid && (
+                    <div style={{ marginTop: 10 }}>
+                      <WhatsappButton
+                        client={client}
+                        loan={loan}
+                        balanceCents={d.balanceCents}
+                        dueDate={d.dueDate}
+                      />
+                    </div>
+                  )}
 
                   {loanPayments.length > 0 && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--line)" }}>

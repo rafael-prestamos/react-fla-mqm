@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
 import type { BusinessSettings } from "../types/domain";
+import { db } from "../db/database";
 import { settingsRepo } from "../repositories/settingsRepo";
 import { useToast } from "../ui/ToastContext";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
@@ -9,13 +11,14 @@ import { isPushSubscribed, subscribeToPush } from "../push/pushSubscription";
 interface Props {
   open: boolean;
   onClose: () => void;
+  onOpenSyncLog: () => void;
 }
 
 type EditableFields = Pick<BusinessSettings, "businessName" | "phone" | "yape" | "yapeHolder" | "bcpSoles" | "bcpSolesHolder" | "bcpInterbank" | "bcpInterbankHolder">;
 
 const HELPER_TEXT = "Este dato aparece en los comprobantes que compartes con tus clientes.";
 
-export function SettingsSheet({ open, onClose }: Props) {
+export function SettingsSheet({ open, onClose, onOpenSyncLog }: Props) {
   const formRef = useRef<HTMLDivElement>(null);
   useKeyboardAwareInput(formRef);
   const toast = useToast();
@@ -25,6 +28,9 @@ export function SettingsSheet({ open, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [togglingPush, setTogglingPush] = useState(false);
+  const syncErrorCount = useLiveQuery(
+    () => db.outbox.filter((entry) => (entry.retryCount ?? 0) > 0 || !!entry.failedAt).count()
+  ) ?? 0;
 
   useEffect(() => {
     void isPushSubscribed().then(setPushEnabled);
@@ -233,6 +239,43 @@ export function SettingsSheet({ open, onClose }: Props) {
                   {togglingPush ? "Activando…" : pushEnabled ? "Activadas" : "Activar"}
                 </button>
               </div>
+
+              <div className="pf-sect">Sincronización</div>
+              <button
+                type="button"
+                className="btn"
+                disabled={syncErrorCount === 0}
+                onClick={onOpenSyncLog}
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink)",
+                  padding: "12px",
+                }}
+              >
+                <span>Log de sincronización</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {syncErrorCount > 0 ? (
+                    <span
+                      style={{
+                        background: "var(--color-status-bad)",
+                        color: "#fff",
+                        borderRadius: 20,
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {syncErrorCount}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Sin errores</span>
+                  )}
+                  <ChevronRight size={16} color="var(--muted)" />
+                </span>
+              </button>
             </>
           )}
         </div>

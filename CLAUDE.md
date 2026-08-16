@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) + Hotfix pre-release-mora-off (mora desactivada) — 156 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main` — la discrepancia de mora quedó resuelta apagando el flag (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
+Estado actual: Sprint 7a-6 completo (búsqueda en tab Préstamos) + Hotfix fix-sync-deadlock (dead-letter en outbox) + Hotfix pre-release-mora-off (mora desactivada) + Sprint sync-log (log de errores de sync en Ajustes) — 160 tests, build limpio, CI verde. Notificaciones push diarias (Sprint 5b-2) **desplegadas en producción** (migración 0009, Edge Function, secrets VAPID y `pg_cron` ya aplicados en Supabase). `develop` está lista para release a `main` — la discrepancia de mora quedó resuelta apagando el flag (ver "Regla de Mayor Riesgo" abajo). Ver `HANDOFF.md` para el detalle completo de sprints/PRs.
 
 
 **Stack y Arquitectura:**
@@ -120,6 +120,9 @@ El avatar del header abre `ProfileSheet` desde cualquier pestaña. Consolida nom
 
 **Mora desactivada pre-release (Hotfix pre-release-mora-off):**
 `LATE_INTEREST_ENABLED` en `src/domain/loanRules.ts` pasa de `true` a `false` por instrucción explícita de Giancarlo, para poder liberar `develop`→`main` sin depender de una confirmación de mora que nunca quedó registrada por escrito (ver "Regla de Mayor Riesgo" arriba). `computeLatePeriods()` ahora retorna siempre 0 — ningún préstamo acumula interés extra por atraso; el resto de las reglas (interés simple, tolerancia de 7 días, clasificación de cliente) no cambia. Se actualizaron las expectativas de `loanRules.test.ts`, `loanPayment.test.ts` y `loanBackfill.test.ts` que asumían el flag en `true`, dejando comentado el valor esperado si se reactiva a futuro.
+
+**Log de sincronización en Ajustes (Sprint sync-log):**
+`OutboxOp.lastError` (Dexie v7) guarda el mensaje del último error de Supabase; `pushOutbox()` lo escribe en cada fallo y lo limpia en cada éxito, sin tocar el resto de la lógica de push/pull. Nuevo `SyncLogSheet` (`src/components/settings/SyncLogSheet.tsx`, mismo patrón visual que `SettingsSheet`) lista los entries con `retryCount > 0` o `failedAt` (tabla, operación, `entityId` truncado, `lastError`, badge rojo "Descartado" si es dead-letter) con botones "Reintentar" individual y "Reintentar todos" — ambos usan `retryDeadLetter`/`retryAllDeadLetters` (nuevas en `outbox.ts`, solo resetean `retryCount`/`failedAt`/`lastError`) y disparan `forcePush()` de `useSync()` para reintentar de inmediato. Accesible desde `SettingsSheet` → botón "Log de sincronización" (deshabilitado + "Sin errores" si no hay entries con error; badge rojo con la cantidad si hay). `App.tsx` sigue el patrón cierra-actual-abre-siguiente ya usado entre Perfil/Ajustes.
 
 **Nota de Flujo de Trabajo:**
 Los cambios llegan al proyecto en forma de prompts. Tras cada cambio relevante en arquitectura, reglas de negocio o producto, hay que **mantener actualizados** `docs/DECISIONS.md`, `CLAUDE.md` y `GEMINI.md`. Estos archivos Markdown sirven además como handoff (documento de traspaso) para el próximo agente que interactúe con el código.

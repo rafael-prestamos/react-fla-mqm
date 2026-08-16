@@ -21,6 +21,7 @@ export interface OutboxOp {
   syncedAt?: string; // ISO cuando ya se empujó
   retryCount?: number; // intentos fallidos consecutivos
   failedAt?: string; // ISO cuando se marcó dead-letter (retryCount >= 5)
+  lastError?: string; // mensaje del último error de Supabase (se limpia al sincronizar bien)
 }
 
 export class AppDatabase extends Dexie {
@@ -87,6 +88,9 @@ export class AppDatabase extends Dexie {
     // v6: Dead-letter en outbox (retryCount/failedAt) — no requiere upgrade handler,
     // Dexie trata los campos nuevos como undefined en registros existentes.
     this.version(6).stores({});
+
+    // v7: Guardar el mensaje del último error de sync (lastError) para el log de Ajustes.
+    this.version(7).stores({});
   }
 }
 

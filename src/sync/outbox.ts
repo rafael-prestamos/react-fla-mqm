@@ -82,10 +82,10 @@ export async function pushOutbox(): Promise<PushResult> {
       if (entry.id !== undefined) {
         const retryCount = (entry.retryCount ?? 0) + 1;
         if (retryCount >= MAX_RETRIES) {
-          await db.outbox.update(entry.id, { retryCount, failedAt: nowIso() });
+          await db.outbox.update(entry.id, { retryCount, failedAt: nowIso(), lastError: errorMessage });
           deadLettered++;
         } else {
-          await db.outbox.update(entry.id, { retryCount });
+          await db.outbox.update(entry.id, { retryCount, lastError: errorMessage });
         }
       }
       // No hace break: sigue con el siguiente registro para no bloquear la cola.
@@ -93,10 +93,23 @@ export async function pushOutbox(): Promise<PushResult> {
     }
 
     if (entry.id !== undefined) {
-      await db.outbox.update(entry.id, { syncedAt: nowIso() });
+      await db.outbox.update(entry.id, { syncedAt: nowIso(), lastError: undefined });
     }
     synced++;
   }
 
   return { synced, errors: errorsCount, deadLettered, total: pending.length };
+}
+
+/** Saca un registro de dead-letter para que vuelva a la cola activa. */
+export async function retryDeadLetter(id: number): Promise<void> {
+  await db.outbox.update(id, { retryCount: 0, failedAt: undefined, lastError: undefined });
+}
+
+/** Saca todos los registros dead-letter de la cola para que vuelvan a intentarse. */
+export async function retryAllDeadLetters(): Promise<void> {
+  const deadLetters = await db.outbox.filter((entry) => !!entry.failedAt).toArray();
+  await Promise.all(
+    deadLetters.filter((entry) => entry.id !== undefined).map((entry) => retryDeadLetter(entry.id as number))
+  );
 }

@@ -2,56 +2,58 @@ import { useRef, useState } from "react";
 import { useSession } from "./SessionContext";
 import { BrandLogo } from "../components/brand/BrandLogo";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
+import logoUrl from "../assets/logo.png";
+
 
 const CSS = `
+/* Sprint 7a-2: diseño claro con fondo crema */
 .login-root {
   min-height: 100vh;
   min-height: 100dvh;
-  background: linear-gradient(160deg, var(--navy-deep), var(--navy) 70%, var(--navy-light));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: Inter, system-ui, sans-serif;
-  padding: 20px;
-}
-.login-card {
-  width: 100%;
-  max-width: 380px;
-  padding: 32px;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(18, 40, 69, 0.35);
-  background: #fff;
-}
-.login-header {
+  background: var(--cream);
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
-}
-.login-icon-bg {
-  background: var(--navy);
-  color: var(--cream);
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  font-family: Inter, system-ui, sans-serif;
+  padding: 24px 20px;
+}
+
+/* Logo centrado en la parte superior del contenedor */
+.login-logo-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.login-logo-img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 4px 12px rgba(22, 50, 92, 0.14));
 }
 .login-brand {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 26px;
-  color: var(--navy-deep);
-  margin: 0 0 4px;
-}
-.login-subtitle {
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--muted);
+  color: var(--navy);
   margin: 0;
+  letter-spacing: -0.02em;
 }
+
+/* Card con fondo transparente, borde navy sutil, sombra suave */
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 28px 28px 32px;
+  border-radius: 12px;
+  border: 1px solid rgba(31, 64, 106, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: transparent;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
@@ -67,42 +69,53 @@ const CSS = `
   color: var(--muted);
   margin-bottom: 6px;
 }
+
+/* Inputs: fondo blanco, borde navy sutil */
 .login-input {
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 64, 106, 0.22);
+  border-radius: 8px;
   padding: 12px 14px;
   font-size: 15px;
   width: 100%;
-  transition: border-color 0.15s;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
   font-family: inherit;
   color: var(--ink);
 }
 .login-input:focus {
-  border-color: var(--accent);
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(22, 50, 92, 0.08);
   outline: none;
 }
+
+/* Botón: caramelo #D49A5D, hover más oscuro */
 .login-btn {
   width: 100%;
-  background: var(--navy);
+  background: var(--accent);
   color: #fff;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-weight: 600;
   font-size: 15px;
   border: none;
   cursor: pointer;
   margin-top: 20px;
-  transition: background 0.15s, opacity 0.15s;
+  transition: background 0.18s, opacity 0.15s, transform 0.1s;
   font-family: inherit;
+  letter-spacing: 0.01em;
 }
 .login-btn:hover:not(:disabled) {
-  background: var(--navy-deep);
+  background: #bf8748;
+}
+.login-btn:active:not(:disabled) {
+  transform: scale(0.985);
 }
 .login-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
+
 .login-error {
   background: var(--bad-soft);
   color: #7d281c;
@@ -113,6 +126,7 @@ const CSS = `
   text-align: center;
 }
 
+/* LoadingScreen: fondo crema, mascota navy */
 @keyframes pulse-mascot {
   0% { opacity: 0.5; transform: scale(0.98); }
   50% { opacity: 1; transform: scale(1.02); }
@@ -128,16 +142,17 @@ export function LoadingScreen({ message = "Cargando…" }: { message?: string })
     <div className="login-root">
       <style>{CSS}</style>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-        <div className="loading-mascot" style={{ color: "var(--cream)" }}>
-          <BrandLogo size={48} />
+        <div className="loading-mascot">
+          <BrandLogo size={64} />
         </div>
-        <div style={{ color: "var(--cream)", fontWeight: 500, fontSize: 14, letterSpacing: "0.02em" }}>
+        <div style={{ color: "var(--navy)", fontWeight: 500, fontSize: 14, letterSpacing: "0.02em" }}>
           {message}
         </div>
       </div>
     </div>
   );
 }
+
 
 export function LoginScreen() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -163,59 +178,62 @@ export function LoginScreen() {
   return (
     <div className="login-root">
       <style>{CSS}</style>
-      <div className="login-card">
-        <div className="login-header">
-          <div className="login-icon-bg">
-            <BrandLogo size={40} />
-          </div>
-          <h1 className="login-brand">Fla MpM</h1>
-          <p className="login-subtitle">Gestor de préstamos</p>
-        </div>
 
-        <form 
+      {/* Logo prominente centrado sobre el formulario */}
+      <div className="login-logo-wrap">
+        <img
+          src={logoUrl}
+          alt="Fla MpM"
+          className="login-logo-img"
+        />
+        <h1 className="login-brand">Fla MpM</h1>
+      </div>
+
+      <div className="login-card">
+        <form
           ref={formRef}
-          className="login-form" 
-          onSubmit={(e) => { 
-            e.preventDefault(); 
-            handleSubmit(); 
+          className="login-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
           }}
         >
           <div className="login-field">
             <label htmlFor="login-email" className="login-label">Correo</label>
-            <input 
+            <input
               id="login-email"
-              type="email" 
-              className="login-input" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              disabled={submitting} 
-              autoComplete="email" 
+              type="email"
+              className="login-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+              autoComplete="email"
               inputMode="email"
-              required 
+              required
             />
           </div>
           <div className="login-field">
             <label htmlFor="login-password" className="login-label">Contraseña</label>
-            <input 
+            <input
               id="login-password"
-              type="password" 
-              className="login-input" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              disabled={submitting} 
-              autoComplete="current-password" 
-              required 
+              type="password"
+              className="login-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={submitting}
+              autoComplete="current-password"
+              required
             />
           </div>
-          
-          <button 
-            type="submit" 
-            className="login-btn" 
+
+          <button
+            type="submit"
+            className="login-btn"
             disabled={!email || !password || submitting}
           >
             {submitting ? "Ingresando…" : "Entrar"}
           </button>
-          
+
           {error && (
             <div className="login-error">
               {error}
@@ -226,3 +244,4 @@ export function LoginScreen() {
     </div>
   );
 }
+

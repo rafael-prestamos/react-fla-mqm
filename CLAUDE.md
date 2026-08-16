@@ -4,7 +4,7 @@ Antes de nada, si el proyecto está en pausa o cambia de agente, lee HANDOFF.md 
 
 **Proyecto y Estado:**
 Gestor de préstamos "Fla MpM" para una prestamista (~8 clientes) que hoy lleva todo en hoja de cálculo. El objetivo es reemplazar el control manual por una PWA offline-first confiable e instalable.
-Estado actual: Sprint 7a-3b completo (borde y sombra del logo PDF más sutiles). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
+Estado actual: Sprint 7a-4 completo (re-descargar comprobante de pago desde el historial). Sprint 5b-2 (notificaciones push diarias 7am) con código listo, **pendiente de deploy manual** (ver `docs/DEPLOY_PUSH.md`: aplicar migración, desplegar Edge Function, configurar secrets VAPID, habilitar pg_cron).
 
 
 **Stack y Arquitectura:**
@@ -70,6 +70,9 @@ Modelo singleton (`BusinessSettings`, `id: "singleton"`) en Dexie v3 (tabla `set
 
 **Reportes PDF — historial por cliente + reporte global (Sprint 6a-9):**
 Dos PDFs nuevos, mismo patrón de dynamic import que arriba. `ClientHistoryPdf` (`src/pdf/ClientHistoryPdf.tsx`): historial completo por cliente (activos + pagados + anulados, con sección aparte de anulados con motivo); se descarga desde `ClientDetailSheet` junto al estado de cuenta existente (`StatementPdf` no se toca, sigue siendo lo que Fla envía al cliente). Lee directo de `db.loans`/`db.payments` (sin filtro de `cancelledAt`) porque los repos excluyen anulados por diseño. `GlobalReportPdf` (`src/pdf/GlobalReportPdf.tsx`): cartera activa, cobranza del mes por tipo, morosidad, resumen por cliente, histórico acumulado (sin anulados); se descarga desde `ProfileSheet` usando los repos tal cual. Helpers `isCurrentMonth` y `ratingLabel` en `src/pdf/formatters.ts`.
+
+**Re-descargar comprobante de pago (Sprint 7a-4):**
+Cada fila del historial de pagos en `ClientDetailSheet` (préstamos activos o pagados) tiene un ícono `FileDown` que regenera el mismo `PaymentReceiptPdf` que se genera al registrar el cobro — mismo componente, sin duplicar lógica. Como el saldo-después-de-ese-pago no se guarda por pago, `src/domain/loanBalanceHistory.ts` (`balanceCentsAfterPayment`, con tests) lo reconstruye reproduciendo la secuencia de pagos activos del préstamo desde su primer ciclo con `applyPayment`/`deriveLoan` tal cual existen — no se tocó ninguna regla de interés/mora/renovación.
 
 **Notificaciones push diarias (Sprint 5b-2):**
 Web Push con VAPID (sin FCM). Tabla `push_subscriptions` (RLS por `owner_id`, migración `0009_push_subscriptions.sql`). `src/push/pushSubscription.ts` (`subscribeToPush`, `isPushSubscribed`) — no-op seguro sin Supabase/VAPID/soporte del browser. `public/sw-push.js` se importa desde el SW autogenerado vía `workbox.importScripts` en `vite.config.ts` (no reemplaza el SW de Workbox, se le agrega). Opt-in: `PushPermissionModal` al primer login (una vez, flag en `localStorage`) + toggle en `SettingsSheet`. Edge Function `supabase/functions/daily-push/index.ts` (Deno, invocada por `pg_cron` a las 7am hora Perú) calcula cobros del día por owner y envía el push; limpia suscripciones vencidas (410). La lógica del mensaje está duplicada a propósito entre esta Edge Function y `src/domain/dailyBrief.ts` (runtimes distintos, sin código compartido). **El deploy (migración, Edge Function, secrets VAPID, pg_cron) es manual — ver checklist en `docs/DEPLOY_PUSH.md`.**

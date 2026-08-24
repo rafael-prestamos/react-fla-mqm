@@ -62,4 +62,13 @@ describe("sumPaymentsCents", () => {
   it("returns 0 for an empty list", () => {
     expect(sumPaymentsCents([])).toBe(0);
   });
+
+  it("sums across different months and years without any date filtering (card 'Cobrado' del header Hoy, sprint 7c-4)", () => {
+    const payments = [
+      payment("1", "2025-01-05T00:00:00.000Z", 1000),
+      payment("2", "2025-06-20T00:00:00.000Z", 2000),
+      payment("3", "2026-08-23T00:00:00.000Z", 3000),
+    ];
+    expect(sumPaymentsCents(payments)).toBe(6000);
+  });
 });

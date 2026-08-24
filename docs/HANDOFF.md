@@ -43,7 +43,7 @@ Tras el primer release develop→main, aparecieron varios problemas reales en pr
 
 - `develop` y `main` con todo hasta el PR #37.
 - 197/197 tests, `tsc` y build limpios.
-- Migraciones 0001-0009 aplicadas + el `ALTER TABLE` manual de `term_days`.
+- Migraciones 0001-0010 aplicadas. **0010** formaliza en el repo el `ALTER TABLE` de `term_days` que ya estaba aplicado manualmente en producción desde la sesión anterior.
 - Deploy en Vercel activo, Fla ya actualizada.
 
 ## Backlog

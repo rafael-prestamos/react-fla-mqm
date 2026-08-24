@@ -24,7 +24,7 @@ import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { useDailyBrief } from "./ui/useDailyBrief";
 import { recomputeAllRatings } from "./sync/ratingsSync";
-import { collectedThisMonth } from "./domain/collections";
+import { sumPaymentsCents } from "./domain/paymentsFilter";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { SyncLogSheet } from "./components/settings/SyncLogSheet";
@@ -83,6 +83,8 @@ const CSS = `
 .pf-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 13px}
 .pf-stat .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .pf-stat .v{font-size:19px;font-weight:700;margin-top:5px}
+.pf-stat-clickable{cursor:pointer;transition:transform .15s}
+.pf-stat-clickable:active{transform:scale(.97)}
 .pf-sect{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.06em;margin:18px 2px 9px;display:flex;align-items:center;gap:7px}
 .pf-sect .cnt{background:var(--navy);color:#fff;border-radius:20px;font-size:11px;
@@ -468,9 +470,9 @@ export default function App() {
             <>
               <div className="pf-stats">
                 <Stat icon={<Wallet size={13} />} k="Capital en la calle" v={formatSoles(capitalOut)} />
-                <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} />
-                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(collectedThisMonth(payments))} />
-                <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} />
+                <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} onClick={() => setTab("loans")} />
+                <Stat icon={<Coins size={13} />} k="Cobrado" v={formatSoles(sumPaymentsCents(payments))} onClick={() => setTab("cobros")} />
+                <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} onClick={() => setTab("loans")} />
               </div>
 
               {dueSoon.length > 0 && (
@@ -693,8 +695,19 @@ export default function App() {
 }
 
 /* ---------- subcomponentes ---------- */
-function Stat({ icon, k, v }: { icon: ReactNode; k: string; v: string }) {
-  return <div className="pf-stat"><div className="k">{icon}{k}</div><div className="v num">{v}</div></div>;
+// Sprint 7c-4: cards tapeables navegan a otra tab (onClick opcional); "Capital en la calle" queda sin interacción.
+function Stat({ icon, k, v, onClick }: { icon: ReactNode; k: string; v: string; onClick?: () => void }) {
+  return (
+    <div
+      className={onClick ? "pf-stat pf-stat-clickable" : "pf-stat"}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      <div className="k">{icon}{k}</div>
+      <div className="v num">{v}</div>
+    </div>
+  );
 }
 
 function NavBtn({ on, onClick, icon, label }: { on: boolean; onClick: () => void; icon: ReactNode; label: string }) {

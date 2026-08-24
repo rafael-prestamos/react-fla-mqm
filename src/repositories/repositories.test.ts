@@ -308,6 +308,47 @@ describe("Repositories", () => {
     });
   });
 
+  describe("clientsRepo.remove", () => {
+    it("hard deletes a client with no loans", async () => {
+      const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
+      await db.outbox.clear();
+      await clientsRepo.remove(client.id);
+      expect(await db.clients.get(client.id)).toBeUndefined();
+      const ops = await db.outbox.toArray();
+      expect(ops).toHaveLength(1);
+      expect(ops[0]).toMatchObject({ entity: "clients", entityId: client.id, op: "delete" });
+    });
+
+    it("blocks deletion when the client has an active loan", async () => {
+      const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
+      await loansRepo.create({ clientId: client.id, principalCents: 1000, rate: 0.2, termDays: 30 });
+      await expect(clientsRepo.remove(client.id)).rejects.toThrow("préstamos activos");
+      expect(await db.clients.get(client.id)).toBeDefined();
+    });
+
+    it("cascades deletion to cancelled/paid loans and their payments", async () => {
+      const client = await clientsRepo.create({ dni: "123", name: "Test", phone: "123" });
+      const paidLoan = await loansRepo.create({ clientId: client.id, principalCents: 1000, rate: 0.2, termDays: 30 });
+      const payment = await paymentsRepo.create({ loanId: paidLoan.id, type: "full", amountCents: 1200, method: "cash", daysLate: 0 });
+      await db.loans.update(paidLoan.id, { isPaid: true });
+
+      const cancelledLoan = await loansRepo.create({ clientId: client.id, principalCents: 500, rate: 0.1, termDays: 30 });
+      await loansRepo.cancel(cancelledLoan.id, "error");
+
+      await db.outbox.clear();
+      await clientsRepo.remove(client.id);
+
+      expect(await db.clients.get(client.id)).toBeUndefined();
+      expect(await db.loans.get(paidLoan.id)).toBeUndefined();
+      expect(await db.loans.get(cancelledLoan.id)).toBeUndefined();
+      expect(await db.payments.get(payment.id)).toBeUndefined();
+
+      const ops = await db.outbox.toArray();
+      expect(ops.every((op) => op.op === "delete")).toBe(true);
+      expect(ops.map((op) => op.entity).sort()).toEqual(["clients", "loans", "loans", "payments"]);
+    });
+  });
+
   describe("settingsRepo", () => {
     it("get() returns undefined when there is no data", async () => {
       const settings = await settingsRepo.get();

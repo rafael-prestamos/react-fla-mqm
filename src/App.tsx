@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Receipt
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
@@ -35,6 +35,7 @@ import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 import { EditLoanSheet } from "./components/EditLoanSheet";
 import { PushPermissionModal } from "./components/PushPermissionModal";
 import { isPushSubscribed } from "./push/pushSubscription";
+import { CobrosTab } from "./components/CobrosTab";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -187,7 +188,7 @@ export default function App() {
 
   useDailyBrief({ loans: loansRaw, clients: clientsRaw });
 
-  const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
+  const [tab, setTab] = useState<"today" | "loans" | "clients" | "cobros">("today");
   const [payingId, setPayingId] = useState<string | null>(null);
   const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -556,9 +557,11 @@ export default function App() {
                   </div>
                 );
               }))}
-              
+
             </>
           )}
+
+          {tab === "cobros" && <CobrosTab clients={clients} loans={loans} payments={payments} />}
         </div>
 
         {tab === "loans" && <button className="fab" onClick={() => setCreating(true)}><Plus size={24} /></button>}
@@ -568,6 +571,7 @@ export default function App() {
           <NavBtn on={tab === "today"} onClick={() => setTab("today")} icon={<Home size={20} />} label="Hoy" />
           <NavBtn on={tab === "loans"} onClick={() => setTab("loans")} icon={<Wallet size={20} />} label="Préstamos" />
           <NavBtn on={tab === "clients"} onClick={() => setTab("clients")} icon={<Users size={20} />} label="Clientes" />
+          <NavBtn on={tab === "cobros"} onClick={() => setTab("cobros")} icon={<Receipt size={20} />} label="Cobros" />
         </div>
 
         {viewingClient && (

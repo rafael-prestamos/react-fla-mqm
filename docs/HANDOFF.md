@@ -1,4 +1,4 @@
-# Handoff: Fla MpM — post sprint 7c-4
+# Handoff: Fla MpM — post sprint 7d-1
 
 ## Contexto proyecto
 
@@ -6,7 +6,7 @@ Gestor microcréditos PWA para Fla (Perú, ~8 clientes, creciendo hacia 20+). De
 Stack: Vite+React+TS, Dexie/IndexedDB (v7), Supabase (auth+sync+RLS), react-pdf, vite-plugin-pwa, Vercel.
 Ramas: `develop` y `main` **al día entre sí** (Giancarlo mergeó `develop`→`main` manualmente tras el PR #37).
 Modelo dominio: préstamo pago único, plazo 1-365 días (presets 25/28/30), montos en céntimos.
-Tests: **197/197**.
+Tests: **212/212**.
 
 ## Modo de trabajo
 
@@ -30,7 +30,7 @@ Tras el primer release develop→main, aparecieron varios problemas reales en pr
 - **fix/mora-off** — `LATE_INTEREST_ENABLED = false` antes del release.
 - **ALTER TABLE manual en Supabase** — `loans_term_days_check` ahora acepta 1-365 (antes solo 25/28/30, desincronizado desde sprint 6a-4).
 
-## Esta sesión: sprints 7c-1 a 7c-4 (lista de observaciones de Fla)
+## Sesión 7c: sprints 7c-1 a 7c-4 (lista de observaciones de Fla)
 
 - **PR #33 (7c-1)** — Eliminar cliente (hard delete, bloqueado si tiene préstamos activos, cascada al historial) + anular préstamo desde tab Préstamos + eliminada la sección "Atrasados" de Hoy.
 - **PR #34 (7c-2)** — Nueva tab "Cobros": lista de pagos (fecha, cliente, monto, préstamo, método), filtros de mes / rango / búsqueda por cliente, card de Total cobrado. Lógica pura en `src/domain/paymentsFilter.ts`.
@@ -39,10 +39,18 @@ Tras el primer release develop→main, aparecieron varios problemas reales en pr
 - **PR #37 (7c-4)** — Cards del header Hoy: "Cobrado" ahora es total histórico; navegación al tocar (Interés y Préstamos activos → tab Préstamos, Cobrado → tab Cobros, Capital en la calle inerte).
 - **`.gitattributes` commiteado** (`* text=auto eol=lf`) — resuelve el ruido de CRLF al trabajar desde distintas PCs.
 
+
+## Sprint 7d-1: renovaciones flexibles (esta sesión)
+
+- **Renovar = préstamo nuevo** (`src/domain/loanRenewal.ts`): Fla define monto recibido (0 permitido), capital, interés y plazo del nuevo ciclo. El anterior queda `isPaid` con sus términos intactos; el nuevo lo enlaza con `renewedFromLoanId`. Pago de renovación (tipo `interest`) sobre el anterior vía `paymentsRepo.create` en la misma transacción (`loansRepo.renew`).
+- **Deshacer:** anular el préstamo nuevo reabre el anterior; recién después se puede anular el pago de renovación (bloqueado mientras el hijo esté activo).
+- **⚠️ Migración `0011_loans_renewed_from.sql` PENDIENTE de aplicar en Supabase** antes del próximo release a `main` — sin la columna `renewed_from_loan_id`, el push de préstamos nuevos falla en sync (dead-letter). Aplicar en el SQL Editor igual que las anteriores.
+- Inputs compartidos `src/components/loan/InterestAmountInput.tsx` y `LoanTermInput.tsx` (usados en préstamo nuevo, edición y renovación).
+- Detalle completo en `docs/DECISIONS.md` → "Sprint 7d-1".
 ## Estado actual
 
 - `develop` y `main` con todo hasta el PR #37.
-- 197/197 tests, `tsc` y build limpios.
+- 212/212 tests, `tsc` y build limpios.
 - Migraciones 0001-0010 aplicadas. **0010** formaliza en el repo el `ALTER TABLE` de `term_days` que ya estaba aplicado manualmente en producción desde la sesión anterior.
 - Deploy en Vercel activo, Fla ya actualizada.
 

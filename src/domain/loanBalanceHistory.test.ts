@@ -66,6 +66,20 @@ describe("loanBalanceHistory", () => {
     expect(balanceCentsAfterPayment(loan, payments, "p-full")).toBe(0);
   });
 
+  it("renovación de cierre (sprint 7d-1): el saldo del préstamo cerrado es 0 y los pagos previos no se corren", () => {
+    // Ciclo único que se cerró por renovación flexible: abono parcial y luego el pago de renovación.
+    const loan: Loan = { ...baseLoan, paidOffCents: 25000, isPaid: true };
+    const partial = payment({ id: "p-partial", type: "partial", amountCents: 25000, paidAt: "2025-01-15T00:00:00.000Z" });
+    const closing = payment({ id: "p-close", type: "interest", amountCents: 5000, paidAt: "2025-01-31T00:00:00.000Z" });
+    const payments = [partial, closing];
+    expect(balanceCentsAfterPayment(loan, payments, "p-close")).toBe(0);
+    // El abono anterior se reconstruye desde el disbursedAt real (no se resta ningún plazo).
+    expect(balanceCentsAfterPayment(loan, payments, "p-partial")).toBe(95000);
+    // Reabierto tras anular el hijo (isPaid=false) pero con hijo: misma lectura.
+    expect(balanceCentsAfterPayment({ ...loan, isPaid: false }, payments, "p-close", true)).toBe(0);
+    expect(balanceCentsAfterPayment({ ...loan, isPaid: false }, payments, "p-partial", true)).toBe(95000);
+  });
+
   it("lanza error si el pago no pertenece al historial provisto", () => {
     const payments = [payment({ id: "p1", type: "full", amountCents: 120000 })];
     expect(() => balanceCentsAfterPayment(baseLoan, payments, "no-existe")).toThrowError(/no encontrado/);

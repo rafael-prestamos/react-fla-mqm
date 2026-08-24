@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Trash2, Receipt, Download
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
+import { buildActiveLoansReport } from "./domain/activeLoansReport";
 import { formatSoles, formatRatePercent, toCents } from "./lib/money";
 import { formatShort, addDays, startOfToday, toIsoDate, parseLocalDate } from "./lib/dates";
 import { downloadBlob } from "./lib/downloadBlob";
@@ -23,7 +24,7 @@ import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
 import { useDailyBrief } from "./ui/useDailyBrief";
 import { recomputeAllRatings } from "./sync/ratingsSync";
-import { collectedThisMonth } from "./domain/collections";
+import { sumPaymentsCents } from "./domain/paymentsFilter";
 import { ClientDetailSheet } from "./components/ClientDetailSheet";
 import { SettingsSheet } from "./components/SettingsSheet";
 import { SyncLogSheet } from "./components/settings/SyncLogSheet";
@@ -33,8 +34,10 @@ import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentShee
 import { WhatsappButton } from "./components/WhatsappButton";
 import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 import { EditLoanSheet } from "./components/EditLoanSheet";
+import { CancelLoanModal } from "./components/CancelLoanModal";
 import { PushPermissionModal } from "./components/PushPermissionModal";
 import { isPushSubscribed } from "./push/pushSubscription";
+import { CobrosTab } from "./components/CobrosTab";
 
 /* ------------------------------------------------------------------ *
  *  Fla MpM — Gestor de Préstamos (PWA)
@@ -80,6 +83,8 @@ const CSS = `
 .pf-stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 13px}
 .pf-stat .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
 .pf-stat .v{font-size:19px;font-weight:700;margin-top:5px}
+.pf-stat-clickable{cursor:pointer;transition:transform .15s}
+.pf-stat-clickable:active{transform:scale(.97)}
 .pf-sect{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.06em;margin:18px 2px 9px;display:flex;align-items:center;gap:7px}
 .pf-sect .cnt{background:var(--navy);color:#fff;border-radius:20px;font-size:11px;
@@ -187,7 +192,7 @@ export default function App() {
 
   useDailyBrief({ loans: loansRaw, clients: clientsRaw });
 
-  const [tab, setTab] = useState<"today" | "loans" | "clients">("today");
+  const [tab, setTab] = useState<"today" | "loans" | "clients" | "cobros">("today");
   const [payingId, setPayingId] = useState<string | null>(null);
   const [viewingClient, setViewingClient] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -198,9 +203,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncLogOpen, setSyncLogOpen] = useState(false);
   const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
+  const [generatingActiveLoansPdf, setGeneratingActiveLoansPdf] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
   const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
+  // Sprint 7c-1: Patrón: controlled-sheet — anular préstamo desde tab Préstamos (LoanCard), reutiliza CancelLoanModal
+  const [cancellingLoanFromTab, setCancellingLoanFromTab] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -296,6 +304,10 @@ export default function App() {
     return loansRepo.cancel(id, reason);
   }
 
+  async function handleDeleteClient(id: string) {
+    await clientsRepo.remove(id);
+  }
+
   async function handleEditPayment(id: string, patch: Pick<Payment, "method">) {
     await paymentsRepo.update(id, patch);
   }
@@ -331,6 +343,30 @@ export default function App() {
       toast.error("No se pudo generar el reporte");
     } finally {
       setGeneratingGlobalReport(false);
+    }
+  }
+
+  /** Patrón: dynamic import — @react-pdf/renderer solo se carga al tocar "Descargar PDF" en Préstamos. Sprint 7c-3. */
+  async function handleDownloadActiveLoansPdf() {
+    setGeneratingActiveLoansPdf(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { ActiveLoansPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./pdf/ActiveLoansPdf"),
+      ]);
+      const report = buildActiveLoansReport(clients, loans, startOfToday());
+      const blob = await pdf(<ActiveLoansPdf business={business} {...report} />).toBlob();
+      downloadBlob(blob, `prestamos-activos-${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Reporte de préstamos activos descargado");
+    } catch {
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setGeneratingActiveLoansPdf(false);
     }
   }
 
@@ -434,9 +470,9 @@ export default function App() {
             <>
               <div className="pf-stats">
                 <Stat icon={<Wallet size={13} />} k="Capital en la calle" v={formatSoles(capitalOut)} />
-                <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} />
-                <Stat icon={<Coins size={13} />} k="Cobrado este mes" v={formatSoles(collectedThisMonth(payments))} />
-                <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} />
+                <Stat icon={<TrendingUp size={13} />} k="Interés por cobrar" v={formatSoles(interestOut)} onClick={() => setTab("loans")} />
+                <Stat icon={<Coins size={13} />} k="Cobrado" v={formatSoles(sumPaymentsCents(payments))} onClick={() => setTab("cobros")} />
+                <Stat icon={<Users size={13} />} k="Préstamos activos" v={String(activeRows.length)} onClick={() => setTab("loans")} />
               </div>
 
               {dueSoon.length > 0 && (
@@ -452,13 +488,6 @@ export default function App() {
               ) : (
                 <div className="empty">Nadie vence hoy. Todo tranquilo. 👌</div>
               )}
-
-              <div className="pf-sect"><AlertTriangle size={14} /> Atrasados <span className="cnt">{overdue.length}</span></div>
-              {overdue.length ? (
-                overdue.map((r) => <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)
-              ) : (
-                <div className="empty">Sin atrasados. 🎉</div>
-              )}
             </>
           )}
 
@@ -466,7 +495,20 @@ export default function App() {
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Préstamos</div>
-                {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {loans.length > 0 && (
+                    <button
+                      className="btn"
+                      aria-label="Descargar PDF"
+                      disabled={generatingActiveLoansPdf}
+                      onClick={() => void handleDownloadActiveLoansPdf()}
+                      style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "8px 10px", opacity: generatingActiveLoansPdf ? 0.6 : 1 }}
+                    >
+                      <Download size={16} />
+                    </button>
+                  )}
+                  {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
+                </div>
               </div>
 
               {loans.length > 0 && (
@@ -489,9 +531,9 @@ export default function App() {
                 <div className="empty">No se encontraron préstamos para "{loanSearch}".</div>
               ) : (
                 <>
-                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
+                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                   {filteredPaidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
+                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                 </>
               )}
             </>
@@ -556,9 +598,11 @@ export default function App() {
                   </div>
                 );
               }))}
-              
+
             </>
           )}
+
+          {tab === "cobros" && <CobrosTab clients={clients} loans={loans} payments={payments} />}
         </div>
 
         {tab === "loans" && <button className="fab" onClick={() => setCreating(true)}><Plus size={24} /></button>}
@@ -568,6 +612,7 @@ export default function App() {
           <NavBtn on={tab === "today"} onClick={() => setTab("today")} icon={<Home size={20} />} label="Hoy" />
           <NavBtn on={tab === "loans"} onClick={() => setTab("loans")} icon={<Wallet size={20} />} label="Préstamos" />
           <NavBtn on={tab === "clients"} onClick={() => setTab("clients")} icon={<Users size={20} />} label="Clientes" />
+          <NavBtn on={tab === "cobros"} onClick={() => setTab("cobros")} icon={<Receipt size={20} />} label="Cobros" />
         </div>
 
         {viewingClient && (
@@ -582,6 +627,7 @@ export default function App() {
             onEditPayment={handleEditPayment}
             onCancelPayment={handleCancelPayment}
             onPayLoan={setPayingId}
+            onDeleteClient={handleDeleteClient}
           />
         )}
         {payingRow && (
@@ -634,14 +680,34 @@ export default function App() {
             }}
           />
         )}
+        {/* Sprint 7c-1: Patrón: Component reuse — mismo CancelLoanModal que ClientDetailSheet, desde tab Préstamos */}
+        {cancellingLoanFromTab && (
+          <CancelLoanModal
+            loan={cancellingLoanFromTab}
+            payments={payments.filter((p) => p.loanId === cancellingLoanFromTab.id)}
+            onClose={() => setCancellingLoanFromTab(null)}
+            onConfirm={async (reason) => { await handleCancelLoan(cancellingLoanFromTab.id, reason); toast.success("Préstamo anulado"); }}
+          />
+        )}
       </div>
     </div>
   );
 }
 
 /* ---------- subcomponentes ---------- */
-function Stat({ icon, k, v }: { icon: ReactNode; k: string; v: string }) {
-  return <div className="pf-stat"><div className="k">{icon}{k}</div><div className="v num">{v}</div></div>;
+// Sprint 7c-4: cards tapeables navegan a otra tab (onClick opcional); "Capital en la calle" queda sin interacción.
+function Stat({ icon, k, v, onClick }: { icon: ReactNode; k: string; v: string; onClick?: () => void }) {
+  return (
+    <div
+      className={onClick ? "pf-stat pf-stat-clickable" : "pf-stat"}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      <div className="k">{icon}{k}</div>
+      <div className="v num">{v}</div>
+    </div>
+  );
 }
 
 function NavBtn({ on, onClick, icon, label }: { on: boolean; onClick: () => void; icon: ReactNode; label: string }) {
@@ -694,7 +760,8 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
 }
 
 // Sprint 6a-8c: Patrón: Presentational — botón Editar en LoanCard (tab Préstamos)
-function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onEdit: () => void }) {
+// Sprint 7c-1: se agrega botón Anular (mismas restricciones que ClientDetailSheet, vía CancelLoanModal)
+function LoanCard({ row, onPay, onEdit, onCancel }: { row: LoanRow; onPay: () => void; onEdit: () => void; onCancel: () => void }) {
   const { loan, d, client } = row;
   return (
     <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 9 }}>
@@ -711,6 +778,7 @@ function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onE
         {!loan.isPaid && (
           <button className="btn" aria-label="Editar préstamo" onClick={onEdit} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 6 }}><Pencil size={14} /></button>
         )}
+        <button className="btn btn-danger" aria-label="Anular préstamo" onClick={onCancel} style={{ padding: 6 }}><Trash2 size={14} /></button>
       </div>
       <div className="preview" style={{ margin: 0 }}>
         <div className="r"><span>Entrega → Pago</span><span className="num">{formatShort(d.disbursedDate)} → {formatShort(d.dueDate)}</span></div>

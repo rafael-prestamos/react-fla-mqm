@@ -58,6 +58,40 @@ export const clientsRepo = {
     await enqueue("clients", id, "put", updated);
   },
 
+  /**
+   * Elimina un cliente por completo (hard delete), junto con todo su historial de
+   * préstamos y pagos (activos, pagados o anulados). Sprint 7c-1.
+   * A diferencia de `loansRepo.cancel`/`paymentsRepo.cancel` (soft delete), esto borra
+   * los registros de verdad — Fla quiere poder re-agregar el mismo cliente después.
+   * Bloqueado si el cliente tiene préstamos activos (no pagados, no anulados).
+   */
+  async remove(id: string): Promise<void> {
+    const activeLoans = await db.loans
+      .where("clientId").equals(id)
+      .filter((loan) => !loan.isPaid && !loan.cancelledAt)
+      .count();
+    if (activeLoans > 0) throw new Error("No se puede eliminar un cliente con préstamos activos");
+
+    const loans = await db.loans.where("clientId").equals(id).toArray();
+    const loanIds = loans.map((loan) => loan.id);
+    const payments = loanIds.length > 0
+      ? await db.payments.where("loanId").anyOf(loanIds).toArray()
+      : [];
+
+    await db.transaction("rw", db.clients, db.loans, db.payments, db.outbox, async () => {
+      for (const payment of payments) {
+        await db.payments.delete(payment.id);
+        await enqueue("payments", payment.id, "delete", null);
+      }
+      for (const loan of loans) {
+        await db.loans.delete(loan.id);
+        await enqueue("loans", loan.id, "delete", null);
+      }
+      await db.clients.delete(id);
+      await enqueue("clients", id, "delete", null);
+    });
+  },
+
   /** Actualiza el rating de un cliente. maxDaysLate solo se actualiza si es mayor. */
   async updateRating(id: string, rating: Client["rating"], maxDaysLate: number): Promise<void> {
     const current = await db.clients.get(id);

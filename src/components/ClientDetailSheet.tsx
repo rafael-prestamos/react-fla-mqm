@@ -15,6 +15,7 @@ import { EditLoanSheet } from "./EditLoanSheet";
 import { EditPaymentSheet } from "./EditPaymentSheet";
 import { CancelLoanModal } from "./CancelLoanModal";
 import { CancelPaymentModal } from "./CancelPaymentModal";
+import { DeleteClientModal } from "./DeleteClientModal";
 
 
 interface Props {
@@ -28,9 +29,10 @@ interface Props {
   onEditPayment: (id: string, patch: Pick<Payment, "method">) => Promise<void>;
   onCancelPayment: (id: string, reason?: string) => Promise<void>;
   onPayLoan: (loanId: string) => void;
+  onDeleteClient: (id: string) => Promise<void>;
 }
 
-export function ClientDetailSheet({ client, loans, payments, onClose, onEditClient, onEditLoan, onCancelLoan, onEditPayment, onCancelPayment, onPayLoan }: Props) {
+export function ClientDetailSheet({ client, loans, payments, onClose, onEditClient, onEditLoan, onCancelLoan, onEditPayment, onCancelPayment, onPayLoan, onDeleteClient }: Props) {
   const toast = useToast();
   const [generatingStatement, setGeneratingStatement] = useState(false);
   const [generatingHistory, setGeneratingHistory] = useState(false);
@@ -40,7 +42,10 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [cancellingLoan, setCancellingLoan] = useState<Loan | null>(null);
   const [cancellingPayment, setCancellingPayment] = useState<Payment | null>(null);
+  const [deletingClient, setDeletingClient] = useState(false);
   const sortedLoans = [...loans].sort((a, b) => parseLocalDate(b.disbursedAt).getTime() - parseLocalDate(a.disbursedAt).getTime());
+  // Sprint 7c-1: bloquea el hard delete si el cliente tiene préstamos activos (no pagados, no anulados)
+  const hasActiveLoans = loans.some((loan) => !loan.isPaid && !loan.cancelledAt);
 
   /** Patrón: dynamic import — @react-pdf/renderer (~450kb) solo se carga al tocar "Descargar". */
   async function handleDownloadStatement() {
@@ -261,6 +266,22 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
               );
             })
           )}
+
+          <div style={{ marginTop: 22 }}>
+            <button
+              className="btn btn-danger btn-block"
+              disabled={hasActiveLoans}
+              title={hasActiveLoans ? "Anula o cierra sus préstamos primero" : "Eliminar cliente"}
+              onClick={() => setDeletingClient(true)}
+            >
+              <Trash2 size={15} /> Eliminar cliente
+            </button>
+            {hasActiveLoans && (
+              <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 6, textAlign: "center" }}>
+                Anula o cierra sus préstamos primero
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {editingClient && <EditClientSheet client={client} onClose={() => setEditingClient(false)} onSave={async (patch) => { await onEditClient(client.id, patch); toast.success("Cliente actualizado"); }} />}
@@ -271,6 +292,10 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
       {editingPayment && <EditPaymentSheet payment={editingPayment} onClose={() => setEditingPayment(null)} onSave={async (patch) => { await onEditPayment(editingPayment.id, patch); toast.success("Pago actualizado"); }} />}
       {cancellingLoan && <CancelLoanModal loan={cancellingLoan} payments={payments.filter((payment) => payment.loanId === cancellingLoan.id)} onClose={() => setCancellingLoan(null)} onConfirm={async (reason) => { await onCancelLoan(cancellingLoan.id, reason); toast.success("Préstamo anulado"); }} />}
       {cancellingPayment && <CancelPaymentModal payment={cancellingPayment} onClose={() => setCancellingPayment(null)} onConfirm={async (reason) => { await onCancelPayment(cancellingPayment.id, reason); toast.success("Pago anulado"); }} />}
+      {deletingClient && <DeleteClientModal client={client} onClose={() => setDeletingClient(false)} onConfirm={async () => {
+        try { await onDeleteClient(client.id); toast.success("Cliente eliminado"); onClose(); }
+        catch (err) { toast.error(err instanceof Error ? err.message : "Error al eliminar"); }
+      }} />}
     </div>
   );
 }

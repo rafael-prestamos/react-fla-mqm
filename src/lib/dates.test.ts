@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diffDays, toIsoDate, addDays, startOfToday, formatShort, formatLong, toLocalIsoDate, parseLocalDate } from "./dates";
+import { diffDays, toIsoDate, addDays, startOfToday, formatShort, formatLong, toLocalIsoDate, parseLocalDate, formatShortDash } from "./dates";
 
 describe("dates", () => {
   it("diffDays", () => {
@@ -42,5 +42,11 @@ describe("dates", () => {
   it("formatShort(parseLocalDate(...)) no corre la fecha un día hacia atrás (sprint 7b-2)", () => {
     expect(formatShort(parseLocalDate("2026-08-16"))).not.toContain("15");
     expect(formatShort(parseLocalDate("2026-08-16"))).toContain("16");
+  });
+
+  it("formatShortDash formatea como DD-mon-YYYY sin depender de Intl", () => {
+    expect(formatShortDash(parseLocalDate("2026-08-16"))).toBe("16-ago-2026");
+    expect(formatShortDash(parseLocalDate("2026-01-05"))).toBe("05-ene-2026");
+    expect(formatShortDash(parseLocalDate("2026-12-31"))).toBe("31-dic-2026");
   });
 });

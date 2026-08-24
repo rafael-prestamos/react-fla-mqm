@@ -46,8 +46,10 @@ describe("sync mappers", () => {
       cancelledAt: "2024-02-02T00:00:00.000Z",
       cancelReason: "Error de tipeo",
       editedAt: "2024-02-03T00:00:00.000Z",
+      renewedFromLoanId: "l0",
     };
     const row = loanToRow(domain);
+    expect(row.renewed_from_loan_id).toBe("l0");
     const back = rowToLoan({ ...row, owner_id: "user1" });
     expect(back).toEqual(domain);
   });

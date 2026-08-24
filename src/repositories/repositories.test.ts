@@ -238,6 +238,62 @@ describe("Repositories", () => {
     spy.mockRestore();
   });
 
+  describe("loansRepo.renew (sprint 7d-1)", () => {
+    async function seedLoan() {
+      const loan = await loansRepo.create({ clientId: "c1", principalCents: 100000, rate: 0.2, termDays: 30 });
+      await db.loans.update(loan.id, { disbursedAt: "2025-01-01" });
+      await db.outbox.clear();
+      return (await db.loans.get(loan.id))!;
+    }
+
+    it("con monto recibido 0 no genera pago; cierra el anterior y crea el nuevo enlazado", async () => {
+      const loan = await seedLoan();
+      const res = await loansRepo.renew({ loan, receivedCents: 0, principalCents: 120000, rate: 0.15, termDays: 28, method: "cash", reference: new Date(2025, 0, 31) });
+      expect(res.payment).toBeNull();
+      expect((await db.payments.count())).toBe(0);
+      const closed = await db.loans.get(loan.id);
+      expect(closed?.isPaid).toBe(true);
+      const created = await db.loans.get(res.newLoan.id);
+      expect(created?.renewedFromLoanId).toBe(loan.id);
+      expect(created?.principalCents).toBe(120000);
+      expect(created?.rate).toBe(0.15);
+      expect(created?.termDays).toBe(28);
+      expect(created?.disbursedAt).toBe("2025-01-31");
+      const ops = await db.outbox.toArray();
+      expect(ops.map((op) => op.entity)).toEqual(["loans", "loans"]);
+    });
+
+    it("con monto parcial genera un pago (repo + outbox) sobre el préstamo anterior", async () => {
+      const loan = await seedLoan();
+      const res = await loansRepo.renew({ loan, receivedCents: 5000, principalCents: 100000, rate: 0, termDays: 30, method: "digital", reference: new Date(2025, 0, 31) });
+      expect(res.payment?.amountCents).toBe(5000);
+      expect(res.payment?.type).toBe("interest");
+      expect(res.payment?.loanId).toBe(loan.id);
+      expect(res.payment?.method).toBe("digital");
+      const ops = await db.outbox.toArray();
+      expect(ops.map((op) => op.entity)).toEqual(["loans", "loans", "payments"]);
+      expect((await paymentsRepo.all()).length).toBe(1);
+    });
+
+    it("no se puede anular el pago de renovación mientras el préstamo renovado esté activo; anular el hijo reabre el padre", async () => {
+      const loan = await seedLoan();
+      const res = await loansRepo.renew({ loan, receivedCents: 20000, principalCents: 100000, rate: 0.2, termDays: 30, method: "cash", reference: new Date(2025, 0, 31) });
+      await expect(paymentsRepo.cancel(res.payment!.id)).rejects.toThrow(/Anula primero el préstamo renovado/);
+
+      await loansRepo.cancel(res.newLoan.id, "error");
+      const reopened = await db.loans.get(loan.id);
+      expect(reopened?.isPaid).toBe(false);
+      expect(reopened?.cancelledAt).toBeNull();
+
+      // Ahora sí: anular el pago de renovación no corre la fecha ni toca renewalCount (no fue in-place).
+      await paymentsRepo.cancel(res.payment!.id);
+      const rebuilt = await db.loans.get(loan.id);
+      expect(rebuilt?.disbursedAt).toBe("2025-01-01");
+      expect(rebuilt?.renewalCount).toBe(0);
+      expect(rebuilt?.isPaid).toBe(false);
+    });
+  });
+
   describe("loansRepo.backfill", () => {
     it("Backfill sin abonos previos", async () => {
       const input = {

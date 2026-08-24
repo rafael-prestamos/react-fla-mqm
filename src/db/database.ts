@@ -91,6 +91,14 @@ export class AppDatabase extends Dexie {
 
     // v7: Guardar el mensaje del último error de sync (lastError) para el log de Ajustes.
     this.version(7).stores({});
+
+    // v8: Sprint 7d-1 — renovaciones flexibles: renewedFromLoanId enlaza cada préstamo
+    // renovado con el anterior de la cadena. Sin índice (se consulta en memoria).
+    this.version(8).stores({}).upgrade(tx =>
+      tx.table("loans").toCollection().modify(loan => {
+        if (loan.renewedFromLoanId === undefined) loan.renewedFromLoanId = null;
+      }),
+    );
   }
 }
 

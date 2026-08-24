@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { Loan } from "../types/domain";
-import { LOAN_TERM_PRESETS, isValidLoanTerm } from "../domain/loanTerm";
-import { fromCents, toCents, formatRatePercent } from "../lib/money";
+import { isValidLoanTerm } from "../domain/loanTerm";
+import { fromCents, toCents } from "../lib/money";
 import { useKeyboardAwareInput } from "../ui/useKeyboardAwareInput";
+import { InterestAmountInput } from "./loan/InterestAmountInput";
+import { LoanTermInput } from "./loan/LoanTermInput";
 
 interface Props { loan: Loan; onClose: () => void; onSave: (patch: Partial<Pick<Loan, "principalCents" | "rate" | "termDays" | "disbursedAt">>) => Promise<void>; }
 
@@ -30,19 +32,13 @@ export function EditLoanSheet({ loan, onClose, onSave }: Props) {
 
   const principalCents = toCents(Number(principal));
   const interestCents = toCents(Number(interestAmount));
-  const rate = principalCents > 0 ? interestCents / principalCents : 0;
 
   return <div className="ovl" onClick={onClose}><div ref={sheetRef} className="sheet" onClick={(event) => event.stopPropagation()}>
     <h3>Editar préstamo <span className="x" onClick={onClose}><X size={17} /></span></h3>
     <Field label="Monto (S/)" value={principal} onChange={setPrincipal} inputMode="decimal" />
-    <div className="field">
-      <label>Interés (S/)</label>
-      <input className="inp" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} />
-      {principalCents > 0 && interestCents >= 0 && (
-        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {formatRatePercent(rate)}</div>
-      )}
-    </div>
-    <div className="field"><label>Plazo (días)</label><div className="term-input-wrap"><input className="inp num" type="number" min={1} max={365} value={termDays} onChange={(event) => setTermDays(Number(event.target.value))} /><div className="term-presets">{LOAN_TERM_PRESETS.map((day) => <button key={day} type="button" className={`term-preset-btn${termDays === day ? " active" : ""}`} onClick={() => setTermDays(day)}>{day}d</button>)}</div></div></div>
+    {/* Sprint 7d-1: mismos inputs que NewLoanSheet y la renovación en PaymentSheet. */}
+    <InterestAmountInput value={interestAmount} onChange={setInterestAmount} principalCents={principalCents} interestCents={interestCents} />
+    <LoanTermInput value={termDays} onChange={setTermDays} />
     <Field label="Fecha de desembolso" value={disbursedAt} onChange={setDisbursedAt} type="date" />
     {error && <div style={{ color: "var(--bad)", fontSize: 12, marginTop: 10 }}>{error}</div>}
     <button className="btn btn-p btn-block" style={{ marginTop: 18 }} disabled={saving} onClick={() => void handleSave()}>{saving ? "Guardando…" : "Guardar cambios"}</button>

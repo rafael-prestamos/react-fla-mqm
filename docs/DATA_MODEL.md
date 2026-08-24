@@ -35,7 +35,8 @@ Fuente: `src/types/domain.ts`
 
 | disbursedAt | string ISO | sí | Fecha de entrega (YYYY-MM-DD) | |
 | paidOffCents | number (int) | sí | Abonos acumulados | ≥ 0 |
-| renewalCount | number (int) | sí | Veces que renovó pagando solo interés | ≥ 0 |
+| renewalCount | number (int) | sí | Número de ciclo. Legado: veces que renovó in-place ("solo interés"). Sprint 7d-1: `anterior + 1` en cada préstamo creado por renovación | ≥ 0 |
+| renewedFromLoanId | string (UUID) o null | no | Sprint 7d-1: préstamo anterior de la cadena de renovaciones (FK a Loan, `on delete set null` en Supabase). null en préstamos originales | |
 | isPaid | boolean | sí | ¿Está pagado en su totalidad? | |
 | createdAt | string ISO | sí | | |
 | updatedAt | string ISO | sí | | last-write-wins usa este |

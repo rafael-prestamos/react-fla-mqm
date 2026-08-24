@@ -18,7 +18,8 @@ import { settingsRepo } from "./repositories/settingsRepo";
 import { validateClientInput, type ClientInput, type ClientErrors } from "./domain/clientValidation";
 import { validateLoanInput, type LoanErrors } from "./domain/loanValidation";
 import { validateLoanBackfillInput, type LoanBackfillInput, type LoanBackfillErrors } from "./domain/loanBackfill";
-import { LOAN_TERM_PRESETS } from "./domain/loanTerm";
+import { LoanTermInput } from "./components/loan/LoanTermInput";
+import { InterestAmountInput } from "./components/loan/InterestAmountInput";
 
 import { useSync } from "./sync/SyncEngine";
 import { useToast } from "./ui/ToastContext";
@@ -30,7 +31,7 @@ import { SettingsSheet } from "./components/SettingsSheet";
 import { SyncLogSheet } from "./components/settings/SyncLogSheet";
 import { ProfileSheet } from "./components/ProfileSheet";
 import { normalizeClientName, clientNameMatches } from "./domain/clientName";
-import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentSheet";
+import { PaymentSheet, type PaymentSubmitResult, type RenewInput, type RenewSubmitResult } from "./components/PaymentSheet";
 import { WhatsappButton } from "./components/WhatsappButton";
 import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 import { EditLoanSheet } from "./components/EditLoanSheet";
@@ -260,6 +261,8 @@ export default function App() {
   const paidRows = rows.filter((r) => r.loan.isPaid).sort((a, b) => new Date(b.loan.createdAt).getTime() - new Date(a.loan.createdAt).getTime());
   const filteredActiveRows = activeRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
   const filteredPaidRows = paidRows.filter((r) => !loanSearch || clientNameMatches(r.client.name, loanSearch));
+  // Sprint 7d-1: préstamos cerrados por renovación (tienen un hijo en la cadena) — se muestran como "Renovado"
+  const renewedLoanIds = useMemo(() => new Set(loans.map((l) => l.renewedFromLoanId).filter((id): id is string => !!id)), [loans]);
   // const badCount = activeRows.filter((r) => r.d.daysLate > 7).length; 
   const dueToday = activeRows.filter((r) => r.d.daysLate === 0).sort((a, b) => b.d.balanceCents - a.d.balanceCents);
   const overdue = activeRows.filter((r) => r.d.daysLate > 0).sort((a, b) => b.d.daysLate !== a.d.daysLate ? b.d.daysLate - a.d.daysLate : b.d.balanceCents - a.d.balanceCents);
@@ -287,6 +290,22 @@ export default function App() {
       };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ocurrió un error al procesar el pago";
+      toast.error(msg);
+      return { error: msg };
+    }
+  }
+
+  /** Sprint 7d-1: renovación flexible — cierra el préstamo, crea el nuevo y registra lo recibido (si > 0). */
+  async function renewLoan(loanId: string, input: RenewInput): Promise<RenewSubmitResult> {
+    const target = loans.find((l) => l.id === loanId);
+    if (!target) return { error: "Préstamo no encontrado" };
+
+    try {
+      const result = await loansRepo.renew({ loan: target, ...input });
+      toast.success(result.payment ? "Renovación y cobro registrados" : "Renovación registrada");
+      return { error: null, payment: result.payment, newLoan: result.newLoan };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Ocurrió un error al renovar el préstamo";
       toast.error(msg);
       return { error: msg };
     }
@@ -533,7 +552,7 @@ export default function App() {
                 <>
                   {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                   {filteredPaidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
+                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} renewed={renewedLoanIds.has(r.loan.id)} onPay={() => undefined} onEdit={() => undefined} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                 </>
               )}
             </>
@@ -637,6 +656,7 @@ export default function App() {
             derived={payingRow.d}
             onClose={() => setPayingId(null)}
             onSubmit={(input) => registerPayment(payingRow.loan.id, input)}
+            onRenew={(input) => renewLoan(payingRow.loan.id, input)}
           />
         )}
         {creating && (
@@ -761,7 +781,8 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
 
 // Sprint 6a-8c: Patrón: Presentational — botón Editar en LoanCard (tab Préstamos)
 // Sprint 7c-1: se agrega botón Anular (mismas restricciones que ClientDetailSheet, vía CancelLoanModal)
-function LoanCard({ row, onPay, onEdit, onCancel }: { row: LoanRow; onPay: () => void; onEdit: () => void; onCancel: () => void }) {
+// Sprint 7d-1: `renewed` marca un préstamo cerrado por renovación (su saldo vive en el préstamo nuevo)
+function LoanCard({ row, onPay, onEdit, onCancel, renewed = false }: { row: LoanRow; onPay: () => void; onEdit: () => void; onCancel: () => void; renewed?: boolean }) {
   const { loan, d, client } = row;
   return (
     <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 9 }}>
@@ -789,9 +810,9 @@ function LoanCard({ row, onPay, onEdit, onCancel }: { row: LoanRow; onPay: () =>
           </div>
         )}
         <div className="r tot">
-          <span>{loan.isPaid ? "Pagado" : "Saldo a cobrar"}</span>
-          <span className="num" style={{ color: loan.isPaid ? "var(--good)" : "var(--ink)" }}>
-            {loan.isPaid ? formatSoles(d.debtCents) : formatSoles(d.balanceCents)}
+          <span>{renewed ? "Renovado" : loan.isPaid ? "Pagado" : "Saldo a cobrar"}</span>
+          <span className="num" style={{ color: renewed ? "var(--navy)" : loan.isPaid ? "var(--good)" : "var(--ink)" }}>
+            {renewed ? "→ nuevo préstamo" : loan.isPaid ? formatSoles(d.debtCents) : formatSoles(d.balanceCents)}
           </span>
         </div>
       </div>
@@ -839,7 +860,6 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
   const client = clients.find(c => c.id === clientId);
   const isBad = client?.rating === "bad";
   // Patrón: Domain Value Object — usar constantes del dominio en la UI
-  const terms = LOAN_TERM_PRESETS;
 
 
   let historicalPreview = null;
@@ -950,47 +970,11 @@ function NewLoanSheet({ clients, onClose, onOpenNewClient, onSubmit, onSubmitHis
             </div>
 
             <div style={{ display: "flex", gap: 11 }}>
-              <div className="field" style={{ flex: 1 }}>
-                <label>Interés (S/)</label>
-                <input className="inp num" inputMode="decimal" value={interestAmount} onChange={(e) => setInterestAmount(e.target.value)} placeholder="200.00" />
-                {principalCents > 0 && interestCents >= 0 && (
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>= {formatRatePercent(rate)}</div>
-                )}
-                {errors.rate && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.rate}</div>}
+              {/* Sprint 7d-1: inputs compartidos con EditLoanSheet y la renovación (PaymentSheet). */}
+              <InterestAmountInput value={interestAmount} onChange={setInterestAmount} principalCents={principalCents} interestCents={interestCents} error={errors.rate} />
+              <div style={{ flex: 2 }}>
+                <LoanTermInput value={termDays} onChange={setTermDays} error={errors.termDays} />
               </div>
-              <div className="field" style={{ flex: 2 }}>
-                <label>Plazo (días)</label>
-                {/* Patrón: Compound input — número libre + presets. Shortcuts respetan hábito de Fla. */}
-                <div className="term-input-wrap">
-                  <input
-                    className="inp num"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={365}
-                    step={1}
-                    value={termDays}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      setTermDays(isNaN(v) ? 1 : v);
-                    }}
-                  />
-                  <div className="term-presets">
-                    {terms.map((day) => (
-                      <button
-                        key={day}
-                        type="button"
-                        className={`term-preset-btn${termDays === day ? " active" : ""}`}
-                        onClick={() => setTermDays(day)}
-                      >
-                        {day}d
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {errors.termDays && <div style={{ color: "var(--bad)", fontSize: 11, marginTop: 4 }}>{errors.termDays}</div>}
-              </div>
-
             </div>
 
             {mode === "historical" && (

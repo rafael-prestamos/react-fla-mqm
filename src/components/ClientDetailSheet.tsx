@@ -9,6 +9,7 @@ import { sanitizeFilename } from "../lib/sanitizeFilename";
 import { useToast } from "../ui/ToastContext";
 import { deriveLoan } from "../domain/loanRules";
 import { balanceCentsAfterPayment } from "../domain/loanBalanceHistory";
+import { isClosingRenewalPayment } from "../domain/loanRenewal";
 import { WhatsappButton } from "./WhatsappButton";
 import { EditClientSheet } from "./EditClientSheet";
 import { EditLoanSheet } from "./EditLoanSheet";
@@ -46,6 +47,8 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
   const sortedLoans = [...loans].sort((a, b) => parseLocalDate(b.disbursedAt).getTime() - parseLocalDate(a.disbursedAt).getTime());
   // Sprint 7c-1: bloquea el hard delete si el cliente tiene préstamos activos (no pagados, no anulados)
   const hasActiveLoans = loans.some((loan) => !loan.isPaid && !loan.cancelledAt);
+  // Sprint 7d-1: préstamos cerrados por una renovación (tienen un préstamo hijo activo/pagado en la cadena).
+  const renewedLoanIds = new Set(loans.map((loan) => loan.renewedFromLoanId).filter((id): id is string => !!id));
 
   /** Patrón: dynamic import — @react-pdf/renderer (~450kb) solo se carga al tocar "Descargar". */
   async function handleDownloadStatement() {
@@ -113,7 +116,18 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
         return;
       }
       const loanPayments = payments.filter((p) => p.loanId === loan.id);
-      const balanceAfter = balanceCentsAfterPayment(loan, loanPayments, targetPayment.id);
+      // Sprint 7d-1: si el pago cerró una renovación, el comprobante muestra el préstamo NUEVO y su saldo
+      // (igual que el comprobante generado al momento de renovar). Se consulta Dexie directo porque
+      // `loans` (prop) excluye anulados y el hijo puede haberse anulado (reabriendo este préstamo).
+      const { db } = await import("../db/database");
+      const renewalChildren = await db.loans.filter((candidate) => candidate.renewedFromLoanId === loan.id).toArray();
+      const activeChild = renewalChildren.find((child) => !child.cancelledAt);
+      const chronological = [...loanPayments].sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime());
+      const closingRenewal = isClosingRenewalPayment(loan, chronological, targetPayment.id, renewalChildren.length > 0);
+      const receiptLoan = closingRenewal && activeChild ? activeChild : loan;
+      const balanceAfter = closingRenewal && activeChild
+        ? deriveLoan(activeChild, new Date(targetPayment.paidAt)).balanceCents
+        : balanceCentsAfterPayment(loan, loanPayments, targetPayment.id, renewalChildren.length > 0);
       const [{ pdf }, { PaymentReceiptPdf }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("../pdf/PaymentReceiptPdf"),
@@ -122,7 +136,7 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
         <PaymentReceiptPdf
           business={business}
           client={client}
-          loan={loan}
+          loan={receiptLoan}
           payment={targetPayment}
           balanceCentsAfterPayment={balanceAfter}
         />
@@ -215,7 +229,10 @@ export function ClientDetailSheet({ client, loans, payments, onClose, onEditClie
                     {loan.cancelledAt ? (
                       <span style={{ color: "var(--muted)", fontWeight: 600 }}>Anulado</span>
                     ) : loan.isPaid ? (
-                      <span style={{ color: "var(--good)", fontWeight: 600 }}>Pagado</span>
+                      // Sprint 7d-1: cerrado por renovación → "Renovado" (el saldo vive en el préstamo nuevo)
+                      <span style={{ color: renewedLoanIds.has(loan.id) ? "var(--navy)" : "var(--good)", fontWeight: 600 }}>
+                        {renewedLoanIds.has(loan.id) ? "Renovado" : "Pagado"}
+                      </span>
                     ) : (
                       <span className="num" style={{ color: "var(--navy)", fontWeight: 600 }}>Saldo: {formatSoles(d.balanceCents)}</span>
                     )}

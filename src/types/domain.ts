@@ -38,13 +38,14 @@ export interface Loan {
   termDays: LoanTerm;
   disbursedAt: string; // fecha de entrega (ISO, solo fecha)
   paidOffCents: number; // abonos acumulados, en céntimos
-  renewalCount: number; // veces que renovó pagando solo interés
+  renewalCount: number; // número de ciclo: legado = veces que renovó in-place; sprint 7d-1 = renovaciones previas en la cadena
   isPaid: boolean;
   createdAt: string;
   updatedAt: string;
   cancelledAt?: string | null; // ISO — Sprint 6a-8
   cancelReason?: string | null;
   editedAt?: string | null;
+  renewedFromLoanId?: string | null; // Sprint 7d-1: préstamo anterior del que este es renovación (cadena de ciclos)
 }
 
 export interface Payment {

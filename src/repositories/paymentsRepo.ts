@@ -6,6 +6,7 @@
 import { db } from "../db/database";
 import { enqueue } from "../sync/outbox";
 import { newId, nowIso } from "../lib/id";
+import { isClosingRenewalPayment } from "../domain/loanRenewal";
 import type { Loan, Payment, PaymentMethod, PaymentType } from "../types/domain";
 
 export const paymentsRepo = {
@@ -71,31 +72,45 @@ export const paymentsRepo = {
     const remainingPayments = newestFirst.filter((payment) => payment.id !== id)
       .sort((a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime());
 
+    // Sprint 7d-1: un pago de "renovación de cierre" (modelo préstamo-nuevo) no corrió la fecha del
+    // ciclo ni incrementó renewalCount — no se reconstruye como una renovación legada in-place.
+    // Mientras el préstamo renovado (hijo) siga activo, no se puede anular: primero se anula el hijo
+    // (eso reabre este préstamo) y recién después el pago.
+    const renewalChildren = await db.loans.filter((candidate) => candidate.renewedFromLoanId === loan.id).toArray();
+    const chronological = [...newestFirst].reverse();
+    const closingRenewal = isClosingRenewalPayment(loan, chronological, id, renewalChildren.length > 0);
+    if (closingRenewal && renewalChildren.some((child) => !child.cancelledAt)) {
+      throw new Error("Este pago cerró una renovación. Anula primero el préstamo renovado y luego este pago.");
+    }
+
     await db.transaction("rw", db.payments, db.loans, db.outbox, async () => {
       const cancelled: Payment = { ...current, cancelledAt: timestamp, cancelReason: reason ?? null };
       await db.payments.put(cancelled);
       await enqueue("payments", id, "put", cancelled);
 
-      const updatedLoan = rebuildLoanAfterPaymentCancellation(loan, current, remainingPayments, timestamp);
+      const updatedLoan = rebuildLoanAfterPaymentCancellation(loan, current, remainingPayments, timestamp, closingRenewal);
       await db.loans.put(updatedLoan);
       await enqueue("loans", loan.id, "put", updatedLoan);
     });
   },
 };
 
-function rebuildLoanAfterPaymentCancellation(loan: Loan, cancelledPayment: Payment, remainingPayments: Payment[], timestamp: string): Loan {
+function rebuildLoanAfterPaymentCancellation(loan: Loan, cancelledPayment: Payment, remainingPayments: Payment[], timestamp: string, closingRenewal = false): Loan {
   let paidOffCents = 0;
-  let renewalCount = 0;
   let isPaid = false;
 
   for (const payment of remainingPayments) {
-    if (payment.type === "interest") renewalCount++;
     if (payment.type === "partial" || payment.type === "full") paidOffCents += payment.amountCents;
     if (payment.type === "full") isPaid = true;
   }
 
+  // Sprint 7d-1: renewalCount solo baja si el pago anulado fue una renovación legada (in-place).
+  // Una renovación de cierre (modelo préstamo-nuevo) nunca lo incrementó, ni corrió la fecha.
+  const legacyRenewalCancelled = cancelledPayment.type === "interest" && !closingRenewal;
+  const renewalCount = legacyRenewalCancelled ? Math.max(0, loan.renewalCount - 1) : loan.renewalCount;
+
   let disbursedAt = loan.disbursedAt;
-  if (cancelledPayment.type === "interest") {
+  if (legacyRenewalCancelled) {
     const date = new Date(`${loan.disbursedAt}T00:00:00`);
     date.setDate(date.getDate() - loan.termDays);
     disbursedAt = date.toISOString().slice(0, 10);

@@ -31,6 +31,7 @@ export interface LoanRow {
   cancelled_at?: string | null;
   cancel_reason?: string | null;
   edited_at?: string | null;
+  renewed_from_loan_id?: string | null; // Sprint 7d-1
 }
 
 export interface PaymentRow {
@@ -91,6 +92,7 @@ export function loanToRow(l: Loan): Omit<LoanRow, "owner_id"> {
     cancelled_at: l.cancelledAt ?? null,
     cancel_reason: l.cancelReason ?? null,
     edited_at: l.editedAt ?? null,
+    renewed_from_loan_id: l.renewedFromLoanId ?? null,
   };
 }
 
@@ -113,6 +115,7 @@ export function rowToLoan(r: LoanRow): Loan {
     cancelledAt: r.cancelled_at ?? null,
     cancelReason: r.cancel_reason ?? null,
     editedAt: r.edited_at ?? null,
+    renewedFromLoanId: r.renewed_from_loan_id ?? null,
   };
 }
 

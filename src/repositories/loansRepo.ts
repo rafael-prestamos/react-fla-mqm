@@ -12,6 +12,7 @@ import type { Loan, LoanTerm } from "../types/domain";
 import { assertValidLoanTerm } from "../domain/loanTerm";
 
 import { applyPayment, type ApplyPaymentInput, type ApplyPaymentResult } from "../domain/loanPayment";
+import { renewLoan, type RenewLoanInput } from "../domain/loanRenewal";
 import { paymentsRepo } from "./paymentsRepo";
 import { validateLoanBackfillInput, buildLoanBackfill, type LoanBackfillInput } from "../domain/loanBackfill";
 import type { Payment } from "../types/domain";
@@ -88,6 +89,41 @@ export const loansRepo = {
     return { ...result, payment: payment! };
   },
 
+  /**
+   * Renovación flexible (Sprint 7d-1). Transacción única: cierra el préstamo anterior,
+   * crea el nuevo (capital/interés/plazo definidos por Fla, enlazado vía renewedFromLoanId)
+   * y registra el monto recibido como pago del anterior — mismo flujo que un pago normal
+   * (paymentsRepo.create → outbox → sync). Si receivedCents es 0, no se crea pago.
+   */
+  async renew(input: RenewLoanInput): Promise<{ closedLoan: Loan; newLoan: Loan; payment: Payment | null }> {
+    const current = await db.loans.get(input.loan.id);
+    if (!current) throw new Error("Préstamo no encontrado");
+
+    const result = renewLoan({ ...input, loan: current });
+    const newLoan: Loan = { ...result.newLoan, id: newId() };
+    let payment: Payment | null = null;
+
+    await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
+      await db.loans.put(result.closedLoan);
+      await enqueue("loans", result.closedLoan.id, "put", result.closedLoan);
+
+      await db.loans.put(newLoan);
+      await enqueue("loans", newLoan.id, "put", newLoan);
+
+      if (result.paymentRecord) {
+        payment = await paymentsRepo.create({
+          loanId: result.closedLoan.id,
+          type: result.paymentRecord.type,
+          amountCents: result.paymentRecord.amountCents,
+          method: result.paymentRecord.method,
+          daysLate: result.paymentRecord.daysLate,
+        });
+      }
+    });
+
+    return { closedLoan: result.closedLoan, newLoan, payment };
+  },
+
   async backfill(input: LoanBackfillInput): Promise<{ loan: Loan; payment: Payment | null }> {
     const { ok, errors } = validateLoanBackfillInput(input);
     if (!ok) {
@@ -140,6 +176,12 @@ export const loansRepo = {
     const activePayments = (await db.payments.where("loanId").equals(id).toArray()).filter((payment) => !payment.cancelledAt);
     const timestamp = nowIso();
 
+    // Sprint 7d-1: si este préstamo es una renovación, el anterior se reabre (vuelve a estar activo),
+    // porque fue cerrado únicamente por esta renovación. El pago de renovación registrado sobre el
+    // anterior se conserva (fue dinero recibido); Fla puede anularlo aparte si corresponde.
+    const origin = current.renewedFromLoanId ? await db.loans.get(current.renewedFromLoanId) : undefined;
+    const reopenOrigin = !!origin && origin.isPaid && !origin.cancelledAt;
+
     await db.transaction("rw", db.loans, db.payments, db.outbox, async () => {
       const cancelledLoan: Loan = { ...current, cancelledAt: timestamp, cancelReason: reason ?? null, updatedAt: timestamp };
       await db.loans.put(cancelledLoan);
@@ -148,6 +190,11 @@ export const loansRepo = {
         const cancelledPayment: Payment = { ...payment, cancelledAt: timestamp, cancelReason: "Préstamo anulado" };
         await db.payments.put(cancelledPayment);
         await enqueue("payments", payment.id, "put", cancelledPayment);
+      }
+      if (reopenOrigin && origin) {
+        const reopened: Loan = { ...origin, isPaid: false, updatedAt: timestamp };
+        await db.loans.put(reopened);
+        await enqueue("loans", reopened.id, "put", reopened);
       }
     });
     return { cancelledPaymentIds: activePayments.map((payment) => payment.id) };

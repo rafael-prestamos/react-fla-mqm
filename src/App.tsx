@@ -1,11 +1,12 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Trash2, Receipt
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Trash2, Receipt, Download
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
 import { deriveLoan, type LoanDerived, type LoanStatus } from "./domain/loanRules";
+import { buildActiveLoansReport } from "./domain/activeLoansReport";
 import { formatSoles, formatRatePercent, toCents } from "./lib/money";
 import { formatShort, addDays, startOfToday, toIsoDate, parseLocalDate } from "./lib/dates";
 import { downloadBlob } from "./lib/downloadBlob";
@@ -200,6 +201,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncLogOpen, setSyncLogOpen] = useState(false);
   const [generatingGlobalReport, setGeneratingGlobalReport] = useState(false);
+  const [generatingActiveLoansPdf, setGeneratingActiveLoansPdf] = useState(false);
   const [showPushModal, setShowPushModal] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
   const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
@@ -342,6 +344,30 @@ export default function App() {
     }
   }
 
+  /** Patrón: dynamic import — @react-pdf/renderer solo se carga al tocar "Descargar PDF" en Préstamos. Sprint 7c-3. */
+  async function handleDownloadActiveLoansPdf() {
+    setGeneratingActiveLoansPdf(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { ActiveLoansPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("./pdf/ActiveLoansPdf"),
+      ]);
+      const report = buildActiveLoansReport(clients, loans, startOfToday());
+      const blob = await pdf(<ActiveLoansPdf business={business} {...report} />).toBlob();
+      downloadBlob(blob, `prestamos-activos-${toIsoDate(startOfToday())}.pdf`);
+      toast.success("Reporte de préstamos activos descargado");
+    } catch {
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setGeneratingActiveLoansPdf(false);
+    }
+  }
+
   async function createLoan(input: { clientId: string; principalCents: number; rate: number; termDays: LoanTerm }) {
     const validation = validateLoanInput(input);
     if (!validation.ok) return;
@@ -467,7 +493,20 @@ export default function App() {
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
                 <div style={{ fontSize: 18, fontWeight: 700 }}>Préstamos</div>
-                {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
+                <div style={{ display: "flex", gap: 8 }}>
+                  {loans.length > 0 && (
+                    <button
+                      className="btn"
+                      aria-label="Descargar PDF"
+                      disabled={generatingActiveLoansPdf}
+                      onClick={() => void handleDownloadActiveLoansPdf()}
+                      style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "8px 10px", opacity: generatingActiveLoansPdf ? 0.6 : 1 }}
+                    >
+                      <Download size={16} />
+                    </button>
+                  )}
+                  {loans.length > 0 && <button className="btn btn-p" onClick={() => setCreating(true)}><Plus size={16} /> Nuevo</button>}
+                </div>
               </div>
 
               {loans.length > 0 && (

@@ -45,9 +45,9 @@ export const parseLocalDate = (iso: string): Date => {
   return new Date(y, m - 1, d);
 };
 
-/** 
- * Fecha ISO en zona horaria local (YYYY-MM-DD). 
- * Usar para UI y lógicas de "día actual local" (ej. recordatorios). 
+/**
+ * Fecha ISO en zona horaria local (YYYY-MM-DD).
+ * Usar para UI y lógicas de "día actual local" (ej. recordatorios).
  */
 export const toLocalIsoDate = (date: Date): string => {
   const yr = date.getFullYear();
@@ -55,3 +55,9 @@ export const toLocalIsoDate = (date: Date): string => {
   const dy = String(date.getDate()).padStart(2, "0");
   return `${yr}-${mo}-${dy}`;
 };
+
+const MONTH_ABBR_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** "16-ago-2026" — formato corto con guiones y año completo, sin depender de Intl (evita el "." de "ago." en es-PE). */
+export const formatShortDash = (date: Date): string =>
+  `${String(date.getDate()).padStart(2, "0")}-${MONTH_ABBR_ES[date.getMonth()]}-${date.getFullYear()}`;

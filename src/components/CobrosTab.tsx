@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
-import { Coins, SlidersHorizontal } from "lucide-react";
+import { Coins, SlidersHorizontal, Download } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
-import { formatShort } from "../lib/dates";
+import { formatShort, startOfToday, toLocalIsoDate } from "../lib/dates";
 import { paymentMethodLabel } from "../pdf/formatters";
-import { clientNameMatches } from "../domain/clientName";
-import { matchesDateFilter, sumPaymentsCents, type PaymentsDateFilter } from "../domain/paymentsFilter";
+import { sumPaymentsCents, type PaymentsDateFilter } from "../domain/paymentsFilter";
+import { buildPaymentReportRows, paymentsReportSubtitle } from "../domain/paymentsReport";
+import { settingsRepo } from "../repositories/settingsRepo";
+import { downloadBlob } from "../lib/downloadBlob";
+import { sanitizeFilename } from "../lib/sanitizeFilename";
+import { useToast } from "../ui/ToastContext";
 import { PaymentsFilterModal } from "./PaymentsFilterModal";
 
 interface Props {
@@ -14,54 +18,87 @@ interface Props {
   payments: Payment[];
 }
 
-interface PaymentRow {
-  payment: Payment;
-  loan: Loan;
-  client: Client;
+/** Nombre de archivo del PDF de Cobros según el filtro activo. Sprint 7c-3. */
+function cobrosPdfFilename(filter: PaymentsDateFilter, clientSearch: string): string {
+  let period: string;
+  if (filter.month) period = filter.month;
+  else if (filter.dateFrom || filter.dateTo) period = `${filter.dateFrom ?? "inicio"}_${filter.dateTo ?? toLocalIsoDate(startOfToday())}`;
+  else period = `todos-${toLocalIsoDate(startOfToday())}`;
+
+  const searchSlug = clientSearch.trim() ? `_${sanitizeFilename(clientSearch)}` : "";
+  return `cobros-${period}${searchSlug}.pdf`;
 }
 
-/** Patrón: Presentational — vista de Cobros (sprint 7c-2 + payments-filter-modal), sin lógica de dominio propia (filtros puros en paymentsFilter.ts). */
+/** Patrón: Presentational — vista de Cobros (sprint 7c-2 + payments-filter-modal + PDF sprint 7c-3), join/filtro puro en paymentsReport.ts. */
 export function CobrosTab({ clients, loans, payments }: Props) {
+  const toast = useToast();
   const [dateFilter, setDateFilter] = useState<PaymentsDateFilter>({});
   const [clientSearch, setClientSearch] = useState("");
   const [filterModalOpen, setFilterModalOpen] = useState(false);
-
-  const rows = useMemo<PaymentRow[]>(() => {
-    const result: PaymentRow[] = [];
-    for (const payment of payments) {
-      const loan = loans.find((l) => l.id === payment.loanId);
-      if (!loan) continue;
-      const client = clients.find((c) => c.id === loan.clientId);
-      if (!client) continue;
-      result.push({ payment, loan, client });
-    }
-    return result.sort((a, b) => new Date(b.payment.paidAt).getTime() - new Date(a.payment.paidAt).getTime());
-  }, [clients, loans, payments]);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const filteredRows = useMemo(
-    () => rows.filter((r) => matchesDateFilter(r.payment.paidAt, dateFilter) && (!clientSearch || clientNameMatches(r.client.name, clientSearch))),
-    [rows, dateFilter, clientSearch]
+    () => buildPaymentReportRows(clients, loans, payments, dateFilter, clientSearch),
+    [clients, loans, payments, dateFilter, clientSearch]
   );
 
   const totalCents = sumPaymentsCents(filteredRows.map((r) => r.payment));
   const hasDateFilter = Boolean(dateFilter.month || dateFilter.dateFrom || dateFilter.dateTo);
+
+  /** Patrón: dynamic import — @react-pdf/renderer solo se carga al tocar "Descargar PDF". */
+  async function handleDownloadPdf() {
+    setGeneratingPdf(true);
+    try {
+      const business = await settingsRepo.get();
+      if (!business) {
+        toast.error("Ajustes no configurados");
+        return;
+      }
+      const [{ pdf }, { CobrosPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../pdf/CobrosPdf"),
+      ]);
+      const subtitle = paymentsReportSubtitle(dateFilter, clientSearch);
+      const blob = await pdf(
+        <CobrosPdf business={business} rows={filteredRows} subtitle={subtitle} totalCents={totalCents} />
+      ).toBlob();
+      downloadBlob(blob, cobrosPdfFilename(dateFilter, clientSearch));
+      toast.success("Reporte de cobros descargado");
+    } catch (err) {
+      console.error("Error al generar el reporte de cobros:", err);
+      toast.error("No se pudo generar el reporte");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
 
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>Cobros</div>
         {payments.length > 0 && (
-          <button
-            className="btn"
-            aria-label="Filtrar cobros"
-            onClick={() => setFilterModalOpen(true)}
-            style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 8, position: "relative" }}
-          >
-            <SlidersHorizontal size={16} />
-            {hasDateFilter && (
-              <span style={{ position: "absolute", top: 5, right: 5, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
-            )}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn"
+              aria-label="Descargar PDF"
+              disabled={generatingPdf}
+              onClick={() => void handleDownloadPdf()}
+              style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 8, opacity: generatingPdf ? 0.6 : 1 }}
+            >
+              <Download size={16} />
+            </button>
+            <button
+              className="btn"
+              aria-label="Filtrar cobros"
+              onClick={() => setFilterModalOpen(true)}
+              style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 8, position: "relative" }}
+            >
+              <SlidersHorizontal size={16} />
+              {hasDateFilter && (
+                <span style={{ position: "absolute", top: 5, right: 5, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+              )}
+            </button>
+          </div>
         )}
       </div>
 

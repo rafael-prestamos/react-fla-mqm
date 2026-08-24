@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Coins } from "lucide-react";
+import { Coins, SlidersHorizontal } from "lucide-react";
 import type { Client, Loan, Payment } from "../types/domain";
 import { formatSoles, formatRatePercent } from "../lib/money";
 import { formatShort } from "../lib/dates";
 import { paymentMethodLabel } from "../pdf/formatters";
 import { clientNameMatches } from "../domain/clientName";
 import { matchesDateFilter, sumPaymentsCents, type PaymentsDateFilter } from "../domain/paymentsFilter";
+import { PaymentsFilterModal } from "./PaymentsFilterModal";
 
 interface Props {
   clients: Client[];
@@ -19,12 +20,11 @@ interface PaymentRow {
   client: Client;
 }
 
-/** Patrón: Presentational — vista de Cobros (sprint 7c-2), sin lógica de dominio propia (filtros puros en paymentsFilter.ts). */
+/** Patrón: Presentational — vista de Cobros (sprint 7c-2 + payments-filter-modal), sin lógica de dominio propia (filtros puros en paymentsFilter.ts). */
 export function CobrosTab({ clients, loans, payments }: Props) {
-  const [month, setMonth] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFilter, setDateFilter] = useState<PaymentsDateFilter>({});
   const [clientSearch, setClientSearch] = useState("");
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   const rows = useMemo<PaymentRow[]>(() => {
     const result: PaymentRow[] = [];
@@ -38,75 +38,42 @@ export function CobrosTab({ clients, loans, payments }: Props) {
     return result.sort((a, b) => new Date(b.payment.paidAt).getTime() - new Date(a.payment.paidAt).getTime());
   }, [clients, loans, payments]);
 
-  const dateFilter: PaymentsDateFilter = month ? { month } : { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined };
-
   const filteredRows = useMemo(
     () => rows.filter((r) => matchesDateFilter(r.payment.paidAt, dateFilter) && (!clientSearch || clientNameMatches(r.client.name, clientSearch))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, month, dateFrom, dateTo, clientSearch]
+    [rows, dateFilter, clientSearch]
   );
 
   const totalCents = sumPaymentsCents(filteredRows.map((r) => r.payment));
-  const hasActiveFilter = Boolean(month || dateFrom || dateTo || clientSearch);
-
-  function handleMonthChange(value: string) {
-    setMonth(value);
-    if (value) {
-      setDateFrom("");
-      setDateTo("");
-    }
-  }
-
-  function handleRangeChange(field: "from" | "to", value: string) {
-    if (field === "from") setDateFrom(value);
-    else setDateTo(value);
-    if (value) setMonth("");
-  }
-
-  function clearFilters() {
-    setMonth("");
-    setDateFrom("");
-    setDateTo("");
-    setClientSearch("");
-  }
+  const hasDateFilter = Boolean(dateFilter.month || dateFilter.dateFrom || dateFilter.dateTo);
 
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "4px 2px 12px" }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>Cobros</div>
+        {payments.length > 0 && (
+          <button
+            className="btn"
+            aria-label="Filtrar cobros"
+            onClick={() => setFilterModalOpen(true)}
+            style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 8, position: "relative" }}
+          >
+            <SlidersHorizontal size={16} />
+            {hasDateFilter && (
+              <span style={{ position: "absolute", top: 5, right: 5, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+            )}
+          </button>
+        )}
       </div>
 
       {payments.length > 0 && (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 14 }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <div className="field" style={{ flex: 1, marginTop: 0 }}>
-                <label>Mes</label>
-                <input type="month" className="inp" value={month} onChange={(e) => handleMonthChange(e.target.value)} />
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <div className="field" style={{ flex: 1, marginTop: 0 }}>
-                <label>Desde</label>
-                <input type="date" className="inp" value={dateFrom} onChange={(e) => handleRangeChange("from", e.target.value)} />
-              </div>
-              <div className="field" style={{ flex: 1, marginTop: 0 }}>
-                <label>Hasta</label>
-                <input type="date" className="inp" value={dateTo} onChange={(e) => handleRangeChange("to", e.target.value)} />
-              </div>
-            </div>
-            <input
-              className="inp"
-              placeholder="Buscar por cliente..."
-              value={clientSearch}
-              onChange={(e) => setClientSearch(e.target.value)}
-            />
-            {hasActiveFilter && (
-              <button className="btn" onClick={clearFilters} style={{ background: "var(--card)", border: "1px solid var(--line)", alignSelf: "flex-start" }}>
-                Limpiar filtros
-              </button>
-            )}
-          </div>
+          <input
+            className="inp"
+            placeholder="Buscar por cliente..."
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+            style={{ marginBottom: 14 }}
+          />
 
           <div className="pf-stat" style={{ marginBottom: 16 }}>
             <div className="k"><Coins size={13} /> Total cobrado</div>
@@ -133,6 +100,15 @@ export function CobrosTab({ clients, loans, payments }: Props) {
             </div>
           </div>
         ))
+      )}
+
+      {filterModalOpen && (
+        <PaymentsFilterModal
+          filter={dateFilter}
+          onClose={() => setFilterModalOpen(false)}
+          onApply={setDateFilter}
+          onClear={() => setDateFilter({})}
+        />
       )}
     </>
   );

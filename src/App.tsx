@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import {
   CalendarClock, Wallet, TrendingUp, AlertTriangle, Plus, X, CheckCircle2,
-  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Receipt
+  Users, Home, WifiOff, Coins, User, Check, RefreshCw, Pencil, Trash2, Receipt
 } from "lucide-react";
 import { BrandLogo } from "./components/brand/BrandLogo";
 import type { Client, Loan, LoanTerm, Payment, PaymentMethod, PaymentType, ClientRating } from "./types/domain";
@@ -33,6 +33,7 @@ import { PaymentSheet, type PaymentSubmitResult } from "./components/PaymentShee
 import { WhatsappButton } from "./components/WhatsappButton";
 import { useKeyboardAwareInput } from "./ui/useKeyboardAwareInput";
 import { EditLoanSheet } from "./components/EditLoanSheet";
+import { CancelLoanModal } from "./components/CancelLoanModal";
 import { PushPermissionModal } from "./components/PushPermissionModal";
 import { isPushSubscribed } from "./push/pushSubscription";
 import { CobrosTab } from "./components/CobrosTab";
@@ -202,6 +203,8 @@ export default function App() {
   const [showPushModal, setShowPushModal] = useState(false);
   // Sprint 6a-8c: Patrón: controlled-sheet — editar préstamo desde tab Préstamos (LoanCard)
   const [editingLoanFromTab, setEditingLoanFromTab] = useState<Loan | null>(null);
+  // Sprint 7c-1: Patrón: controlled-sheet — anular préstamo desde tab Préstamos (LoanCard), reutiliza CancelLoanModal
+  const [cancellingLoanFromTab, setCancellingLoanFromTab] = useState<Loan | null>(null);
 
   useEffect(() => {
     if (clients.length === 0 && loans.length === 0 && payments.length === 0) return;
@@ -295,6 +298,10 @@ export default function App() {
 
   async function handleCancelLoan(id: string, reason?: string) {
     return loansRepo.cancel(id, reason);
+  }
+
+  async function handleDeleteClient(id: string) {
+    await clientsRepo.remove(id);
   }
 
   async function handleEditPayment(id: string, patch: Pick<Payment, "method">) {
@@ -453,13 +460,6 @@ export default function App() {
               ) : (
                 <div className="empty">Nadie vence hoy. Todo tranquilo. 👌</div>
               )}
-
-              <div className="pf-sect"><AlertTriangle size={14} /> Atrasados <span className="cnt">{overdue.length}</span></div>
-              {overdue.length ? (
-                overdue.map((r) => <LoanRowItem key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} />)
-              ) : (
-                <div className="empty">Sin atrasados. 🎉</div>
-              )}
             </>
           )}
 
@@ -490,9 +490,9 @@ export default function App() {
                 <div className="empty">No se encontraron préstamos para "{loanSearch}".</div>
               ) : (
                 <>
-                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} />)}
+                  {filteredActiveRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => setPayingId(r.loan.id)} onEdit={() => setEditingLoanFromTab(r.loan)} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                   {filteredPaidRows.length > 0 && <div className="pf-sect"><CheckCircle2 size={14} /> Pagados (historial)</div>}
-                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} />)}
+                  {filteredPaidRows.map((r) => <LoanCard key={r.loan.id} row={r} onPay={() => undefined} onEdit={() => undefined} onCancel={() => setCancellingLoanFromTab(r.loan)} />)}
                 </>
               )}
             </>
@@ -586,6 +586,7 @@ export default function App() {
             onEditPayment={handleEditPayment}
             onCancelPayment={handleCancelPayment}
             onPayLoan={setPayingId}
+            onDeleteClient={handleDeleteClient}
           />
         )}
         {payingRow && (
@@ -636,6 +637,15 @@ export default function App() {
                 toast.error(err instanceof Error ? err.message : "Error al editar");
               }
             }}
+          />
+        )}
+        {/* Sprint 7c-1: Patrón: Component reuse — mismo CancelLoanModal que ClientDetailSheet, desde tab Préstamos */}
+        {cancellingLoanFromTab && (
+          <CancelLoanModal
+            loan={cancellingLoanFromTab}
+            payments={payments.filter((p) => p.loanId === cancellingLoanFromTab.id)}
+            onClose={() => setCancellingLoanFromTab(null)}
+            onConfirm={async (reason) => { await handleCancelLoan(cancellingLoanFromTab.id, reason); toast.success("Préstamo anulado"); }}
           />
         )}
       </div>
@@ -698,7 +708,8 @@ function LoanRowItem({ row, onPay }: { row: LoanRow; onPay: () => void }) {
 }
 
 // Sprint 6a-8c: Patrón: Presentational — botón Editar en LoanCard (tab Préstamos)
-function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onEdit: () => void }) {
+// Sprint 7c-1: se agrega botón Anular (mismas restricciones que ClientDetailSheet, vía CancelLoanModal)
+function LoanCard({ row, onPay, onEdit, onCancel }: { row: LoanRow; onPay: () => void; onEdit: () => void; onCancel: () => void }) {
   const { loan, d, client } = row;
   return (
     <div className="row" style={{ flexDirection: "column", alignItems: "stretch", gap: 9 }}>
@@ -715,6 +726,7 @@ function LoanCard({ row, onPay, onEdit }: { row: LoanRow; onPay: () => void; onE
         {!loan.isPaid && (
           <button className="btn" aria-label="Editar préstamo" onClick={onEdit} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: 6 }}><Pencil size={14} /></button>
         )}
+        <button className="btn btn-danger" aria-label="Anular préstamo" onClick={onCancel} style={{ padding: 6 }}><Trash2 size={14} /></button>
       </div>
       <div className="preview" style={{ margin: 0 }}>
         <div className="r"><span>Entrega → Pago</span><span className="num">{formatShort(d.disbursedDate)} → {formatShort(d.dueDate)}</span></div>
